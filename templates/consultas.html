@@ -143,109 +143,124 @@
                             </p>
                         </div>
                         
-                        <!-- Seção de Opções de Consulta -->
+                        <!-- Opções de Consulta -->
                         <div class="mt-6">
-                            <h3 class="text-md font-semibold text-white mb-4 flex items-center gap-2">
-                                <span class="material-icons text-blue-400">settings</span>
-                                Dados para Consultar
-                            </h3>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Coluna 1: Dados Jurídicos -->
-                                <div class="space-y-4">
-                                    <h4 class="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                        <span class="material-icons text-yellow-400 text-sm">gavel</span>
-                                        Dados Jurídicos
-                                    </h4>
-                                    
-                                    <div class="space-y-3 ml-4">
-                                        <div class="flex items-center">
-                                            <input id="protestos" name="protestos" type="checkbox" checked 
-                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                            <label for="protestos" class="ml-3 text-sm text-gray-300">
-                                                <span class="font-medium">Protestos</span>
-                                                <span class="text-gray-500 block text-xs">CenProt - Consulta de protestos em cartórios</span>
-                                            </label>
-                                        </div>
+                            <div class="space-y-6">
+                                <!-- Opção Principal: Protestos -->
+                                <div class="bg-gray-800/40 border border-gray-600/50 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <input id="protestos" name="protestos" type="checkbox" checked 
+                                               class="h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                        <label for="protestos" class="ml-4 text-base text-gray-200 cursor-pointer">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-icons text-yellow-400 text-lg">gavel</span>
+                                                <span class="font-semibold">Protestos (CENPROT)</span>
+                                            </div>
+                                            <span class="text-gray-400 block text-sm mt-1">Consulta de protestos em cartórios brasileiros</span>
+                                        </label>
                                     </div>
                                 </div>
                                 
-                                <!-- Coluna 2: Dados da Receita Federal -->  
-                                <div class="space-y-4">
-                                    <h4 class="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                        <span class="material-icons text-green-400 text-sm">business</span>
-                                        Receita Federal
-                                    </h4>
-                                    
-                                    <div class="space-y-3 ml-4">
-                                        <div class="flex items-center">
-                                            <input id="simples" name="simples" type="checkbox" 
-                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                            <label for="simples" class="ml-3 text-sm text-gray-300">
-                                                <span class="font-medium">Simples Nacional</span>
-                                                <span class="text-gray-500 block text-xs">Status MEI e enquadramento tributário</span>
-                                            </label>
-                                        </div>
-                                        
-                                        <div class="flex items-center">
-                                            <input id="registrations" name="registrations" type="checkbox" 
-                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                            <label for="registrations" class="ml-3 text-sm text-gray-300">
-                                                <span class="font-medium">Inscrições Estaduais</span>
-                                                <span class="text-gray-500 block text-xs">IEs de todos os estados brasileiros</span>
-                                            </label>
-                                        </div>
-                                        
-                                        <div class="flex items-center">
-                                            <input id="geocoding" name="geocoding" type="checkbox" 
-                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                            <label for="geocoding" class="ml-3 text-sm text-gray-300">
-                                                <span class="font-medium">Geolocalização</span>
-                                                <span class="text-gray-500 block text-xs">Coordenadas GPS do endereço</span>
-                                            </label>
-                                        </div>
-                                        
-                                        <div class="flex items-center">
-                                            <input id="suframa" name="suframa" type="checkbox" 
-                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                            <label for="suframa" class="ml-3 text-sm text-gray-300">
-                                                <span class="font-medium">SUFRAMA</span>
-                                                <span class="text-gray-500 block text-xs">Incentivos fiscais Zona Franca</span>
-                                            </label>
-                                        </div>
+                                <!-- Opção Principal: Receita Federal -->  
+                                <div class="bg-gray-800/40 border border-gray-600/50 rounded-lg p-4">
+                                    <div class="flex items-center mb-4">
+                                        <input id="receita-federal" name="receita-federal" type="checkbox" 
+                                               class="h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                        <label for="receita-federal" class="ml-4 text-base text-gray-200 cursor-pointer">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-icons text-green-400 text-lg">business</span>
+                                                <span class="font-semibold">Receita Federal</span>
+                                            </div>
+                                            <span class="text-gray-400 block text-sm mt-1">Dados cadastrais, situação, contatos, endereço, CNAEs e sócios.</span>
+                                        </label>
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Configurações Avançadas (Colapsível) -->
-                            <div class="mt-6">
-                                <button type="button" id="toggle-advanced" 
-                                        class="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 focus:outline-none transition-colors">
-                                    <span class="material-icons text-sm">expand_more</span>
-                                    Configurações Avançadas
-                                </button>
-                                
-                                <div id="advanced-options" class="hidden mt-4 p-4 bg-gray-800 rounded-xl border border-gray-600">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label for="strategy" class="block text-sm font-medium text-gray-300 mb-2">
+                                    
+                                    <!-- Subopções da Receita Federal -->
+                                    <div id="receita-sub-options" class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1 ml-6 opacity-50 transition-opacity duration-200">
+                                        <div class="flex items-center gap-2 p-1.5 rounded bg-gray-700/20 border border-gray-700/20">
+                                            <input id="simples" name="simples" type="checkbox" disabled
+                                                   class="h-3.5 w-3.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-1">
+                                            <div class="flex-1 min-w-0">
+                                                <label for="simples" class="text-xs font-normal text-gray-400 cursor-pointer block">
+                                                    Simples Nacional
+                                                </label>
+                                                <p class="text-xs text-gray-500 truncate leading-tight">
+                                                    Indicador de opção e datas de inclusão no Simples e MEI.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-2 p-1.5 rounded bg-gray-700/20 border border-gray-700/20">
+                                            <input id="registrations" name="registrations" type="checkbox" disabled
+                                                   class="h-3.5 w-3.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-1">
+                                            <div class="flex-1 min-w-0">
+                                                <label for="registrations" class="text-xs font-normal text-gray-400 cursor-pointer block">
+                                                    Cadastro de Contribuintes
+                                                </label>
+                                                <p class="text-xs text-gray-500 truncate leading-tight">
+                                                    Número, UF e situação cadastral das inscrições estaduais.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-2 p-1.5 rounded bg-gray-700/20 border border-gray-700/20">
+                                            <input id="suframa" name="suframa" type="checkbox" disabled
+                                                   class="h-3.5 w-3.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-1">
+                                            <div class="flex-1 min-w-0">
+                                                <label for="suframa" class="text-xs font-normal text-gray-400 cursor-pointer block">
+                                                    SUFRAMA
+                                                </label>
+                                                <p class="text-xs text-gray-500 truncate leading-tight">
+                                                    Número, situação cadastral, e incentivos fiscais da inscrição.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-2 p-1.5 rounded bg-gray-700/20 border border-gray-700/20">
+                                            <input id="geocoding" name="geocoding" type="checkbox" disabled
+                                                   class="h-3.5 w-3.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-1">
+                                            <div class="flex-1 min-w-0">
+                                                <label for="geocoding" class="text-xs font-normal text-gray-400 cursor-pointer block">
+                                                    Geocodificação
+                                                </label>
+                                                <p class="text-xs text-gray-500 truncate leading-tight">
+                                                    Latitude e longitude do endereço do estabelecimento.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Estratégia de Cache -->
+                                        <div class="col-span-1 md:col-span-2 mt-1 pt-1.5 border-t border-gray-700/30">
+                                            <label for="strategy" class="block text-xs font-normal text-gray-500 mb-1">
                                                 Estratégia de Cache
                                             </label>
-                                            <select id="strategy" name="strategy" 
-                                                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            <select id="strategy" name="strategy" disabled
+                                                    class="w-full px-2 py-1 text-xs bg-gray-700 border border-gray-600 rounded text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500">
                                                 <option value="CACHE_IF_FRESH">Cache se recente (padrão)</option>
                                                 <option value="ONLINE">Sempre online (sem cache)</option>
                                             </select>
-                                            <p class="text-xs text-gray-500 mt-1">
+                                            <p class="text-xs text-gray-500 mt-0.5">
                                                 Cache acelera consultas mas pode retornar dados mais antigos
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                            </div>
+                            
+                            <!-- Aviso de Obrigatoriedade -->
+                            <div id="validation-warning" class="hidden mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-icons text-red-400 text-sm">warning</span>
+                                    <p class="text-red-200 text-sm">
+                                        Por favor, selecione pelo menos uma opção de consulta (Protestos ou Receita Federal).
+                                    </p>
+                                </div>
+                            </div>
                         
-                        <div class="flex gap-4">
+                        <!-- Botões de Ação -->
+                        <div class="mt-8 pt-6 border-t border-gray-700/50">
+                            <div class="flex gap-4 justify-center">
                             <button 
                                 type="submit" 
                                 class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
@@ -261,6 +276,7 @@
                                 <span class="material-icons text-sm">clear</span>
                                 Limpar
                             </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -270,23 +286,21 @@
                     <div class="card p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-semibold text-white">Resultado da Consulta</h2>
+                            <div class="flex items-center gap-3">
+                                <button id="btn-view-json" class="hidden px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors flex items-center gap-2">
+                                    <span class="material-icons text-sm">code</span>
+                                    Ver JSON
+                                </button>
                             <div class="flex items-center gap-2">
                                 <span id="status-indicator" class="w-3 h-3 rounded-full"></span>
                                 <span id="status-text" class="text-sm font-medium"></span>
+                                </div>
                             </div>
                         </div>
                         
                         <div id="resultado-content" class="space-y-4">
                             <!-- Conteúdo será preenchido dinamicamente -->
                         </div>
-                    </div>
-                </div>
-
-                <!-- Histórico de Consultas Recentes -->
-                <div class="card p-6">
-                    <h2 class="text-lg font-semibold text-white mb-4">Consultas Recentes</h2>
-                    <div id="historico-consultas" class="space-y-2">
-                        <!-- Será preenchido dinamicamente -->
                     </div>
                 </div>
             </div>
@@ -298,6 +312,32 @@
         <div class="bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
             <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
             <span class="text-white">Consultando...</span>
+        </div>
+    </div>
+
+    <!-- Modal de Visualização JSON -->
+    <div id="json-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-xl p-6 max-w-4xl max-h-[80vh] w-full mx-4 flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-white">JSON Completo da Consulta</h3>
+                <div class="flex items-center gap-2">
+                    <button id="btn-copy-json" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2">
+                        <span class="material-icons text-sm">content_copy</span>
+                        Copiar
+                    </button>
+                    <button id="btn-close-json" class="p-2 text-gray-400 hover:text-white transition-colors">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-hidden">
+                <pre id="json-content" class="bg-gray-900 p-4 rounded-lg text-sm text-green-400 overflow-auto h-full whitespace-pre-wrap font-mono"></pre>
+            </div>
+            
+            <div class="mt-4 text-xs text-gray-500 text-center">
+                Pressione Ctrl+A para selecionar todo o conteúdo
+            </div>
         </div>
     </div>
 

@@ -54,7 +54,6 @@ class UnifiedConsultationService:
             ConsultationResponse: Resposta com dados segmentados
         """
         start_time = time.time()
-        sources_consulted = []
         protestos_data = None
         cnpja_data = None
         cache_used = False
@@ -77,7 +76,6 @@ class UnifiedConsultationService:
                 
                 protestos_result = await scraping_service.consultar_cnpj(request.cnpj)
                 protestos_data = self._format_protestos_data(protestos_result)
-                sources_consulted.append('protestos')
                 
                 logger.info("consulta_protestos_sucesso", 
                            cnpj=request.cnpj[:8] + "****",
@@ -92,11 +90,18 @@ class UnifiedConsultationService:
                            error_type=type(e).__name__)
         
         # 2. Consultar dados CNPJa se algum parâmetro foi solicitado
+        # Considerar CNPJa solicitada se há parâmetros específicos OU parâmetros de extração habilitados
         cnpja_requested = any([
             request.simples, 
             request.registrations, 
             request.geocoding, 
-            request.suframa
+            request.suframa,
+            # Ou se os parâmetros de extração básicos estão habilitados (indicando que usuário quer dados da Receita Federal)
+            request.extract_basic,
+            request.extract_address,
+            request.extract_contact,
+            request.extract_activities,
+            request.extract_partners
         ])
         
         if cnpja_requested:
@@ -108,13 +113,11 @@ class UnifiedConsultationService:
                            cnpj=request.cnpj[:8] + "****",
                            params=cnpja_params)
                 
-                # Verificar se está no cache antes da consulta
-                cache_check = cnpja_api._check_cache(request.cnpj, cnpja_params)
-                cache_used = cache_check is not None
-                
                 cnpja_result = cnpja_api.get_all_company_info(request.cnpj, **cnpja_params)
                 cnpja_data = cnpja_result
-                sources_consulted.append('cnpja')
+                
+                # Cache usado baseado na estratégia solicitada
+                cache_used = request.strategy == 'CACHE_IF_FRESH'
                 
                 logger.info("consulta_cnpja_sucesso", 
                            cnpj=request.cnpj[:8] + "****",
@@ -164,13 +167,7 @@ class UnifiedConsultationService:
             (not request.protestos and not cnpja_requested)
         )
         
-        # 5. Preparar dados para backward compatibility
-        backward_compatibility_data = None
-        if protestos_data:
-            # Para compatibilidade, manter o campo 'data' com estrutura original
-            backward_compatibility_data = protestos_data.copy()
-            backward_compatibility_data['has_protests'] = has_protests
-            backward_compatibility_data['total_protests'] = total_protests
+        # 5. O campo 'data' agora será automaticamente preenchido com a data/hora da consulta
         
         # 6. Preparar mensagem de erro final
         final_error = None
@@ -184,7 +181,6 @@ class UnifiedConsultationService:
                    cnpj=request.cnpj[:8] + "****",
                    user_id=user_id,
                    success=success,
-                   sources=sources_consulted,
                    response_time_ms=response_time,
                    cache_usado=cache_used,
                    total_protestos=total_protests)
@@ -196,12 +192,11 @@ class UnifiedConsultationService:
             protestos=protestos_data,
             dados_receita=cnpja_data,
             error=final_error,
-            sources_consulted=sources_consulted,
             cache_used=cache_used,
             response_time_ms=response_time,
             total_protests=total_protests,
-            has_protests=has_protests,
-            data=backward_compatibility_data  # Para backward compatibility
+            has_protests=has_protests
+            # Campo 'data' será preenchido automaticamente com datetime.now()
         )
     
     def _format_protestos_data(self, protestos_result) -> Optional[dict]:
@@ -228,6 +223,10 @@ class UnifiedConsultationService:
                 # Fallback para dict nativo
                 result_dict = dict(protestos_result)
             
+            # Remover link_pdf do resultado
+            if 'link_pdf' in result_dict:
+                del result_dict['link_pdf']
+            
             return result_dict
             
         except Exception as e:
@@ -239,8 +238,7 @@ class UnifiedConsultationService:
             return {
                 "cnpj": getattr(protestos_result, 'cnpj', 'unknown'),
                 "cenprotProtestos": {},
-                "dataHora": datetime.now().isoformat(),
-                "link_pdf": f"Erro na formatação: {str(e)}"
+                "dataHora": datetime.now().isoformat()
             }
     
     def _build_cnpja_params(self, request: ConsultationRequest) -> dict:
@@ -271,10 +269,18 @@ class UnifiedConsultationService:
             params['registrations'] = request.registrations
         
         # Filtrar parâmetros None e False desnecessários
+        # IMPORTANTE: Sempre manter pelo menos um parâmetro para garantir que a CNPJa retorne dados básicos
         filtered_params = {}
         for key, value in params.items():
             if value is not None and value is not False:
                 filtered_params[key] = value
+        
+        # Se nenhum parâmetro específico foi incluído, garantir que pelo menos 'basic' e 'strategy' estejam presentes
+        if not any(k in filtered_params for k in ['simples', 'registrations', 'geocoding', 'suframa']):
+            if 'basic' not in filtered_params:
+                filtered_params['basic'] = True
+            if 'strategy' not in filtered_params:
+                filtered_params['strategy'] = 'CACHE_IF_FRESH'
         
         logger.debug("parametros_cnpja_construidos", params=filtered_params)
         return filtered_params

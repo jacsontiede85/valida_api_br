@@ -139,7 +139,6 @@ class ConsultationResponse(BaseModel):
     error: Optional[str] = None
     
     # Metadados da consulta
-    sources_consulted: List[str] = []     # ['protestos', 'cnpja']
     cache_used: bool = False              # Se usou cache CNPJa
     response_time_ms: Optional[int] = None
     
@@ -147,8 +146,8 @@ class ConsultationResponse(BaseModel):
     total_protests: Optional[int] = None
     has_protests: Optional[bool] = None
     
-    # Campo data mantido para backward compatibility
-    data: Optional[dict] = None
+    # Data/hora da consulta
+    data: datetime = datetime.now()
 
 class ErrorResponse(BaseModel):
     """Modelo para respostas de erro"""

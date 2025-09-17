@@ -313,7 +313,6 @@ async def consult_cnpj(
                    cnpj=request.cnpj[:8] + "****",
                    user_id=user_id,
                    success=result.success,
-                   sources=result.sources_consulted,
                    response_time_ms=result.response_time_ms,
                    cache_usado=result.cache_used,
                    total_protestos=result.total_protests)

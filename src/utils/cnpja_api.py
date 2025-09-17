@@ -838,6 +838,9 @@ class CNPJaAPI:
         
         for param, value in params.items():
             if param in valid_api_params and value is not None:
+                # Tratamento especial para registrations - só enviar se for 'BR'
+                if param == 'registrations' and value != 'BR':
+                    continue  # Não enviar para a API se não for 'BR'
                 api_params[param] = value
         
         # Obtém os dados da API (pode ser parcial se alguns serviços estiverem offline)
@@ -911,16 +914,16 @@ if __name__ == "__main__":
     api_params = {}
 
     # add consulta Simples Nacional (Dados para MEIs)
-    api_params['simples'] = True
+    api_params['simples'] = False
     
     # registros estaduais de todo o Brasil (Inscrições Estaduais)
-    api_params['registrations'] = 'BR'
+    api_params['registrations'] = None
     
     # Garantir que estamos solicitando dados de geolocalização
-    api_params['geocoding'] = True
+    api_params['geocoding'] = False
 
     # add consulta SUFRAMA (Dados para SUFRAMA)
-    api_params['suframa'] = True
+    api_params['suframa'] = False
     
     # Configurar estratégia de cache (CACHE_IF_FRESH / ONLINE (sem cache))
     api_params['strategy'] = 'CACHE_IF_FRESH'

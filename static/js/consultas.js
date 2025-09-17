@@ -5,7 +5,7 @@
 
 class ConsultasManager {
     constructor() {
-        this.consultasRecentes = this.loadConsultasRecentes();
+        this.lastResult = null; // Para armazenar o JSON completo
         this.init();
     }
 
@@ -14,7 +14,6 @@ class ConsultasManager {
         
         try {
             this.setupEventListeners();
-            this.renderHistoricoConsultas();
         } catch (error) {
             console.error('❌ Erro ao inicializar ConsultasManager:', error);
             this.showError('Erro ao inicializar página de consultas');
@@ -40,10 +39,47 @@ class ConsultasManager {
             cnpjInput.addEventListener('input', (e) => this.formatarCNPJ(e));
         }
 
-        // Toggle configurações avançadas
-        const toggleAdvanced = document.getElementById('toggle-advanced');
-        if (toggleAdvanced) {
-            toggleAdvanced.addEventListener('click', () => this.toggleAdvancedOptions());
+        // Checkbox da Receita Federal para habilitar/desabilitar subopções
+        const receitaFederalCheckbox = document.getElementById('receita-federal');
+        if (receitaFederalCheckbox) {
+            receitaFederalCheckbox.addEventListener('change', () => this.toggleReceitaFederalOptions());
+        }
+
+        // Validação em tempo real para mostrar/ocultar aviso
+        const checkboxes = ['protestos', 'receita-federal'];
+        checkboxes.forEach(id => {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+                checkbox.addEventListener('change', () => this.validateSelections());
+            }
+        });
+
+        // Botão para visualizar JSON
+        const btnViewJson = document.getElementById('btn-view-json');
+        if (btnViewJson) {
+            btnViewJson.addEventListener('click', () => this.showJsonModal());
+        }
+
+        // Botão para fechar modal JSON
+        const btnCloseJson = document.getElementById('btn-close-json');
+        if (btnCloseJson) {
+            btnCloseJson.addEventListener('click', () => this.hideJsonModal());
+        }
+
+        // Botão para copiar JSON
+        const btnCopyJson = document.getElementById('btn-copy-json');
+        if (btnCopyJson) {
+            btnCopyJson.addEventListener('click', () => this.copyJsonToClipboard());
+        }
+
+        // Fechar modal clicando fora
+        const jsonModal = document.getElementById('json-modal');
+        if (jsonModal) {
+            jsonModal.addEventListener('click', (e) => {
+                if (e.target === jsonModal) {
+                    this.hideJsonModal();
+                }
+            });
         }
     }
 
@@ -64,12 +100,17 @@ class ConsultasManager {
             return;
         }
 
+        // Validar seleções obrigatórias
+        if (!this.validateSelections(true)) {
+            return;
+        }
+
         this.showLoading();
         
         try {
             const resultado = await this.consultarCNPJ(cnpj);
+            this.lastResult = resultado; // Armazenar para visualização JSON
             this.exibirResultado(resultado);
-            this.adicionarAoHistorico(cnpj, resultado);
         } catch (error) {
             console.error('❌ Erro na consulta:', error);
             this.exibirErro(error.message || 'Erro ao consultar CNPJ');
@@ -78,23 +119,89 @@ class ConsultasManager {
         }
     }
 
-    toggleAdvancedOptions() {
-        const advancedOptions = document.getElementById('advanced-options');
-        const toggleBtn = document.getElementById('toggle-advanced');
-        const icon = toggleBtn.querySelector('.material-icons');
+    toggleReceitaFederalOptions() {
+        const receitaFederalCheckbox = document.getElementById('receita-federal');
+        const subOptionsContainer = document.getElementById('receita-sub-options');
+        const subCheckboxes = ['simples', 'registrations', 'geocoding', 'suframa'];
+        const strategySelect = document.getElementById('strategy');
         
-        if (advancedOptions.classList.contains('hidden')) {
-            advancedOptions.classList.remove('hidden');
-            icon.textContent = 'expand_less';
-            toggleBtn.querySelector('span:last-child').textContent = 'Ocultar Configurações Avançadas';
-        } else {
-            advancedOptions.classList.add('hidden');
-            icon.textContent = 'expand_more';
-            toggleBtn.querySelector('span:last-child').textContent = 'Configurações Avançadas';
+        const isEnabled = receitaFederalCheckbox.checked;
+        
+        // Habilitar/desabilitar subopções
+        subCheckboxes.forEach(id => {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+                checkbox.disabled = !isEnabled;
+                if (!isEnabled) {
+                    checkbox.checked = false; // Desmarcar quando desabilitar
+                }
+                
+                // Atualizar cor do label e descrição (nova estrutura aninhada)
+                const containerDiv = checkbox.nextElementSibling;
+                const labelElement = containerDiv?.querySelector('label');
+                const descriptionElement = containerDiv?.querySelector('p');
+                
+                if (labelElement) {
+                    labelElement.className = isEnabled 
+                        ? labelElement.className.replace('text-gray-500', 'text-gray-400').replace('text-gray-400', 'text-gray-300')
+                        : labelElement.className.replace('text-gray-300', 'text-gray-400').replace('text-gray-400', 'text-gray-500');
+                }
+                
+                if (descriptionElement) {
+                    descriptionElement.className = isEnabled 
+                        ? descriptionElement.className.replace('text-gray-600', 'text-gray-500')
+                        : descriptionElement.className.replace('text-gray-500', 'text-gray-600');
+                }
+            }
+        });
+        
+        // Habilitar/desabilitar select de estratégia
+        if (strategySelect) {
+            strategySelect.disabled = !isEnabled;
+            strategySelect.className = isEnabled
+                ? strategySelect.className.replace('text-gray-400', 'text-white')
+                : strategySelect.className.replace('text-white', 'text-gray-400');
+        }
+        
+        // Alterar opacidade do container
+        if (subOptionsContainer) {
+            if (isEnabled) {
+                subOptionsContainer.classList.remove('opacity-50');
+                subOptionsContainer.classList.add('opacity-100');
+            } else {
+                subOptionsContainer.classList.remove('opacity-100');
+                subOptionsContainer.classList.add('opacity-50');
+            }
         }
     }
 
+    validateSelections(showError = false) {
+        const protestos = document.getElementById('protestos')?.checked || false;
+        const receitaFederal = document.getElementById('receita-federal')?.checked || false;
+        
+        const isValid = protestos || receitaFederal;
+        const warningElement = document.getElementById('validation-warning');
+        
+        if (!isValid) {
+            if (warningElement) {
+                warningElement.classList.remove('hidden');
+            }
+            if (showError) {
+                this.showError('Por favor, selecione pelo menos uma opção de consulta (Protestos ou Receita Federal).');
+            }
+        } else {
+            if (warningElement) {
+                warningElement.classList.add('hidden');
+            }
+        }
+        
+        return isValid;
+    }
+
     buildConsultationRequest(cnpj) {
+        // Verificar se Receita Federal está habilitada
+        const receitaFederalEnabled = document.getElementById('receita-federal')?.checked || false;
+        
         // Coletar opções selecionadas
         const options = {
             cnpj: cnpj,
@@ -103,17 +210,28 @@ class ConsultasManager {
             // Dados jurídicos  
             protestos: document.getElementById('protestos')?.checked || false,
             
-            // Dados da Receita Federal
-            simples: document.getElementById('simples')?.checked || false,
-            registrations: document.getElementById('registrations')?.checked ? 'BR' : null,
-            geocoding: document.getElementById('geocoding')?.checked || false,
-            suframa: document.getElementById('suframa')?.checked || false,
+            // Dados da Receita Federal (só se a opção principal estiver habilitada)
+            simples: receitaFederalEnabled ? (document.getElementById('simples')?.checked || false) : false,
+            registrations: receitaFederalEnabled && document.getElementById('registrations')?.checked ? 'BR' : null,
+            geocoding: receitaFederalEnabled ? (document.getElementById('geocoding')?.checked || false) : false,
+            suframa: receitaFederalEnabled ? (document.getElementById('suframa')?.checked || false) : false,
             
-            // Configurações avançadas
-            strategy: document.getElementById('strategy')?.value || 'CACHE_IF_FRESH'
+            // Parâmetros de extração (sempre enviar quando Receita Federal está habilitada)
+            extract_basic: receitaFederalEnabled,
+            extract_address: receitaFederalEnabled,
+            extract_contact: receitaFederalEnabled,
+            extract_activities: receitaFederalEnabled,
+            extract_partners: receitaFederalEnabled,
+            
+            // Configurações de cache (só se Receita Federal estiver habilitada)
+            strategy: receitaFederalEnabled ? (document.getElementById('strategy')?.value || 'CACHE_IF_FRESH') : 'CACHE_IF_FRESH'
         };
         
-        console.log('📤 Parâmetros da consulta:', options);
+        console.log('📤 Parâmetros da consulta:', {
+            ...options,
+            receita_federal_habilitada: receitaFederalEnabled
+        });
+        
         return options;
     }
 
@@ -182,6 +300,12 @@ class ConsultasManager {
         statusText.textContent = 'Consulta realizada com sucesso';
         statusText.className = 'text-sm font-medium text-green-400';
 
+        // Mostrar botão "Ver JSON"
+        const btnViewJson = document.getElementById('btn-view-json');
+        if (btnViewJson) {
+            btnViewJson.classList.remove('hidden');
+        }
+
         // Renderizar conteúdo unificado
         let contentHtml = '';
         
@@ -218,6 +342,7 @@ class ConsultasManager {
 
         // Calcular e exibir resumo se houver protestos (backward compatibility)
         if (resultado.protestos && resultado.has_protests) {
+            console.log('🔍 Usando resultado.protestos para cálculo do resumo');
             this.calcularERenderizarResumo(resultado.protestos);
         }
     }
@@ -434,24 +559,40 @@ class ConsultasManager {
         let valorAutorizadoCancelar = 0;
         let qtdAutorizadoCancelar = 0;
         
-        // Iterar pelos estados e cartórios
-        if (dados.protestos) {
-            for (const [estado, cartorios] of Object.entries(dados.protestos)) {
+        // Acessar cenprotProtestos diretamente
+        const cenprotProtestos = dados.cenprotProtestos;
+        if (!cenprotProtestos) {
+            console.warn('📊 Nenhum cenprotProtestos encontrado');
+            return;
+        }
+        
+        console.log('📊 cenprotProtestos encontrado:', cenprotProtestos);
+        
+        // Iterar pelos estados (BA, SP, etc.)
+        for (const [estado, cartorios] of Object.entries(cenprotProtestos)) {
+            console.log(`📊 Processando estado ${estado} com ${cartorios.length} cartórios`);
+            
+            if (Array.isArray(cartorios)) {
                 for (const cartorio of cartorios) {
                     qtdTitulos += cartorio.quantidadeTitulos || 0;
+                    console.log(`📊 Cartório: ${cartorio.cartorio || 'N/A'} - ${cartorio.quantidadeTitulos || 0} títulos`);
                     
-                    // Processar protestos individuais
+                    // Verificar se há protestos individuais com valores
                     if (cartorio.protestos && Array.isArray(cartorio.protestos)) {
+                        console.log(`📊 Encontrados ${cartorio.protestos.length} protestos com valores`);
+                        
                         for (const protesto of cartorio.protestos) {
                             const valor = this.parseValor(protesto.valor);
                             valorTotal += valor;
                             
-                            // Verificar se tem autorização para cancelar
+                            // Verificar autorização para cancelar
                             if (protesto.autorizacaoCancelamento) {
                                 valorAutorizadoCancelar += valor;
                                 qtdAutorizadoCancelar++;
                             }
                         }
+                    } else {
+                        console.log(`📊 Cartório ${cartorio.cartorio} não possui protestos detalhados`);
                     }
                 }
             }
@@ -532,65 +673,35 @@ class ConsultasManager {
         `;
     }
 
-    adicionarAoHistorico(cnpj, resultado) {
-        const consulta = {
-            id: Date.now().toString(),
-            cnpj: cnpj,
-            timestamp: new Date().toISOString(),
-            sucesso: resultado.success && !resultado.error,
-            protestos: resultado.data ? resultado.data.total_protests : 0
-        };
-
-        this.consultasRecentes.unshift(consulta);
-        
-        // Manter apenas as últimas 10 consultas
-        if (this.consultasRecentes.length > 10) {
-            this.consultasRecentes = this.consultasRecentes.slice(0, 10);
-        }
-
-        this.salvarConsultasRecentes();
-        this.renderHistoricoConsultas();
-    }
-
-    renderHistoricoConsultas() {
-        const container = document.getElementById('historico-consultas');
-        if (!container) return;
-
-        if (this.consultasRecentes.length === 0) {
-            container.innerHTML = `
-                <div class="text-center text-gray-500 py-4">
-                    <span class="material-icons text-4xl mb-2">history</span>
-                    <p>Nenhuma consulta realizada ainda</p>
-                </div>
-            `;
-            return;
-        }
-
-        const html = this.consultasRecentes.map(consulta => `
-            <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                <div class="flex items-center gap-3">
-                    <span class="material-icons ${consulta.sucesso ? 'text-green-400' : 'text-red-400'}">
-                        ${consulta.sucesso ? 'check_circle' : 'error'}
-                    </span>
-                    <div>
-                        <p class="text-white font-medium">${consulta.cnpj}</p>
-                        <p class="text-gray-400 text-sm">${this.formatarDataHora(consulta.timestamp)}</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm ${consulta.sucesso ? 'text-green-400' : 'text-red-400'}">
-                        ${consulta.sucesso ? `${consulta.protestos} protesto(s)` : 'Erro'}
-                    </p>
-                </div>
-            </div>
-        `).join('');
-
-        container.innerHTML = html;
-    }
 
     limparFormulario() {
+        // Limpar campo CNPJ
         document.getElementById('cnpj').value = '';
+        
+        // Ocultar resultado
         document.getElementById('resultado-container').classList.add('hidden');
+        
+        // Ocultar botão JSON
+        const btnViewJson = document.getElementById('btn-view-json');
+        if (btnViewJson) {
+            btnViewJson.classList.add('hidden');
+        }
+        
+        // Resetar checkboxes para estado padrão
+        document.getElementById('protestos').checked = true;
+        document.getElementById('receita-federal').checked = false;
+        
+        // Desabilitar subopções da Receita Federal
+        this.toggleReceitaFederalOptions();
+        
+        // Ocultar aviso de validação
+        const warningElement = document.getElementById('validation-warning');
+        if (warningElement) {
+            warningElement.classList.add('hidden');
+        }
+        
+        // Limpar último resultado
+        this.lastResult = null;
     }
 
     formatarCNPJ(event) {
@@ -668,21 +779,62 @@ class ConsultasManager {
         alert(`Erro: ${message}`);
     }
 
-    loadConsultasRecentes() {
-        try {
-            const stored = localStorage.getItem('consultasRecentes');
-            return stored ? JSON.parse(stored) : [];
-        } catch (error) {
-            console.error('Erro ao carregar consultas recentes:', error);
-            return [];
+    showJsonModal() {
+        if (!this.lastResult) {
+            this.showError('Nenhum resultado disponível para visualizar.');
+            return;
+        }
+        
+        const modal = document.getElementById('json-modal');
+        const jsonContent = document.getElementById('json-content');
+        
+        if (modal && jsonContent) {
+            // Formatar JSON com indentação
+            const formattedJson = JSON.stringify(this.lastResult, null, 2);
+            jsonContent.textContent = formattedJson;
+            
+            // Mostrar modal
+            modal.classList.remove('hidden');
+            
+            // Focar no conteúdo JSON para facilitar seleção
+            jsonContent.focus();
         }
     }
-
-    salvarConsultasRecentes() {
+    
+    hideJsonModal() {
+        const modal = document.getElementById('json-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+    
+    async copyJsonToClipboard() {
+        if (!this.lastResult) {
+            this.showError('Nenhum resultado disponível para copiar.');
+            return;
+        }
+        
         try {
-            localStorage.setItem('consultasRecentes', JSON.stringify(this.consultasRecentes));
+            const formattedJson = JSON.stringify(this.lastResult, null, 2);
+            await navigator.clipboard.writeText(formattedJson);
+            
+            // Feedback visual
+            const btnCopy = document.getElementById('btn-copy-json');
+            if (btnCopy) {
+                const originalText = btnCopy.innerHTML;
+                btnCopy.innerHTML = '<span class="material-icons text-sm">check</span>Copiado!';
+                btnCopy.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                btnCopy.classList.add('bg-green-600');
+                
+                setTimeout(() => {
+                    btnCopy.innerHTML = originalText;
+                    btnCopy.classList.remove('bg-green-600');
+                    btnCopy.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }, 2000);
+            }
         } catch (error) {
-            console.error('Erro ao salvar consultas recentes:', error);
+            console.error('Erro ao copiar JSON:', error);
+            this.showError('Erro ao copiar JSON para a área de transferência.');
         }
     }
 

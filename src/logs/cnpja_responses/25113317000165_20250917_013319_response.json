@@ -1,0 +1,129 @@
+{
+    "url": "https://api.cnpja.com/office/25113317000165",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "fb6f49992cff2a7a3b71801d325f1f82",
+        "trace-id": "24de2d74ab38b65ef15bf0fd56b9a219",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "2fabaf0cf33af354c52c436d473683ee",
+        "date": "Wed, 17 Sep 2025 04:33:18 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1630",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-17T01:33:19.670893",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "25113317000165",
+        "company": {
+            "id": 25113317,
+            "name": "CASA ALADIM LTDA.",
+            "equity": 210000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 5,
+                "acronym": "DEMAIS",
+                "text": "Demais"
+            },
+            "members": [
+                {
+                    "since": "1997-05-01",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "416bbe8b-c40f-461b-815b-e718060f8e07",
+                        "name": "Carlos Fuad Addiny",
+                        "type": "NATURAL",
+                        "taxId": "***876066**",
+                        "age": "61-70"
+                    }
+                },
+                {
+                    "since": "1998-11-09",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "cbcbbd67-2182-46d8-931a-adcae2af79dd",
+                        "name": "Cassio Jose Najar Addiny",
+                        "type": "NATURAL",
+                        "taxId": "***307886**",
+                        "age": "51-60"
+                    }
+                }
+            ]
+        },
+        "alias": "Casa Aladim",
+        "founded": "1969-12-04",
+        "head": true,
+        "statusDate": "2004-12-31",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3168606,
+            "street": "Rua Coronel Mario Cordeiro",
+            "number": "321",
+            "details": "Galpao01",
+            "district": "Jardim Serra Verde",
+            "city": "Teófilo Otoni",
+            "state": "MG",
+            "zip": "39801457",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            }
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "33",
+                "number": "35213253"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "CORPORATE",
+                "address": "contabil@casaaladim.com.br",
+                "domain": "casaaladim.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 4646001,
+            "text": "Comércio atacadista de cosméticos e produtos de perfumaria"
+        },
+        "sideActivities": [
+            {
+                "id": 4645101,
+                "text": "Comércio atacadista de instrumentos e materiais para uso médico, cirúrgico, hospitalar e de laboratórios"
+            },
+            {
+                "id": 4646002,
+                "text": "Comércio atacadista de produtos de higiene pessoal"
+            },
+            {
+                "id": 5229099,
+                "text": "Outras atividades auxiliares dos transportes terrestres não especificadas anteriormente"
+            }
+        ]
+    }
+}
