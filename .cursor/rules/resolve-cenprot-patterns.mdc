@@ -1,0 +1,412 @@
+---
+description: "Padrões de código e estruturas para web scraping resolve.cenprot.org.br"
+globs: "*.py"
+---
+
+# Padrões de Código - Resolve CenProt Scraping
+
+## Estruturas de Dados Obrigatórias
+
+### Models Base
+```python
+from dataclasses import dataclass
+from typing import List, Optional, Literal
+from decimal import Decimal
+from datetime import datetime
+
+@dataclass
+class CNPJConsulta:
+    cnpj: str
+    timestamp: datetime
+    status: Literal["sem_protestos", "com_protestos", "erro", "pendente"]
+    total_cartórios: int = 0
+    total_títulos: int = 0
+    
+@dataclass  
+class CartorioProtesto:
+    nome: str
+    cidade: str
+    estado: str
+    qtd_titulos: int
+    periodo_pesquisa: str
+    endereco: Optional[str] = None
+    telefone: Optional[str] = None
+    
+@dataclass
+class TituloDetalhado:
+    codigo: str
+    documento: str  # CNPJ do título
+    valor: Decimal
+    cartorio: str
+    data_consulta: datetime
+```
+
+### Configuration Classes
+```python
+@dataclass
+class ResolveConfig:
+    base_url: str = "https://resolve.cenprot.org.br"
+    login_url: str = f"{base_url}/app/auth"
+    dashboard_url: str = f"{base_url}/app/dashboard/home" 
+    search_url: str = f"{base_url}/app/dashboard/search/public-search"
+    
+    # Timeouts em segundos
+    page_timeout: int = 30
+    element_timeout: int = 10
+    modal_timeout: int = 15
+    
+    # Rate limiting
+    min_delay_between_requests: float = 1.0
+    max_delay_between_requests: float = 3.0
+    
+    # Retry config
+    max_retries: int = 3
+    retry_backoff: float = 2.0
+```
+
+## Seletores CSS Centralizados
+
+```python
+class ResolveSelectors:
+    # Login flow
+    LOGIN_INPUT = "#cpfCnpj"
+    CONFIRM_CHECKBOX = "#confirmarTitular"
+    CONTINUE_BUTTON = "button:has-text('Continuar')"
+    
+    # 2FA inputs
+    OTP_INPUTS = "input[name^='otp-']"
+    
+    # Search page  
+    SEARCH_INPUT = "input[name='document'][placeholder*='Digite o CPF ou CNPJ']"
+    SEARCH_BUTTON = "button:has-text('Consultar')"
+    
+    # Results
+    NO_PROTESTS_TEXT = "text='Protestos não encontrados'"
+    PROTESTS_FOUND_TEXT = "text='Protestos encontrados'"
+    CARTORIO_TABLE = "table.w-full.divide-y"
+    DETAILS_BUTTONS = "button:has-text('Detalhes')"
+    
+    # Modal
+    MODAL_CONTAINER = "[role='dialog'][aria-modal='true']"
+    MODAL_CLOSE = "button:has(svg[viewBox='0 0 32 32'])"
+    TITLES_GRID = ".grid.md\\:grid-cols-2.gap-3"
+    TITLE_CARDS = ".flex.flex-col"
+```
+
+## Padrões de Exception Handling
+
+```python
+class ResolveScrapingError(Exception):
+    """Base exception para scraping do Resolve CenProt"""
+    pass
+
+class AuthenticationError(ResolveScrapingError):
+    """Erro na autenticação 2FA"""
+    pass
+    
+class ProtestNotFoundError(ResolveScrapingError):
+    """CNPJ consultado sem protestos"""
+    pass
+    
+class RateLimitError(ResolveScrapingError):
+    """Rate limit atingido"""
+    pass
+
+class ModalTimeoutError(ResolveScrapingError):
+    """Modal de detalhes não carregou"""
+    pass
+
+# Usage pattern
+async def extract_with_retry(func, *args, **kwargs):
+    for attempt in range(config.max_retries):
+        try:
+            return await func(*args, **kwargs)
+        except ModalTimeoutError as e:
+            if attempt == config.max_retries - 1:
+                raise
+            await asyncio.sleep(config.retry_backoff ** attempt)
+            logger.warning(f"Retry {attempt + 1} for {func.__name__}: {e}")
+```
+
+## Logging Estruturado Obrigatório
+
+```python
+import structlog
+from datetime import datetime
+import json
+
+# Setup do logger
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="ISO"),
+        structlog.processors.add_log_level,
+        structlog.processors.JSONRenderer()
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(20),  # INFO level
+    logger_factory=structlog.WriteLoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+logger = structlog.get_logger("resolve_scraper")
+
+# Padrões de log obrigatórios
+async def log_step(step_name: str, cnpj: str, **extra_data):
+    logger.info("scraping_step", 
+                step=step_name, 
+                cnpj=cnpj, 
+                timestamp=datetime.utcnow().isoformat(),
+                **extra_data)
+
+async def log_error(error: Exception, cnpj: str, step: str, **context):
+    logger.error("scraping_error",
+                 error=str(error),
+                 error_type=type(error).__name__,
+                 cnpj=cnpj,
+                 step=step,
+                 **context)
+```
+
+## Browser Configuration
+
+```python
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+
+class BrowserManager:
+    def __init__(self):
+        self.browser: Optional[Browser] = None
+        self.context: Optional[BrowserContext] = None
+        
+    async def initialize(self) -> BrowserContext:
+        playwright = await async_playwright().start()
+        
+        # Configuração anti-detecção
+        self.browser = await playwright.chromium.launch(
+            headless=False,  # Para debugging inicial
+            args=[
+                "--no-first-run",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor"
+            ]
+        )
+        
+        # Context com stealth
+        self.context = await self.browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            extra_http_headers={
+                "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8"
+            }
+        )
+        
+        return self.context
+        
+    async def new_page(self) -> Page:
+        if not self.context:
+            await self.initialize()
+        return await self.context.new_page()
+        
+    async def close(self):
+        if self.context:
+            await self.context.close()
+        if self.browser:
+            await self.browser.close()
+```
+
+## Data Extraction Patterns
+
+```python
+import re
+from decimal import Decimal
+
+class DataExtractor:
+    
+    @staticmethod
+    def extract_cnpj(text: str) -> Optional[str]:
+        """Extrai CNPJ do formato XX.XXX.XXX/XXXX-XX"""
+        pattern = r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}'
+        match = re.search(pattern, text)
+        return match.group() if match else None
+    
+    @staticmethod
+    def extract_valor(text: str) -> Optional[Decimal]:
+        """Extrai valor monetário R$ X.XXX,XX"""
+        pattern = r'R\$\s*([\d,.]+)'
+        match = re.search(pattern, text.replace('.', '').replace(',', '.'))
+        if match:
+            try:
+                return Decimal(match.group(1))
+            except:
+                return None
+        return None
+    
+    @staticmethod  
+    def normalize_cartorio_name(name: str) -> str:
+        """Normaliza nome do cartório"""
+        return re.sub(r'\s+', ' ', name.upper().strip())
+    
+    @staticmethod
+    def extract_qtd_titulos(text: str) -> int:
+        """Extrai quantidade de títulos"""
+        match = re.search(r'\d+', text)
+        return int(match.group()) if match else 0
+
+# Uso em extractors
+async def extract_cartorio_row(row_element) -> CartorioProtesto:
+    cells = await row_element.query_selector_all('td')
+    
+    nome = await cells[0].inner_text()
+    cidade = await cells[1].inner_text()  
+    qtd_str = await cells[2].inner_text()
+    periodo = await cells[3].inner_text()
+    
+    return CartorioProtesto(
+        nome=DataExtractor.normalize_cartorio_name(nome),
+        cidade=cidade.upper().strip(),
+        estado="",  # Será preenchido pelo contexto
+        qtd_titulos=DataExtractor.extract_qtd_titulos(qtd_str),
+        periodo_pesquisa=periodo.strip()
+    )
+```
+
+## Session Management
+
+```python
+import pickle
+from pathlib import Path
+
+class SessionManager:
+    def __init__(self, session_dir: str = "sessions"):
+        self.session_dir = Path(session_dir)
+        self.session_dir.mkdir(exist_ok=True)
+        
+    async def save_cookies(self, context: BrowserContext, cnpj: str):
+        """Salva cookies da sessão autenticada"""
+        cookies = await context.cookies()
+        session_file = self.session_dir / f"session_{cnpj}.pkl"
+        
+        with open(session_file, 'wb') as f:
+            pickle.dump(cookies, f)
+            
+    async def load_cookies(self, context: BrowserContext, cnpj: str) -> bool:
+        """Carrega cookies salvos"""
+        session_file = self.session_dir / f"session_{cnpj}.pkl"
+        
+        if not session_file.exists():
+            return False
+            
+        try:
+            with open(session_file, 'rb') as f:
+                cookies = pickle.load(f)
+            await context.add_cookies(cookies)
+            return True
+        except:
+            return False
+            
+    async def is_session_valid(self, page: Page) -> bool:
+        """Verifica se a sessão ainda é válida"""
+        try:
+            await page.goto(ResolveConfig.dashboard_url, timeout=10000)
+            await page.wait_for_url("**/dashboard/home", timeout=5000)
+            return True
+        except:
+            return False
+```
+
+## Testing Patterns
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+
+@pytest.fixture
+async def mock_page():
+    page = AsyncMock()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
+    page.fill = AsyncMock()
+    page.click = AsyncMock()
+    return page
+
+@pytest.mark.asyncio
+async def test_extract_protest_data():
+    # Mock HTML response
+    mock_html = """
+    <div class="text-[#4F4F4F] text-xl font-semibold w-full">
+        Protestos encontrados
+    </div>
+    """
+    
+    # Test extraction logic
+    has_protests = "Protestos encontrados" in mock_html
+    assert has_protests is True
+
+@pytest.mark.asyncio  
+async def test_cnpj_validation():
+    valid_cnpj = "12.345.678/0001-90"
+    invalid_cnpj = "12345678000190"
+    
+    assert DataExtractor.extract_cnpj(valid_cnpj) == valid_cnpj
+    assert DataExtractor.extract_cnpj(invalid_cnpj) is None
+```
+
+## Performance Monitoring
+
+```python
+import time
+from functools import wraps
+from typing import Dict, Any
+
+class PerformanceMonitor:
+    def __init__(self):
+        self.metrics: Dict[str, Any] = {}
+        
+    def time_function(self, func_name: str):
+        def decorator(func):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                start = time.time()
+                try:
+                    result = await func(*args, **kwargs)
+                    success = True
+                except Exception as e:
+                    result = None
+                    success = False
+                    raise
+                finally:
+                    duration = time.time() - start
+                    self.record_metric(func_name, duration, success)
+                return result
+            return wrapper
+        return decorator
+        
+    def record_metric(self, operation: str, duration: float, success: bool):
+        if operation not in self.metrics:
+            self.metrics[operation] = {
+                "total_calls": 0,
+                "total_time": 0,
+                "successful_calls": 0,
+                "failed_calls": 0,
+                "avg_time": 0
+            }
+            
+        self.metrics[operation]["total_calls"] += 1
+        self.metrics[operation]["total_time"] += duration
+        
+        if success:
+            self.metrics[operation]["successful_calls"] += 1
+        else:
+            self.metrics[operation]["failed_calls"] += 1
+            
+        self.metrics[operation]["avg_time"] = (
+            self.metrics[operation]["total_time"] / 
+            self.metrics[operation]["total_calls"]
+        )
+
+# Usage
+monitor = PerformanceMonitor()
+
+@monitor.time_function("login_process")
+async def perform_login(cnpj: str):
+    pass
+```

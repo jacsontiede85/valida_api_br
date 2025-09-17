@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Valida - Consultas</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #E5E7EB;
+        }
+        .sidebar {
+            background-color: #1F2937;
+        }
+        .header {
+            background-color: #1F2937;
+            border-bottom: 1px solid #374151;
+        }
+        .card {
+            background-color: #1F2937;
+            border-radius: 0.5rem;
+        }
+        .btn-primary {
+            background-color: #3B82F6;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #374151;
+            color: #D1D5DB;
+        }
+        .active-link {
+            background-color: #374151;
+            color: white;
+            border-radius: 0.375rem;
+        }
+        .inactive-link {
+            color: #9CA3AF;
+        }
+        .form-input {
+            background-color: #374151;
+            border: 1px solid #4B5563;
+            color: #E5E7EB;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .result-card {
+            background-color: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+        }
+        .success {
+            color: #10B981;
+        }
+        .error {
+            color: #EF4444;
+        }
+        .warning {
+            color: #F59E0B;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex h-screen bg-gray-900">
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 p-4 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center mb-8">
+                    <img alt="Valida Logo" class="h-8 mr-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPiTytodUSa_qp8ErIXjl0HYcDeCG9qNnFRFMu2Cz3a70lhzaWNupQM787LTBKoya6Hwg62W3qRnPmvQQzXeAQaXuWZfXcb4SrOdfms8pIuqpb7uzakD8yVUxkrr3LuKCN9QMPc_uN5RLSQORm2FFOEGk0_wxLiUFXS6w-BH5OHDr1upOSICkK0moQtHR9wUmj7FaVGYQdnp6mCZYd_L9_vpWQgHr7dMsEkV7IFNCExMBYr8IQYoZJ4n1duMfJvd0II_MlpFC78m8"/>
+                    <span class="text-xl font-bold">Valida</span>
+                </div>
+                <nav class="space-y-2">
+                    <div class="text-xs text-gray-500 uppercase font-bold mb-2">Geral</div>
+                    <a href="/dashboard" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">dashboard</span> Visão Geral
+                    </a>
+                    <a href="/consultas" class="flex items-center p-2 active-link">
+                        <span class="material-icons mr-3">search</span> Consultas
+                    </a>
+                    <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Integrações</div>
+                    <a href="/history" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">history</span> Histórico
+                    </a>
+                    <a href="/api-keys" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">key</span> Chave de API
+                    </a>
+                    <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Administração</div>
+                    <a href="/assinatura" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">subscriptions</span> Assinaturas
+                    </a>
+                    <a href="/faturas" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">receipt_long</span> Faturamento
+                    </a>
+                    <a href="/perfil" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+                        <span class="material-icons mr-3">person</span> Perfil
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="header px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Consultas</h1>
+                        <p class="text-gray-400 mt-1">Consulte informações de CNPJ em tempo real</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- Formulário de Consulta -->
+                <div class="card p-6 mb-6">
+                    <h2 class="text-lg font-semibold text-white mb-4">Nova Consulta</h2>
+                    <form id="consulta-form" class="space-y-4">
+                        <div>
+                            <label for="cnpj" class="block text-sm font-medium text-gray-300 mb-2">
+                                CNPJ
+                            </label>
+                            <input 
+                                type="text" 
+                                id="cnpj" 
+                                name="cnpj"
+                                placeholder="Digite o CNPJ (apenas números ou com formatação)"
+                                class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                required
+                            />
+                            <p class="text-xs text-gray-500 mt-2 ml-1">
+                                Exemplo: 12.345.678/0001-90 ou 12345678000190
+                            </p>
+                        </div>
+                        
+                        <!-- Seção de Opções de Consulta -->
+                        <div class="mt-6">
+                            <h3 class="text-md font-semibold text-white mb-4 flex items-center gap-2">
+                                <span class="material-icons text-blue-400">settings</span>
+                                Dados para Consultar
+                            </h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Coluna 1: Dados Jurídicos -->
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-medium text-gray-300 flex items-center gap-2">
+                                        <span class="material-icons text-yellow-400 text-sm">gavel</span>
+                                        Dados Jurídicos
+                                    </h4>
+                                    
+                                    <div class="space-y-3 ml-4">
+                                        <div class="flex items-center">
+                                            <input id="protestos" name="protestos" type="checkbox" checked 
+                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                            <label for="protestos" class="ml-3 text-sm text-gray-300">
+                                                <span class="font-medium">Protestos</span>
+                                                <span class="text-gray-500 block text-xs">CenProt - Consulta de protestos em cartórios</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Coluna 2: Dados da Receita Federal -->  
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-medium text-gray-300 flex items-center gap-2">
+                                        <span class="material-icons text-green-400 text-sm">business</span>
+                                        Receita Federal
+                                    </h4>
+                                    
+                                    <div class="space-y-3 ml-4">
+                                        <div class="flex items-center">
+                                            <input id="simples" name="simples" type="checkbox" 
+                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                            <label for="simples" class="ml-3 text-sm text-gray-300">
+                                                <span class="font-medium">Simples Nacional</span>
+                                                <span class="text-gray-500 block text-xs">Status MEI e enquadramento tributário</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="flex items-center">
+                                            <input id="registrations" name="registrations" type="checkbox" 
+                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                            <label for="registrations" class="ml-3 text-sm text-gray-300">
+                                                <span class="font-medium">Inscrições Estaduais</span>
+                                                <span class="text-gray-500 block text-xs">IEs de todos os estados brasileiros</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="flex items-center">
+                                            <input id="geocoding" name="geocoding" type="checkbox" 
+                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                            <label for="geocoding" class="ml-3 text-sm text-gray-300">
+                                                <span class="font-medium">Geolocalização</span>
+                                                <span class="text-gray-500 block text-xs">Coordenadas GPS do endereço</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="flex items-center">
+                                            <input id="suframa" name="suframa" type="checkbox" 
+                                                   class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                                            <label for="suframa" class="ml-3 text-sm text-gray-300">
+                                                <span class="font-medium">SUFRAMA</span>
+                                                <span class="text-gray-500 block text-xs">Incentivos fiscais Zona Franca</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Configurações Avançadas (Colapsível) -->
+                            <div class="mt-6">
+                                <button type="button" id="toggle-advanced" 
+                                        class="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 focus:outline-none transition-colors">
+                                    <span class="material-icons text-sm">expand_more</span>
+                                    Configurações Avançadas
+                                </button>
+                                
+                                <div id="advanced-options" class="hidden mt-4 p-4 bg-gray-800 rounded-xl border border-gray-600">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="strategy" class="block text-sm font-medium text-gray-300 mb-2">
+                                                Estratégia de Cache
+                                            </label>
+                                            <select id="strategy" name="strategy" 
+                                                    class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                                <option value="CACHE_IF_FRESH">Cache se recente (padrão)</option>
+                                                <option value="ONLINE">Sempre online (sem cache)</option>
+                                            </select>
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Cache acelera consultas mas pode retornar dados mais antigos
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-4">
+                            <button 
+                                type="submit" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
+                            >
+                                <span class="material-icons text-sm">search</span>
+                                Consultar
+                            </button>
+                            <button 
+                                type="button" 
+                                id="limpar-btn"
+                                class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-gray-500/25 transform hover:scale-105"
+                            >
+                                <span class="material-icons text-sm">clear</span>
+                                Limpar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Resultado da Consulta -->
+                <div id="resultado-container" class="hidden">
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-white">Resultado da Consulta</h2>
+                            <div class="flex items-center gap-2">
+                                <span id="status-indicator" class="w-3 h-3 rounded-full"></span>
+                                <span id="status-text" class="text-sm font-medium"></span>
+                            </div>
+                        </div>
+                        
+                        <div id="resultado-content" class="space-y-4">
+                            <!-- Conteúdo será preenchido dinamicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Histórico de Consultas Recentes -->
+                <div class="card p-6">
+                    <h2 class="text-lg font-semibold text-white mb-4">Consultas Recentes</h2>
+                    <div id="historico-consultas" class="space-y-2">
+                        <!-- Será preenchido dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span class="text-white">Consultando...</span>
+        </div>
+    </div>
+
+    <script src="/static/js/consultas.js"></script>
+</body>
+</html>

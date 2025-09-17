@@ -1,0 +1,3 @@
+"""
+Middleware da API REST
+"""

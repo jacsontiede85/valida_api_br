@@ -1,0 +1,826 @@
+---
+alwaysApply: false
+---
+# Plano de Ação RPA - Resolve CenProt Web Scraping
+
+## Visão Geral do Projeto
+
+**Objetivo**: Criar um RPA (Robotic Process Automation) para extrair dados de protestos do site resolve.cenprot.org.br
+
+**Tecnologias**: 
+- **Playwright**: Navegação, login, autenticação 2FA, extração de dados
+- **Python 3.8+**: Linguagem principal
+- **BeautifulSoup**: Parsing HTML complementar quando necessário
+
+**Estrutura de Dados**: Seguir formato do arquivo [exemplo_00138947000163.json](mdc:docs/exemplo_00138947000163.json)
+
+**Documentação Base**: [integracao-resolve-cenprot.md](mdc:docs/integracao-resolve-cenprot.md)
+
+## Estrutura do Projeto (Pasta Raiz: resolve_cenprot/)
+
+```
+resolve_cenprot/
+├── src/
+│   ├── __init__.py
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── settings.py          # Configurações gerais
+│   │   ├── selectors.py         # Seletores CSS do site
+│   │   └── logging_config.py    # Setup de logging
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   ├── login_manager.py     # Gestor de login principal
+│   │   ├── two_factor_auth.py   # Autenticação 2FA
+│   │   └── email_extractor.py   # Extração códigos do email
+│   ├── browser/
+│   │   ├── __init__.py
+│   │   ├── browser_manager.py   # Gestão do Playwright
+│   │   └── session_manager.py   # Gestão de sessões
+│   ├── scraping/
+│   │   ├── __init__.py
+│   │   ├── base_scraper.py      # Classe base do scraper
+│   │   ├── protest_scraper.py   # Scraper principal de protestos
+│   │   └── data_processor.py    # Processamento de dados
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── protest_models.py    # Models Pydantic
+│   │   └── response_models.py   # Models de resposta API
+│   └── utils/
+│       ├── __init__.py
+│       ├── data_formatter.py    # Formatação para JSON final
+│       ├── validators.py        # Validadores CNPJ/dados
+│       └── helpers.py          # Funções auxiliares
+├── data/
+│   ├── input/                  # CNPJs para consulta
+│   ├── output/                 # Resultados JSON
+│   ├── logs/                   # Logs do sistema
+│   └── sessions/              # Cache de sessões
+├── tests/
+│   ├── __init__.py
+│   ├── test_auth.py
+│   ├── test_scraping.py
+│   └── test_extraction.py
+├── scripts/
+│   ├── run_single_cnpj.py     # Script consulta única
+│   ├── run_batch_cnpjs.py     # Script lote de CNPJs
+│   └── setup_environment.py   # Setup inicial
+├── requirements.txt
+├── .env.example
+├── .env                       # Variáveis de ambiente
+├── main.py                    # Ponto de entrada principal
+└── README.md
+```
+
+## Fase 1: Setup Inicial e Configuração
+
+### 1.1 Configuração do Ambiente
+```python
+# requirements.txt essenciais
+playwright>=1.40.0
+pydantic>=2.0.0
+beautifulsoup4>=4.12.0
+structlog>=23.1.0
+python-dotenv>=1.0.0
+aiofiles>=23.1.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+```
+
+### 1.2 Variáveis de Ambiente (.env)
+```bash
+# Credenciais Resolve CenProt
+RESOLVE_CENPROT_LOGIN=XX.XXX.XXX/XXXX-XX
+RESOLVE_CENPROT_URL=https://resolve.cenprot.org.br
+
+# Email para 2FA
+RESOLVE_EMAIL=seu.email@gmail.com
+RESOLVE_EMAIL_PASSWORD=app_password_gmail
+RESOLVE_IMAP_SERVER=imap.gmail.com
+
+# Configurações de Performance
+MAX_CONCURRENT_REQUESTS=3
+REQUEST_DELAY_MIN=1.0
+REQUEST_DELAY_MAX=3.0
+MAX_RETRIES=3
+```
+
+### 1.3 Setup de Logging Estruturado
+```python
+# src/config/logging_config.py
+import structlog
+from pathlib import Path
+
+def setup_logging():
+    log_dir = Path("data/logs")
+    log_dir.mkdir(exist_ok=True)
+    
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="ISO"),
+            structlog.processors.add_log_level,
+            structlog.processors.JSONRenderer()
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(20),
+        logger_factory=structlog.WriteLoggerFactory(
+            file=open(log_dir / "resolve_rpa.log", "a")
+        ),
+        cache_logger_on_first_use=True,
+    )
+    
+    return structlog.get_logger("resolve_rpa")
+```
+
+## Fase 2: Modelos de Dados (Baseado no JSON Exemplo)
+
+### 2.1 Models Pydantic para Estrutura Final
+```python
+# src/models/protest_models.py
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+
+class ProtestoDetalhado(BaseModel):
+    """Modelo para cada protesto individual"""
+    cpfCnpj: str = Field(description="CNPJ do protesto")
+    data: Optional[str] = Field(default=None, description="Data do protesto")
+    dataProtesto: Optional[str] = Field(default=None, description="Data específica do protesto")
+    dataVencimento: str = Field(default="", description="Data de vencimento")
+    autorizacaoCancelamento: bool = Field(description="Se permite cancelamento")
+    custasCancelamento: str = Field(default="", description="Custas para cancelamento")
+    valor: str = Field(description="Valor monetário do protesto")
+
+class CartorioProtesto(BaseModel):
+    """Modelo para dados do cartório"""
+    cartorio: str = Field(description="Nome completo do cartório")
+    obterDetalhes: Optional[str] = Field(default=None, description="Link ou referência para detalhes")
+    cidade: str = Field(description="Cidade do cartório")
+    quantidadeTitulos: int = Field(description="Quantidade de títulos")
+    endereco: str = Field(description="Endereço completo do cartório")
+    telefone: str = Field(description="Telefone do cartório")
+    protestos: List[ProtestoDetalhado] = Field(description="Lista de protestos detalhados")
+
+class ConsultaCNPJResult(BaseModel):
+    """Resultado completo da consulta de um CNPJ"""
+    cnpj: str = Field(description="CNPJ consultado")
+    cenprotProtestos: Dict[str, List[CartorioProtesto]] = Field(
+        description="Protestos organizados por estado"
+    )
+    dataHora: str = Field(description="Data/hora da consulta")
+    link_pdf: str = Field(description="Link para PDF ou status")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "cnpj": "00138947000163",
+                "cenprotProtestos": {
+                    "BA": [
+                        {
+                            "cartorio": "TABELIONATO DE NOTAS...",
+                            "cidade": "UBAÍRA",
+                            "quantidadeTitulos": 3,
+                            "protestos": []
+                        }
+                    ]
+                },
+                "dataHora": "2025-08-08 20:16:09.725198",
+                "link_pdf": "/token/.../Download de PDF desabilitado"
+            }
+        }
+```
+
+## Fase 3: Sistema de Autenticação (Playwright)
+
+### 3.1 Gestor de Login Principal
+```python
+# src/auth/login_manager.py
+from playwright.async_api import Page, BrowserContext
+from .two_factor_auth import TwoFactorHandler
+from .email_extractor import EmailCodeExtractor
+import asyncio
+
+class LoginManager:
+    def __init__(self, email_extractor: EmailCodeExtractor):
+        self.email_extractor = email_extractor
+        self.two_factor = TwoFactorHandler()
+        self.is_logged_in = False
+        
+    async def perform_full_login(self, page: Page, cnpj: str) -> bool:
+        """
+        Executa o fluxo completo de login baseado nos passos do 
+        arquivo integracao-resolve-cenprot.md
+        """
+        try:
+            logger.info("iniciando_login_completo", cnpj=cnpj)
+            
+            # Passo 1: Navegar para página de auth
+            await page.goto("https://resolve.cenprot.org.br/app/auth")
+            await page.wait_for_load_state("networkidle")
+            
+            # Passo 2: Preencher CNPJ
+            await page.fill("#cpfCnpj", cnpj)
+            await page.click("button:has-text('Continuar')")
+            
+            # Passo 3: Marcar checkbox titular
+            await page.check("#confirmarTitular")
+            
+            # Passo 4: Clicar Continuar (segunda vez)
+            await page.click("button:has-text('Continuar')")
+            
+            # Passo 5: Clicar Continuar (terceira vez - dispara 2FA)
+            await page.click("button:has-text('Continuar')")
+            
+            # Passo 6-7: Aguardar e preencher 2FA
+            await page.wait_for_selector("input[name='otp-0']", timeout=15000)
+            
+            # Obter código do email
+            code = await self.email_extractor.wait_for_2fa_code(timeout_minutes=3)
+            if not code:
+                raise Exception("Código 2FA não recebido no email")
+            
+            # Preencher campos 2FA
+            success = await self.two_factor.fill_otp_fields(page, code)
+            if not success:
+                raise Exception("Falha ao preencher campos 2FA")
+            
+            # Aguardar botão habilitado e clicar
+            await self.two_factor.wait_for_continue_enabled(page)
+            await page.click("button:has-text('Continuar')")
+            
+            # Passo 8: Validar redirecionamento
+            await page.wait_for_url("**/dashboard/home", timeout=15000)
+            
+            self.is_logged_in = True
+            logger.info("login_realizado_com_sucesso", cnpj=cnpj)
+            return True
+            
+        except Exception as e:
+            logger.error("falha_no_login", cnpj=cnpj, error=str(e))
+            await page.screenshot(path=f"data/logs/login_error_{cnpj}.png")
+            return False
+```
+
+## Fase 4: Sistema de Extração (Playwright Puro)
+
+### 4.1 Extrator Principal usando Playwright
+```python
+# src/scraping/data_extractor.py
+from playwright.async_api import Page
+from bs4 import BeautifulSoup
+from typing import Dict, Any, List, Optional
+import re
+import json
+
+class PlaywrightExtractor:
+    def __init__(self, page: Page):
+        self.page = page
+        
+    async def extract_consultation_results(self) -> Dict[str, Any]:
+        """
+        Extrai dados da página de consulta usando apenas Playwright
+        """
+        try:
+            # Extrair status dos protestos
+            tem_protestos = False
+            status_text = ""
+            
+            status_element = await self.page.query_selector(".text-\\[\\#4F4F4F\\].text-xl.font-semibold.w-full")
+            if status_element:
+                status_text = (await status_element.inner_text()).strip().lower()
+                tem_protestos = 'encontrados' in status_text
+                
+            # Extrair data da consulta
+            data_consulta = ""
+            date_element = await self.page.query_selector(".text-\\[\\#888888\\] span")
+            if date_element:
+                data_consulta = (await date_element.inner_text()).strip()
+                
+            # Se não tem protestos, retornar dados básicos
+            if not tem_protestos:
+                return {
+                    "tem_protestos": status_text,
+                    "data_consulta": data_consulta,
+                    "estados": []
+                }
+            
+            # Extrair dados dos cartórios por estado
+            estados = await self._extract_estados_cartorios()
+            
+            return {
+                "tem_protestos": status_text,
+                "data_consulta": data_consulta,
+                "estados": estados
+            }
+            
+        except Exception as e:
+            logger.error("erro_extracao_consulta_playwright", error=str(e))
+            return {"tem_protestos": "erro", "data_consulta": "", "estados": []}
+    
+    async def _extract_estados_cartorios(self) -> List[Dict[str, Any]]:
+        """Extrai dados de estados e cartórios usando Playwright"""
+        estados = []
+        
+        try:
+            # Buscar seções de estados
+            state_sections = await self.page.query_selector_all(".mt-6:has(h1)")
+            
+            for section in state_sections:
+                # Extrair nome do estado
+                state_name_elem = await section.query_selector("h1")
+                if not state_name_elem:
+                    continue
+                    
+                estado_nome = await state_name_elem.inner_text()
+                
+                # Extrair cartórios da tabela
+                cartorios = []
+                cartorio_rows = await section.query_selector_all("tbody tr")
+                
+                for row in cartorio_rows:
+                    cells = await row.query_selector_all("td")
+                    if len(cells) >= 3:
+                        nome_cartorio = await cells[0].inner_text() if cells[0] else ""
+                        cidade = await cells[1].inner_text() if len(cells) > 1 and cells[1] else ""
+                        qtd_titulos = await cells[2].inner_text() if len(cells) > 2 and cells[2] else "0"
+                        
+                        if nome_cartorio.strip() and cidade.strip():
+                            cartorios.append({
+                                "nome_cartorio": nome_cartorio.strip(),
+                                "cidade": cidade.strip(),
+                                "quantidade_titulos": qtd_titulos.strip()
+                            })
+                
+                if cartorios:
+                    estados.append({
+                        "estado_nome": estado_nome.strip(),
+                        "cartorios": cartorios
+                    })
+                    
+        except Exception as e:
+            logger.error("erro_extrair_estados_playwright", error=str(e))
+        
+        return estados
+    
+    async def extract_modal_details(self) -> Dict[str, Any]:
+        """
+        Extrai detalhes do modal usando Playwright e regex
+        """
+        try:
+            # Obter HTML completo da página
+            page_html = await self.page.content()
+            
+            # Usar regex para parsing direto do HTML
+            if 'role="dialog"' not in page_html and 'relative z-10' not in page_html:
+                logger.warning("modal_nao_encontrado_no_html")
+                return {"endereco": "", "telefone": "", "protestos": []}
+            
+            # Extrair endereço usando regex
+            endereco = ""
+            endereco_match = re.search(r'Endereço:\s*</span>([^<]+)', page_html)
+            if endereco_match:
+                endereco = endereco_match.group(1).strip()
+            
+            # Extrair telefone usando regex
+            telefone = ""
+            telefone_match = re.search(r'Telefone:\s*</span>([^<]+)', page_html)
+            if telefone_match:
+                telefone = telefone_match.group(1).strip()
+            
+            # Extrair valores monetários
+            protestos = []
+            valor_matches = re.findall(r'R\$\s*([0-9.,]+)', page_html)
+            
+            for valor_match in valor_matches:
+                try:
+                    # Validar valor (mínimo 3 dígitos, valor > 1 real)
+                    valor_numerico = valor_match.replace(',', '').replace('.', '')
+                    if len(valor_numerico) >= 3:
+                        valor_float = float(valor_match.replace('.', '').replace(',', '.'))
+                        if valor_float > 1:
+                            protestos.append({
+                                "valor": f"R${valor_match}",
+                                "codigo": "",
+                                "documento": ""
+                            })
+                except (ValueError, AttributeError):
+                    continue
+            
+            return {
+                "endereco": endereco,
+                "telefone": telefone,
+                "protestos": protestos
+            }
+            
+        except Exception as e:
+            logger.error("erro_extrair_modal_via_html", error=str(e))
+            return {"endereco": "", "telefone": "", "protestos": []}
+```
+
+## Fase 5: Scraper Principal
+
+### 5.1 Classe Principal do RPA
+```python
+# src/scraping/protest_scraper.py
+from playwright.async_api import Page
+from ..models.protest_models import ConsultaCNPJResult, CartorioProtesto, ProtestoDetalhado
+from .data_extractor import PlaywrightExtractor
+from ..utils.data_formatter import DataFormatter
+from datetime import datetime
+import asyncio
+
+class ProtestScraper:
+    def __init__(self, page: Page):
+        self.page = page
+        self.extractor = PlaywrightExtractor(page)
+        self.formatter = DataFormatter()
+        
+    async def consultar_cnpj(self, cnpj: str) -> ConsultaCNPJResult:
+        """
+        Realiza consulta completa de um CNPJ seguindo os passos da documentação
+        """
+        logger.info("iniciando_consulta_cnpj", cnpj=cnpj)
+        
+        try:
+            # Navegar para página de consulta
+            await self.page.goto("https://resolve.cenprot.org.br/app/dashboard/search/public-search")
+            
+            # Preencher CNPJ e consultar
+            await self.page.fill("input[name='document']", cnpj)
+            await self.page.click("button:has-text('Consultar')")
+            
+            # Aguardar resultados carregarem
+            await asyncio.sleep(3)
+            
+            # Verificar se tem protestos
+            try:
+                await self.page.wait_for_selector(".text-\\[\\#4F4F4F\\].text-xl", timeout=10000)
+                
+                # Extrair dados iniciais com Playwright
+                consultation_data = await self.extractor.extract_consultation_results()
+                
+                # Verificar se tem protestos
+                tem_protestos_text = consultation_data.get('tem_protestos', '')
+                tem_protestos = 'encontrados' in tem_protestos_text.lower()
+                
+                if not tem_protestos:
+                    return ConsultaCNPJResult(
+                        cnpj=cnpj,
+                        cenprotProtestos={},
+                        dataHora=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                        link_pdf="/Download de PDF desabilitado"
+                    )
+                
+                # Se tem protestos, extrair detalhes de cada cartório
+                cartorios_por_estado = await self._extract_cartorios_details(consultation_data)
+                
+                return ConsultaCNPJResult(
+                    cnpj=cnpj,
+                    cenprotProtestos=cartorios_por_estado,
+                    dataHora=datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    link_pdf="/Download de PDF desabilitado"
+                )
+                
+            except Exception as e:
+                logger.error("erro_ao_processar_resultados", cnpj=cnpj, error=str(e))
+                raise
+                
+        except Exception as e:
+            logger.error("erro_consulta_cnpj", cnpj=cnpj, error=str(e))
+            raise
+    
+    async def _extract_cartorios_details(self, consultation_data: Dict[str, Any]) -> Dict[str, List[CartorioProtesto]]:
+        """
+        Extrai detalhes de cada cartório clicando nos botões 'Detalhes'
+        """
+        cartorios_por_estado = {}
+        
+        for estado_data in consultation_data.get('estados', []):
+            estado_nome = self._extract_estado_from_text(estado_data.get('estado_nome', ''))
+            cartorios_estado = []
+            
+            for i, cartorio_data in enumerate(estado_data.get('cartorios', [])):
+                try:
+                    # Clicar no botão Detalhes do cartório
+                    details_buttons = await self.page.query_selector_all("button:has-text('Detalhes')")
+                    if i < len(details_buttons):
+                        await details_buttons[i].click()
+                        
+                        # Aguardar modal abrir
+                        await self.page.wait_for_selector("[role='dialog']", timeout=5000)
+                        
+                        # Processar detalhes com Playwright
+                        modal_details = await self.extractor.extract_modal_details()
+                        
+                        # Criar objeto cartório
+                        cartorio = CartorioProtesto(
+                            cartorio=cartorio_data.get('nome_cartorio', '').strip(),
+                            obterDetalhes=None,
+                            cidade=cartorio_data.get('cidade', '').strip(),
+                            quantidadeTitulos=int(cartorio_data.get('quantidade_titulos', '0').strip()),
+                            endereco=modal_details.get('endereco', ''),
+                            telefone=modal_details.get('telefone', ''),
+                            protestos=self._convert_to_protesto_detalhado(
+                                modal_details.get('titulos_detalhados', []), 
+                                self.current_cnpj
+                            )
+                        )
+                        
+                        cartorios_estado.append(cartorio)
+                        
+                        # Fechar modal
+                        await self.page.click("button:has(svg[viewBox='0 0 32 32'])")
+                        await asyncio.sleep(1)
+                        
+                except Exception as e:
+                    logger.warning("erro_extrair_cartorio_detalhes", 
+                                 cartorio=cartorio_data.get('nome_cartorio'), error=str(e))
+                    continue
+            
+            if cartorios_estado:
+                cartorios_por_estado[estado_nome] = cartorios_estado
+        
+        return cartorios_por_estado
+    
+    def _convert_to_protesto_detalhado(self, titulos_data: List[Dict], cnpj: str) -> List[ProtestoDetalhado]:
+        """
+        Converte dados brutos dos títulos para modelo ProtestoDetalhado
+        """
+        protestos = []
+        
+        for titulo in titulos_data:
+            # Extrair e limpar valor monetário
+            valor_raw = titulo.get('valor_titulo', '')
+            valor_limpo = self.formatter.extract_monetary_value(valor_raw)
+            
+            protesto = ProtestoDetalhado(
+                cpfCnpj=cnpj,
+                data=None,
+                dataProtesto=None,
+                dataVencimento="",
+                autorizacaoCancelamento=False,  # TODO: extrair essa informação
+                custasCancelamento="",  # TODO: extrair essa informação
+                valor=valor_limpo
+            )
+            protestos.append(protesto)
+        
+        return protestos
+```
+
+## Fase 6: Sistema Principal de Execução
+
+### 6.1 Script Principal (main.py)
+```python
+# main.py
+import asyncio
+from src.browser.browser_manager import BrowserManager
+from src.auth.login_manager import LoginManager
+from src.auth.email_extractor import EmailCodeExtractor
+from src.scraping.protest_scraper import ProtestScraper
+from src.config.settings import Settings
+from src.config.logging_config import setup_logging
+import json
+import os
+from pathlib import Path
+
+async def main():
+    """Função principal do RPA"""
+    logger = setup_logging()
+    logger.info("iniciando_rpa_resolve_cenprot")
+    
+    # Configurações
+    settings = Settings()
+    
+    # Componentes principais
+    browser_manager = BrowserManager()
+    email_extractor = EmailCodeExtractor(
+        settings.RESOLVE_EMAIL,
+        settings.RESOLVE_EMAIL_PASSWORD
+    )
+    login_manager = LoginManager(email_extractor)
+    
+    try:
+        # Inicializar browser
+        context = await browser_manager.initialize()
+        page = await browser_manager.new_page()
+        
+        # Realizar login
+        cnpj_login = settings.RESOLVE_CENPROT_LOGIN
+        login_success = await login_manager.perform_full_login(page, cnpj_login)
+        
+        if not login_success:
+            logger.error("falha_no_login_principal")
+            return
+        
+        # Inicializar scraper principal
+        scraper = ProtestScraper(page)
+        
+        # Ler lista de CNPJs para consulta
+        cnpjs = load_cnpjs_from_input()
+        
+        # Processar cada CNPJ
+        results = []
+        for cnpj in cnpjs:
+            try:
+                logger.info("processando_cnpj", cnpj=cnpj)
+                result = await scraper.consultar_cnpj(cnpj)
+                results.append(result.dict())
+                
+                # Salvar resultado individual
+                save_individual_result(cnpj, result.dict())
+                
+                # Delay entre consultas
+                await asyncio.sleep(settings.REQUEST_DELAY_MIN)
+                
+            except Exception as e:
+                logger.error("erro_processar_cnpj", cnpj=cnpj, error=str(e))
+                continue
+        
+        # Salvar resultados consolidados
+        save_consolidated_results(results)
+        
+        logger.info("rpa_finalizado_com_sucesso", total_cnpjs=len(results))
+        
+    except Exception as e:
+        logger.error("erro_fatal_rpa", error=str(e))
+        raise
+        
+    finally:
+        # Cleanup
+        email_extractor.disconnect()
+        await browser_manager.close()
+
+def load_cnpjs_from_input() -> List[str]:
+    """Carrega CNPJs do arquivo de input"""
+    input_file = Path("data/input/cnpjs.txt")
+    if input_file.exists():
+        with open(input_file, 'r') as f:
+            return [line.strip() for line in f if line.strip()]
+    return []
+
+def save_individual_result(cnpj: str, result: dict):
+    """Salva resultado individual de cada CNPJ"""
+    output_dir = Path("data/output")
+    output_dir.mkdir(exist_ok=True)
+    
+    filename = f"resultado_{cnpj}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    with open(output_dir / filename, 'w', encoding='utf-8') as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+
+def save_consolidated_results(results: List[dict]):
+    """Salva todos os resultados consolidados"""
+    output_dir = Path("data/output")
+    output_dir.mkdir(exist_ok=True)
+    
+    filename = f"resultados_consolidados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    with open(output_dir / filename, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Fase 7: Scripts de Execução
+
+### 7.1 Script para CNPJs em Lote
+```python
+# scripts/run_batch_cnpjs.py
+import asyncio
+import sys
+from pathlib import Path
+
+# Adicionar src ao path
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+
+from main import main
+
+if __name__ == "__main__":
+    print("🚀 Iniciando RPA Resolve CenProt - Processamento em Lote")
+    asyncio.run(main())
+```
+
+### 7.2 Script para CNPJ Único
+```python
+# scripts/run_single_cnpj.py
+import asyncio
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+
+async def run_single_cnpj(cnpj: str):
+    # Implementação similar ao main.py mas para um CNPJ específico
+    pass
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Uso: python run_single_cnpj.py <CNPJ>")
+        sys.exit(1)
+    
+    cnpj = sys.argv[1]
+    print(f"🎯 Processando CNPJ único: {cnpj}")
+    asyncio.run(run_single_cnpj(cnpj))
+```
+
+## Fase 8: Testes e Validação
+
+### 8.1 Testes de Autenticação
+```python
+# tests/test_auth.py
+import pytest
+from src.auth.login_manager import LoginManager
+
+@pytest.mark.asyncio
+async def test_login_flow():
+    # Testa fluxo completo de login
+    pass
+
+@pytest.mark.asyncio
+async def test_2fa_extraction():
+    # Testa extração de código 2FA do email
+    pass
+```
+
+### 8.2 Testes de Extração
+```python
+# tests/test_extraction.py
+import pytest
+from src.scraping.data_extractor import PlaywrightExtractor
+
+@pytest.mark.asyncio
+async def test_consultation_extraction():
+    # Testa extração de dados da página de consulta usando Playwright
+    pass
+
+@pytest.mark.asyncio
+async def test_modal_extraction():
+    # Testa extração de dados do modal usando Playwright
+    pass
+```
+
+## Cronograma de Implementação
+
+### Semana 1: Estrutura Base
+- [ ] Setup do projeto e estrutura de pastas
+- [ ] Configuração de ambiente (.env, requirements.txt)
+- [ ] Models Pydantic baseados no JSON exemplo
+- [ ] Sistema de logging estruturado
+
+### Semana 2: Sistema de Autenticação
+- [ ] Browser Manager com Playwright
+- [ ] Login Manager seguindo documentação
+- [ ] Sistema 2FA com integração email
+- [ ] Session Manager para cache
+
+### Semana 3: Sistema de Extração  
+- [ ] Extração de dados usando apenas Playwright
+- [ ] Seletores CSS para dados principais
+- [ ] Regex e parsing HTML para casos complexos
+- [ ] Formatação para estrutura JSON final
+
+### Semana 4: RPA Principal
+- [ ] Scraper principal integrando todos componentes
+- [ ] Scripts de execução (lote e único)
+- [ ] Sistema de logs e monitoramento
+- [ ] Testes e validação
+
+### Semana 5: Otimização e Deploy
+- [ ] Performance tuning
+- [ ] Error handling robusto
+- [ ] Documentação completa
+- [ ] Deploy e monitoramento
+
+## Métricas de Sucesso
+
+### Funcionais
+- [ ] Login automático 100% funcional
+- [ ] Extração de dados conforme JSON exemplo
+- [ ] Processamento de lotes de CNPJs
+- [ ] Taxa de sucesso > 95%
+
+### Não-Funcionais
+- [ ] Tempo médio por CNPJ < 30 segundos
+- [ ] Sistema resiliente a falhas temporárias
+- [ ] Logs estruturados para debugging
+- [ ] Conformidade com rate limiting do site
+
+## Considerações de Compliance
+
+### Rate Limiting
+- Máximo 1 consulta por segundo
+- Delays aleatórios entre 1-3 segundos
+- Pausa entre lotes de consultas
+
+### Anti-Detecção
+- Headers realistas no Playwright
+- User-Agent rotation
+- Session persistence
+- Screenshot em falhas para debug
+
+### Monitoramento
+- Logs estruturados de todas operações
+- Métricas de performance por componente
+- Alertas para falhas consecutivas
+- Dashboard de acompanhamento (futuro)
+
+Este plano de ação fornece um roadmap completo para implementar o RPA de web scraping do resolve.cenprot.org.br seguindo exatamente as especificações fornecidas e mantendo a estrutura de dados do JSON exemplo.

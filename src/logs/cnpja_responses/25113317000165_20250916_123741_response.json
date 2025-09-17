@@ -1,0 +1,32 @@
+{
+    "url": "https://api.cnpja.com/office/25113317000165",
+    "method": "GET",
+    "params": {
+        "simples": "true",
+        "registrations": "BR",
+        "geocoding": "true",
+        "suframa": "true",
+        "strategy": "ONLINE",
+        "maxAge": 10
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 503,
+    "headers_received": {
+        "request-id": "e4becf09da9bccc27f9b08d1de0d6e9f",
+        "trace-id": "861616f3de44614f5127841253ecc1b9",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "00c1bd3819044fe4fb72eb9114230a3c",
+        "date": "Tue, 16 Sep 2025 15:37:40 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "96",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-16T12:37:41.467534",
+    "response_body": "{\"code\":503,\"message\":\"simples service is offline\",\"traceId\":\"861616f3de44614f5127841253ecc1b9\"}"
+}

@@ -1,0 +1,121 @@
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+
+    <title>Valida - Assinatura</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #E5E7EB;
+        }
+        .sidebar {
+            background-color: #1F2937;
+        }
+        .header {
+            background-color: #1F2937;
+            border-bottom: 1px solid #374151;
+        }
+        .active-link {
+            background-color: #374151;
+            color: white;
+            border-radius: 0.375rem;
+        }
+        .inactive-link {
+            color: #9CA3AF;
+        }
+    </style>
+    <script src="/static/js/assinatura.js"></script>
+  </head>
+  <body>
+    <div class="flex h-screen bg-gray-900">
+      <!-- Sidebar -->
+      <aside class="sidebar w-64 p-4 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center mb-8">
+            <img alt="Valida Logo" class="h-8 mr-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPiTytodUSa_qp8ErIXjl0HYcDeCG9qNnFRFMu2Cz3a70lhzaWNupQM787LTBKoya6Hwg62W3qRnPmvQQzXeAQaXuWZfXcb4SrOdfms8pIuqpb7uzakD8yVUxkrr3LuKCN9QMPc_uN5RLSQORm2FFOEGk0_wxLiUFXS6w-BH5OHDr1upOSICkK0moQtHR9wUmj7FaVGYQdnp6mCZYd_L9_vpWQgHr7dMsEkV7IFNCExMBYr8IQYoZJ4n1duMfJvd0II_MlpFC78m8"/>
+            <span class="text-xl font-bold">Valida</span>
+          </div>
+          <nav class="space-y-2">
+            <div class="text-xs text-gray-500 uppercase font-bold mb-2">Geral</div>
+            <a href="/dashboard" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">dashboard</span> Visão Geral
+            </a>
+            <a href="/consultas" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">search</span> Consultas
+            </a>
+            <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Integrações</div>
+            <a href="/history" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">history</span> Histórico
+            </a>
+            <a href="/api-keys" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">key</span> Chave de API
+            </a>
+            <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Administração</div>
+            <a href="/assinatura" class="flex items-center p-2 active-link">
+              <span class="material-icons mr-3">subscriptions</span> Assinaturas
+            </a>
+            <a href="/faturas" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">receipt_long</span> Faturamento
+            </a>
+            <a href="/perfil" class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md">
+              <span class="material-icons mr-3">person</span> Perfil
+            </a>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="header px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold text-white">Assinatura</h1>
+              <p class="text-gray-400 mt-1">Gerencie sua assinatura e planos</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+          <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+            <div class="flex flex-wrap justify-between gap-3 p-4">
+              <p class="text-white tracking-light text-[32px] font-bold leading-tight min-w-72">Assinatura</p>
+            </div>
+            
+            <!-- Assinatura Atual -->
+            <div data-current-subscription>
+              <!-- Será preenchido dinamicamente pelo JavaScript -->
+            </div>
+            
+            <!-- Planos Disponíveis -->
+            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Planos disponíveis</h2>
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(228px,1fr))] gap-2.5 px-4 py-3 @3xl:grid-cols-4" data-plans-container>
+              <!-- Planos serão carregados dinamicamente pelo JavaScript -->
+            </div>
+            
+            <!-- Histórico de Faturamento -->
+            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Histórico de faturamento</h2>
+            <div class="px-4 py-3">
+              <div class="text-center text-[#92adc9] py-8">
+                <p>Histórico de faturas será implementado em breve</p>
+                <p class="text-sm mt-2">Acesse a página de <a href="/faturas" class="text-[#1172d4] hover:underline">Faturas</a> para ver o histórico completo</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

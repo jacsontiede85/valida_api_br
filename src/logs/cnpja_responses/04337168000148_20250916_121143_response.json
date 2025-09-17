@@ -1,0 +1,1108 @@
+{
+    "url": "https://api.cnpja.com/office/04337168000148",
+    "method": "GET",
+    "params": {
+        "simples": "true",
+        "registrations": "BR",
+        "geocoding": "true",
+        "suframa": "true",
+        "strategy": "CACHE_IF_FRESH",
+        "maxAge": 2
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "a9de15a76b723e44df0293f1076bc5cd",
+        "trace-id": "31f8ee561eba4f2851c1d2fd23d012d9",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "e924b3e3b7ccd5b931c7728813af5e4a",
+        "date": "Tue, 16 Sep 2025 15:11:42 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "18063",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-16T12:11:43.699153",
+    "response_body": {
+        "updated": "2025-09-15T11:49:29.000Z",
+        "taxId": "04337168000148",
+        "company": {
+            "id": 4337168,
+            "name": "MOTO HONDA DA AMAZONIA LTDA",
+            "equity": 2135999934,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 5,
+                "acronym": "DEMAIS",
+                "text": "Demais"
+            },
+            "members": [
+                {
+                    "since": "2023-01-30",
+                    "role": {
+                        "id": 5,
+                        "text": "Administrador"
+                    },
+                    "person": {
+                        "id": "210c43a1-e978-416b-b7b0-e19bb56de9ea",
+                        "name": "Marcos Antonio Bento de Sousa",
+                        "type": "NATURAL",
+                        "taxId": "***328511**",
+                        "age": "51-60"
+                    }
+                },
+                {
+                    "since": "2025-04-02",
+                    "role": {
+                        "id": 5,
+                        "text": "Administrador"
+                    },
+                    "person": {
+                        "id": "72720b4b-a02f-4b87-b249-35d1c4c1109f",
+                        "name": "Joao Batista Coelho Mezari",
+                        "type": "NATURAL",
+                        "taxId": "***805869**",
+                        "age": "61-70"
+                    }
+                },
+                {
+                    "since": "1977-12-22",
+                    "role": {
+                        "id": 22,
+                        "text": "Sócio"
+                    },
+                    "person": {
+                        "id": "7e299c33-e2e2-46a6-8c57-b99b94d975a4",
+                        "name": "HONDA SOUTH AMERICA LTDA.",
+                        "type": "LEGAL",
+                        "taxId": "43149806000159"
+                    },
+                    "agent": {
+                        "role": {
+                            "id": 5,
+                            "text": "Administrador"
+                        },
+                        "person": {
+                            "id": "e81b0da5-0d8b-49ca-867c-df064979c63f",
+                            "name": "Arata Ichinose",
+                            "type": "NATURAL",
+                            "taxId": "***564591**",
+                            "age": "51-60"
+                        }
+                    }
+                },
+                {
+                    "since": "2025-07-02",
+                    "role": {
+                        "id": 5,
+                        "text": "Administrador"
+                    },
+                    "person": {
+                        "id": "93c3011c-a889-4a25-82c6-b5031c10c619",
+                        "name": "Yuichiro Ishii",
+                        "type": "NATURAL",
+                        "taxId": "***657031**",
+                        "age": "51-60"
+                    }
+                },
+                {
+                    "since": "2022-06-21",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "aa2601f3-4fb5-48a3-82df-507b598901ca",
+                        "name": "Hidenobu Nishida",
+                        "type": "NATURAL",
+                        "taxId": "***819541**",
+                        "age": "51-60"
+                    }
+                },
+                {
+                    "since": "2022-06-21",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "e1fc2565-bc37-4b61-b459-28bb3d119858",
+                        "name": "Masaichi Kobayashi",
+                        "type": "NATURAL",
+                        "taxId": "***784331**",
+                        "age": "51-60"
+                    }
+                },
+                {
+                    "since": "2024-04-26",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "e81b0da5-0d8b-49ca-867c-df064979c63f",
+                        "name": "Arata Ichinose",
+                        "type": "NATURAL",
+                        "taxId": "***564591**",
+                        "age": "51-60"
+                    }
+                }
+            ],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": false,
+                "since": null
+            }
+        },
+        "alias": "Moto Honda",
+        "founded": "1975-07-05",
+        "head": true,
+        "statusDate": "2005-11-03",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 1302603,
+            "street": "Rua Jurua",
+            "number": "160",
+            "details": "Lts 2.26 2.26/1 2.28",
+            "district": "Distrit Industrial I",
+            "city": "Manaus",
+            "state": "AM",
+            "zip": "69075120",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -3.145565,
+            "longitude": -59.997356
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "92",
+                "number": "36165440"
+            },
+            {
+                "type": "LANDLINE",
+                "area": "92",
+                "number": "36165313"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "CORPORATE",
+                "address": "maohondafiscalcontrole@honda.com.br",
+                "domain": "honda.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 3091101,
+            "text": "Fabricação de motocicletas"
+        },
+        "sideActivities": [
+            {
+                "id": 1354500,
+                "text": "Fabricação de tecidos especiais, inclusive artefatos"
+            },
+            {
+                "id": 1359600,
+                "text": "Fabricação de outros produtos têxteis não especificados anteriormente"
+            },
+            {
+                "id": 1412601,
+                "text": "Confecção de peças de vestuário, exceto roupas íntimas e as confeccionadas sob medida"
+            },
+            {
+                "id": 1412602,
+                "text": "Confecção, sob medida, de peças do vestuário, exceto roupas íntimas"
+            },
+            {
+                "id": 1412603,
+                "text": "Facção de peças do vestuário, exceto roupas íntimas"
+            },
+            {
+                "id": 1413401,
+                "text": "Confecção de roupas profissionais, exceto sob medida"
+            },
+            {
+                "id": 1413403,
+                "text": "Facção de roupas profissionais"
+            },
+            {
+                "id": 1414200,
+                "text": "Fabricação de acessórios do vestuário, exceto para segurança e proteção"
+            },
+            {
+                "id": 1521100,
+                "text": "Fabricação de artigos para viagem, bolsas e semelhantes de qualquer material"
+            },
+            {
+                "id": 1531901,
+                "text": "Fabricação de calçados de couro"
+            },
+            {
+                "id": 1533500,
+                "text": "Fabricação de calçados de material sintético"
+            },
+            {
+                "id": 1922599,
+                "text": "Fabricação de outros produtos derivados do petróleo, exceto produtos do refino"
+            },
+            {
+                "id": 2093200,
+                "text": "Fabricação de aditivos de uso industrial"
+            },
+            {
+                "id": 2543800,
+                "text": "Fabricação de ferramentas"
+            },
+            {
+                "id": 2591800,
+                "text": "Fabricação de embalagens metálicas"
+            },
+            {
+                "id": 2651500,
+                "text": "Fabricação de aparelhos e equipamentos de medida, teste e controle"
+            },
+            {
+                "id": 2710401,
+                "text": "Fabricação de geradores de corrente contínua e alternada, peças e acessórios"
+            },
+            {
+                "id": 2710403,
+                "text": "Fabricação de motores elétricos, peças e acessórios"
+            },
+            {
+                "id": 2811900,
+                "text": "Fabricação de motores e turbinas, peças e acessórios, exceto para aviões e veículos rodoviários"
+            },
+            {
+                "id": 2831300,
+                "text": "Fabricação de tratores agrícolas, peças e acessórios"
+            },
+            {
+                "id": 2833000,
+                "text": "Fabricação de máquinas e equipamentos para a agricultura e pecuária, peças e acessórios, exceto para irrigação"
+            },
+            {
+                "id": 2840200,
+                "text": "Fabricação de máquinas-ferramenta, peças e acessórios"
+            },
+            {
+                "id": 2853400,
+                "text": "Fabricação de tratores, peças e acessórios, exceto agrícolas"
+            },
+            {
+                "id": 2861500,
+                "text": "Fabricação de máquinas para a indústria metalúrgica, peças e acessórios, exceto máquinas-ferramenta"
+            },
+            {
+                "id": 2866600,
+                "text": "Fabricação de máquinas e equipamentos para a indústria do plástico, peças e acessórios"
+            },
+            {
+                "id": 2869100,
+                "text": "Fabricação de máquinas e equipamentos para uso industrial específico não especificados anteriormente, peças e acessórios"
+            },
+            {
+                "id": 3091102,
+                "text": "Fabricação de peças e acessórios para motocicletas"
+            },
+            {
+                "id": 3230200,
+                "text": "Fabricação de artefatos para pesca e esporte"
+            },
+            {
+                "id": 3299099,
+                "text": "Fabricação de produtos diversos não especificados anteriormente"
+            },
+            {
+                "id": 3311200,
+                "text": "Manutenção e reparação de tanques, reservatórios metálicos e caldeiras, exceto para veículos"
+            },
+            {
+                "id": 3312102,
+                "text": "Manutenção e reparação de aparelhos e instrumentos de medida, teste e controle"
+            },
+            {
+                "id": 3313901,
+                "text": "Manutenção e reparação de geradores, transformadores e motores elétricos"
+            },
+            {
+                "id": 3313902,
+                "text": "Manutenção e reparação de baterias e acumuladores elétricos, exceto para veículos"
+            },
+            {
+                "id": 3313999,
+                "text": "Manutenção e reparação de máquinas, aparelhos e materiais elétricos não especificados anteriormente"
+            },
+            {
+                "id": 3314701,
+                "text": "Manutenção e reparação de máquinas motrizes não-elétricas"
+            },
+            {
+                "id": 3314702,
+                "text": "Manutenção e reparação de equipamentos hidráulicos e pneumáticos, exceto válvulas"
+            },
+            {
+                "id": 3314703,
+                "text": "Manutenção e reparação de válvulas industriais"
+            },
+            {
+                "id": 3314705,
+                "text": "Manutenção e reparação de equipamentos de transmissão para fins industriais"
+            },
+            {
+                "id": 3314706,
+                "text": "Manutenção e reparação de máquinas, aparelhos e equipamentos para instalações térmicas"
+            },
+            {
+                "id": 3314710,
+                "text": "Manutenção e reparação de máquinas e equipamentos para uso geral não especificados anteriormente"
+            },
+            {
+                "id": 3314711,
+                "text": "Manutenção e reparação de máquinas e equipamentos para agricultura e pecuária"
+            },
+            {
+                "id": 3314712,
+                "text": "Manutenção e reparação de tratores agrícolas"
+            },
+            {
+                "id": 3314713,
+                "text": "Manutenção e reparação de máquinas-ferramenta"
+            },
+            {
+                "id": 3314715,
+                "text": "Manutenção e reparação de máquinas e equipamentos para uso na extração mineral, exceto na extração de petróleo"
+            },
+            {
+                "id": 3314716,
+                "text": "Manutenção e reparação de tratores, exceto agrícolas"
+            },
+            {
+                "id": 3314718,
+                "text": "Manutenção e reparação de máquinas para a indústria metalúrgica, exceto máquinas-ferramenta"
+            },
+            {
+                "id": 3314720,
+                "text": "Manutenção e reparação de máquinas e equipamentos para a indústria têxtil, do vestuário, do couro e calçados"
+            },
+            {
+                "id": 3314722,
+                "text": "Manutenção e reparação de máquinas e aparelhos para a indústria do plástico"
+            },
+            {
+                "id": 3314799,
+                "text": "Manutenção e reparação de outras máquinas e equipamentos para usos industriais não especificados anteriormente"
+            },
+            {
+                "id": 3319800,
+                "text": "Manutenção e reparação de equipamentos e produtos não especificados anteriormente"
+            },
+            {
+                "id": 4541201,
+                "text": "Comércio por atacado de motocicletas e motonetas"
+            },
+            {
+                "id": 4541202,
+                "text": "Comércio por atacado de peças e acessórios para motocicletas e motonetas"
+            },
+            {
+                "id": 4542101,
+                "text": "Representantes comerciais e agentes do comércio de motocicletas e motonetas, peças e acessórios"
+            },
+            {
+                "id": 4543900,
+                "text": "Manutenção e reparação de motocicletas e motonetas"
+            },
+            {
+                "id": 4612500,
+                "text": "Representantes comerciais e agentes do comércio de combustíveis, minerais, produtos siderúrgicos e químicos"
+            },
+            {
+                "id": 4614100,
+                "text": "Representantes comerciais e agentes do comércio de máquinas, equipamentos, embarcações e aeronaves"
+            },
+            {
+                "id": 4616800,
+                "text": "Representantes comerciais e agentes do comércio de têxteis, vestuário, calçados e artigos de viagem"
+            },
+            {
+                "id": 4618499,
+                "text": "Outros representantes comerciais e agentes do comércio especializado em produtos não especificados anteriormente"
+            },
+            {
+                "id": 4641903,
+                "text": "Comércio atacadista de artigos de armarinho"
+            },
+            {
+                "id": 4642701,
+                "text": "Comércio atacadista de artigos do vestuário e acessórios, exceto profissionais e de segurança"
+            },
+            {
+                "id": 4642702,
+                "text": "Comércio atacadista de roupas e acessórios para uso profissional e de segurança do trabalho"
+            },
+            {
+                "id": 4643501,
+                "text": "Comércio atacadista de calçados"
+            },
+            {
+                "id": 4643502,
+                "text": "Comércio atacadista de bolsas, malas e artigos de viagem"
+            },
+            {
+                "id": 4661300,
+                "text": "Comércio atacadista de máquinas, aparelhos e equipamentos para uso agropecuário; partes e peças"
+            },
+            {
+                "id": 4663000,
+                "text": "Comércio atacadista de Máquinas e equipamentos para uso industrial; partes e peças"
+            },
+            {
+                "id": 4669901,
+                "text": "Comércio atacadista de bombas e compressores; partes e peças"
+            },
+            {
+                "id": 4669999,
+                "text": "Comércio atacadista de outras máquinas e equipamentos não especificados anteriormente; partes e peças"
+            },
+            {
+                "id": 4684299,
+                "text": "Comércio atacadista de outros produtos químicos e petroquímicos não especificados anteriormente"
+            },
+            {
+                "id": 4689399,
+                "text": "Comércio atacadista especializado em outros produtos intermediários não especificados anteriormente"
+            },
+            {
+                "id": 5211701,
+                "text": "Armazéns gerais - emissão de warrant"
+            },
+            {
+                "id": 5811500,
+                "text": "Edição de livros"
+            },
+            {
+                "id": 5812301,
+                "text": "Edição de jornais diários"
+            },
+            {
+                "id": 5812302,
+                "text": "Edição de jornais não diários"
+            },
+            {
+                "id": 5813100,
+                "text": "Edição de revistas"
+            },
+            {
+                "id": 5819100,
+                "text": "Edição de cadastros, listas e de outros produtos gráficos"
+            },
+            {
+                "id": 6202300,
+                "text": "Desenvolvimento e licenciamento de programas de computador customizáveis"
+            },
+            {
+                "id": 6203100,
+                "text": "Desenvolvimento e licenciamento de programas de computador não-customizáveis"
+            },
+            {
+                "id": 6463800,
+                "text": "Outras sociedades de participação, exceto holdings"
+            },
+            {
+                "id": 7020400,
+                "text": "Atividades de consultoria em gestão empresarial, exceto consultoria técnica específica"
+            },
+            {
+                "id": 7112000,
+                "text": "Serviços de engenharia"
+            },
+            {
+                "id": 7119703,
+                "text": "Serviços de desenho técnico relacionados à arquitetura e engenharia"
+            },
+            {
+                "id": 7119799,
+                "text": "Atividades técnicas relacionadas à engenharia e arquitetura não especificadas anteriormente"
+            },
+            {
+                "id": 7210000,
+                "text": "Pesquisa e desenvolvimento experimental em ciências físicas e naturais"
+            },
+            {
+                "id": 7312200,
+                "text": "Agenciamento de espaços para publicidade, exceto em veículos de comunicação"
+            },
+            {
+                "id": 7319099,
+                "text": "Outras atividades de publicidade não especificadas anteriormente"
+            },
+            {
+                "id": 7320300,
+                "text": "Pesquisas de mercado e de opinião pública"
+            },
+            {
+                "id": 7490199,
+                "text": "Outras atividades profissionais, científicas e técnicas não especificadas anteriormente"
+            },
+            {
+                "id": 7739003,
+                "text": "Aluguel de palcos, coberturas e outras estruturas de uso temporário, exceto andaimes"
+            },
+            {
+                "id": 8211300,
+                "text": "Serviços combinados de escritório e apoio administrativo"
+            },
+            {
+                "id": 8230002,
+                "text": "Casas de festas e eventos"
+            },
+            {
+                "id": 8599601,
+                "text": "Formação de condutores"
+            },
+            {
+                "id": 8599699,
+                "text": "Outras atividades de ensino não especificadas anteriormente"
+            },
+            {
+                "id": 9312300,
+                "text": "Clubes sociais, esportivos e similares"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "SE",
+                "number": "270981705",
+                "enabled": false,
+                "statusDate": "2016-04-08",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "047200243",
+                "enabled": false,
+                "statusDate": "2017-05-19",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "041533704",
+                "enabled": false,
+                "statusDate": "2023-12-04",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "SC",
+                "number": "252789261",
+                "enabled": true,
+                "statusDate": "1993-12-20",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 4,
+                    "text": "IE de Produtor Rural"
+                }
+            },
+            {
+                "state": "SE",
+                "number": "270981691",
+                "enabled": false,
+                "statusDate": "2016-04-08",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AL",
+                "number": "245000240",
+                "enabled": true,
+                "statusDate": "2016-12-30",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "TO",
+                "number": "299992276",
+                "enabled": true,
+                "statusDate": "2024-09-05",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "MT",
+                "number": "00131429833",
+                "enabled": true,
+                "statusDate": "2023-05-10",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RJ",
+                "number": "91010453",
+                "enabled": true,
+                "statusDate": "2025-08-28",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "PR",
+                "number": "0990042403",
+                "enabled": true,
+                "statusDate": "2025-07-14",
+                "status": {
+                    "id": 2,
+                    "text": "Bloqueado como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AC",
+                "number": "0100198400108",
+                "enabled": true,
+                "statusDate": "2025-07-14",
+                "status": {
+                    "id": 2,
+                    "text": "Bloqueado como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "PI",
+                "number": "194266508",
+                "enabled": true,
+                "statusDate": "2024-03-13",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RS",
+                "number": "0962368253",
+                "enabled": false,
+                "statusDate": "2016-01-03",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "063002280",
+                "enabled": false,
+                "statusDate": "2017-05-20",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "MS",
+                "number": "282365931",
+                "enabled": true,
+                "statusDate": "2023-06-06",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "SE",
+                "number": "270850953",
+                "enabled": true,
+                "statusDate": "2024-11-20",
+                "status": {
+                    "id": 3,
+                    "text": "Vedada operação como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "GO",
+                "number": "102639230",
+                "enabled": true,
+                "statusDate": "1994-01-25",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RO",
+                "number": "00000000459445",
+                "enabled": true,
+                "statusDate": "2016-12-09",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RS",
+                "number": "9000000390",
+                "enabled": true,
+                "statusDate": "2021-01-21",
+                "status": {
+                    "id": 2,
+                    "text": "Bloqueado como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "PE",
+                "number": "019314906",
+                "enabled": true,
+                "statusDate": "2017-10-30",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RR",
+                "number": "240035786",
+                "enabled": true,
+                "statusDate": "2025-01-23",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "PA",
+                "number": "151739536",
+                "enabled": true,
+                "statusDate": "2022-06-08",
+                "status": {
+                    "id": 3,
+                    "text": "Vedada operação como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "BA",
+                "number": "038091748",
+                "enabled": true,
+                "statusDate": "1993-11-11",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "070002207",
+                "enabled": true,
+                "statusDate": "2018-12-16",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "MA",
+                "number": "126002371",
+                "enabled": true,
+                "statusDate": "2017-07-06",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "SP",
+                "number": "804000067116",
+                "enabled": true,
+                "statusDate": "2022-06-09",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "RN",
+                "number": "203000986",
+                "enabled": true,
+                "statusDate": "1993-08-25",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "DF",
+                "number": "0733166800156",
+                "enabled": true,
+                "statusDate": "1993-11-24",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "PB",
+                "number": "169993817",
+                "enabled": false,
+                "statusDate": "2025-09-15",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "041568176",
+                "enabled": true,
+                "statusDate": "2018-12-16",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "CE",
+                "number": "069995435",
+                "enabled": true,
+                "statusDate": "2024-02-09",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "062002562",
+                "enabled": true,
+                "statusDate": "2019-01-02",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "MG",
+                "number": "0358458700047",
+                "enabled": true,
+                "statusDate": "2020-10-21",
+                "status": {
+                    "id": 2,
+                    "text": "Bloqueado como Destinatário na UF"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            },
+            {
+                "state": "AM",
+                "number": "063009382",
+                "enabled": true,
+                "statusDate": "2022-09-21",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            },
+            {
+                "state": "ES",
+                "number": "000011010",
+                "enabled": true,
+                "statusDate": "1994-02-18",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 2,
+                    "text": "IE Substituto Tributário"
+                }
+            }
+        ],
+        "suframa": [
+            {
+                "number": "200106023",
+                "since": "2018-03-20",
+                "approved": true,
+                "approvalDate": "2006-12-18",
+                "status": {
+                    "id": 1,
+                    "text": "Ativa"
+                },
+                "incentives": [
+                    {
+                        "tribute": "IPI",
+                        "benefit": "Isenção",
+                        "purpose": "Consumo Interno, Industrialização e Utilização",
+                        "basis": "Decreto 7.212 de 2010 (Art. 81)"
+                    },
+                    {
+                        "tribute": "ICMS",
+                        "benefit": "Isenção",
+                        "purpose": "Industrialização e Comercialização",
+                        "basis": "Convênio ICMS n° 65 de 1988"
+                    }
+                ]
+            }
+        ]
+    }
+}

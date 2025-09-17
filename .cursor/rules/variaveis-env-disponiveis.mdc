@@ -1,0 +1,60 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Variáveis configuradas no .env
+
+# Carregar variáveis de ambiente
+from dotenv import load_dotenv
+load_dotenv()
+
+# IMPORTANTE
+- Todas variáveis abaixo possui valor no .env configurado, no exemplo abaixo se estiver sem valor, é devido ser dados sensivel. NUNCA LEIA DIRETAMENTE O ARQUIVO .env
+
+# Credenciais Resolve CenProt
+RESOLVE_CENPROT_LOGIN=
+RESOLVE_CENPROT_URL=https://resolve.cenprot.org.br
+
+# Email para 2FA
+RESOLVE_EMAIL=
+RESOLVE_EMAIL_PASSWORD=
+RESOLVE_IMAP_SERVER=imap.gmail.com
+
+
+# Configurações de Performance
+MAX_CONCURRENT_REQUESTS=3
+REQUEST_DELAY_MIN=1.0
+REQUEST_DELAY_MAX=3.0
+MAX_RETRIES=3
+
+# Browser/Playwright
+HEADLESS=false
+BROWSER_TIMEOUT=30000
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE_MAX_SIZE=10MB
+LOG_FILES_BACKUP_COUNT=5
+
+# Usar Web Scrapping ou Api Oficial
+USAR_RESOLVE_CENPROT_API_OFICIAL=true
+
+# salvar todas consultas no oracle
+IS_SALVAR_CONSULTAS_ORACLE = false
+
+# Database
+DB_USER = 
+DB_PASSWORD = 
+
+# Porta do servidor de API
+SERVER_PORT=2377
+
+# Banco de dados
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Chave de api consultar dados de cnpj na receita - CNPJa
+API_KEY_CNPJA  = 

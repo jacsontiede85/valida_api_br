@@ -1,0 +1,36 @@
+{
+    "url": "https://api.cnpja.com/office/25113317000165",
+    "method": "GET",
+    "params": {
+        "simples": "false",
+        "registrations": "BR",
+        "geocoding": "false",
+        "suframa": "false",
+        "partners": "false",
+        "activities": "false",
+        "contact": "false",
+        "address": "false",
+        "strategy": "CACHE_IF_FRESH",
+        "maxAge": 2
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 400,
+    "headers_received": {
+        "request-id": "3c493591387a1dfc2f8000b91512c068",
+        "trace-id": "a190da256d8e882de53cde529627503d",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "72898767a95e7515c3eec542ac52b9e5",
+        "date": "Tue, 16 Sep 2025 15:22:44 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "214",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-16T12:22:45.307722",
+    "response_body": "{\"code\":400,\"message\":\"request validation failed\",\"constraints\":[\"property partners should not exist\",\"property activities should not exist\",\"property contact should not exist\",\"property address should not exist\"]}"
+}

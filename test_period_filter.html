@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Filtro de Período</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .period-buttons { margin: 20px 0; }
+        .period-buttons button { 
+            margin: 5px; 
+            padding: 10px 15px; 
+            border: 1px solid #ccc; 
+            background: #f5f5f5; 
+            cursor: pointer;
+        }
+        .period-buttons button.active { 
+            background: #007bff; 
+            color: white; 
+        }
+        .result { 
+            margin: 20px 0; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border: 1px solid #dee2e6; 
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste do Filtro de Período</h1>
+    
+    <div class="period-buttons">
+        <button data-period="today" class="active">Hoje</button>
+        <button data-period="30d">30d</button>
+        <button data-period="90d">90d</button>
+        <button data-period="custom">Personalizado</button>
+    </div>
+    
+    <div class="result" id="result">
+        <h3>Resultado:</h3>
+        <p>Período selecionado: <span id="selected-period">today</span></p>
+        <p>Dados carregados: <span id="data-loaded">Não</span></p>
+    </div>
+
+    <script>
+        class PeriodFilterTest {
+            constructor() {
+                this.currentPeriod = 'today';
+                this.init();
+            }
+
+            init() {
+                console.log('🔧 Inicializando teste do filtro de período');
+                
+                // Registrar eventos dos botões
+                const periodButtons = document.querySelectorAll('[data-period]');
+                console.log(`🔘 Encontrados ${periodButtons.length} botões de período`);
+                
+                periodButtons.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const period = e.target.dataset.period;
+                        console.log(`🖱️ Clique no botão de período: ${period}`);
+                        this.filterByPeriod(period);
+                    });
+                });
+            }
+
+            filterByPeriod(period) {
+                console.log(`📅 Filtrando por período: ${period}`);
+                
+                // Atualizar botões ativos
+                document.querySelectorAll('[data-period]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                const activeBtn = document.querySelector(`[data-period="${period}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+                
+                // Atualizar UI
+                this.currentPeriod = period;
+                document.getElementById('selected-period').textContent = period;
+                document.getElementById('data-loaded').textContent = 'Sim';
+                
+                // Simular carregamento de dados
+                this.loadData(period);
+            }
+
+            async loadData(period) {
+                console.log(`📊 Carregando dados para período: ${period}`);
+                
+                try {
+                    const response = await fetch(`http://localhost:2377/api/v1/dashboard/stats?period=${period}`, {
+                        headers: {
+                            'Authorization': 'Bearer rcp_dev-key-2',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(`✅ Dados carregados para ${period}:`, data);
+                        this.displayData(data);
+                    } else {
+                        console.error(`❌ Erro ao carregar dados para ${period}:`, response.status);
+                    }
+                } catch (error) {
+                    console.error(`❌ Erro na requisição para ${period}:`, error);
+                }
+            }
+
+            displayData(data) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <h3>Resultado para ${this.currentPeriod}:</h3>
+                    <p><strong>Total de consultas:</strong> ${data.total_queries}</p>
+                    <p><strong>Consumo no período:</strong> ${data.period_consumption}</p>
+                    <p><strong>Custo total:</strong> R$ ${data.total_cost.toFixed(2)}</p>
+                    <p><strong>Taxa de sucesso:</strong> ${data.success_rate.toFixed(1)}%</p>
+                `;
+            }
+        }
+
+        // Inicializar quando a página carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            new PeriodFilterTest();
+        });
+    </script>
+</body>
+</html>

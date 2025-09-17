@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valida - Entrar</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+        .city-silhouette {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300"><rect fill="%231e293b" width="1200" height="300"/><rect fill="%23374151" x="0" y="200" width="50" height="100"/><rect fill="%23374151" x="60" y="180" width="40" height="120"/><rect fill="%23374151" x="120" y="160" width="60" height="140"/><rect fill="%23374151" x="200" y="190" width="45" height="110"/><rect fill="%23374151" x="270" y="170" width="55" height="130"/><rect fill="%23374151" x="350" y="185" width="50" height="115"/><rect fill="%23374151" x="420" y="175" width="40" height="125"/><rect fill="%23374151" x="480" y="165" width="60" height="135"/><rect fill="%23374151" x="560" y="180" width="45" height="120"/><rect fill="%23374151" x="630" y="190" width="50" height="110"/><rect fill="%23374151" x="700" y="160" width="55" height="140"/><rect fill="%23374151" x="780" y="185" width="40" height="115"/><rect fill="%23374151" x="840" y="175" width="60" height="125"/><rect fill="%23374151" x="920" y="180" width="45" height="120"/><rect fill="%23374151" x="990" y="170" width="50" height="130"/><rect fill="%23374151" x="1060" y="185" width="40" height="115"/><rect fill="%23374151" x="1120" y="175" width="50" height="125"/></svg>');
+            background-size: cover;
+            background-position: bottom;
+            opacity: 0.1;
+        }
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        .modal-content {
+            background: linear-gradient(145deg, #1f2937 0%, #374151 100%);
+            border: 1px solid #4b5563;
+        }
+        .input-field {
+            background: #374151;
+            border: 1px solid #4b5563;
+            transition: all 0.3s ease;
+        }
+        .input-field:focus {
+            background: #4b5563;
+            border-color: #06b6d4;
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);
+        }
+        .btn-social {
+            background: #374151;
+            border: 1px solid #4b5563;
+            transition: all 0.3s ease;
+        }
+        .btn-social:hover {
+            background: #4b5563;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Background with city silhouette -->
+    <div class="city-silhouette absolute inset-0"></div>
+    
+    <!-- Main Container -->
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <!-- Modal Backdrop -->
+        <div class="modal-backdrop fixed inset-0 z-10"></div>
+        
+        <!-- Login Modal -->
+        <div class="modal-content relative z-20 w-full max-w-md rounded-2xl shadow-2xl p-8">
+            <!-- Close Button -->
+            <button class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors" onclick="closeModal()">
+                <span class="material-icons">close</span>
+            </button>
+            
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="flex items-center justify-center mb-4">
+                    <img alt="Valida Logo" class="h-10 mr-3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPiTytodUSa_qp8ErIXjl0HYcDeCG9qNnFRFMu2Cz3a70lhzaWNupQM787LTBKoya6Hwg62W3qRnPmvQQzXeAQaXuWZfXcb4SrOdfms8pIuqpb7uzakD8yVUxkrr3LuKCN9QMPc_uN5RLSQORm2FFOEGk0_wxLiUFXS6w-BH5OHDr1upOSICkK0moQtHR9wUmj7FaVGYQdnp6mCZYd_L9_vpWQgHr7dMsEkV7IFNCExMBYr8IQYoZJ4n1duMfJvd0II_MlpFC78m8"/>
+                    <span class="text-2xl font-bold text-white">Valida</span>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">Entrar</h1>
+                <p class="text-gray-400">Informe suas credenciais para prosseguir.</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-6">
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-300 mb-2">E-mail</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        required
+                        class="input-field w-full px-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none"
+                        placeholder="seu@email.com"
+                    >
+                </div>
+                
+                <!-- Password Field -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="password" class="block text-sm font-medium text-gray-300">Senha</label>
+                        <a href="#" class="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">Esqueceu a senha?</a>
+                    </div>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required
+                        class="input-field w-full px-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none"
+                        placeholder="••••••••"
+                    >
+                </div>
+                
+                <!-- Login Button -->
+                <button 
+                    type="submit" 
+                    class="btn-primary w-full py-3 px-4 rounded-lg text-white font-semibold text-lg"
+                >
+                    Entrar
+                </button>
+            </form>
+            
+            <!-- Divider -->
+            <div class="relative my-8">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-600"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-4 bg-gray-700 text-gray-400">OU</span>
+                </div>
+            </div>
+            
+            <!-- Social Login Buttons -->
+            <div class="space-y-3">
+                <button class="btn-social w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Entrar com Google
+                </button>
+                
+                <button class="btn-social w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Entrar com GitHub
+                </button>
+                
+                <button class="btn-social w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
+                    </svg>
+                    Entrar com Microsoft
+                </button>
+            </div>
+            
+            <!-- Register Link -->
+            <div class="text-center mt-8">
+                <p class="text-gray-400">
+                    Não tem uma conta? 
+                    <a href="/register" class="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Cadastrar</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Background -->
+    <div class="fixed bottom-8 left-8 right-8 z-0">
+        <div class="flex justify-between items-end">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-white mb-1">1.119.434</div>
+                <div class="text-sm text-gray-400">Consultas Hoje</div>
+                <div class="text-xs text-gray-500">Desde às 0h UTC (21h Brasil)</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-white mb-1">531 milhões</div>
+                <div class="text-sm text-gray-400">Consultas Últimos 12 Meses</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="fixed top-8 left-8 z-0">
+        <div class="flex items-center bg-gray-800 rounded-lg px-4 py-2 border border-gray-600">
+            <span class="material-icons text-gray-400 mr-2">search</span>
+            <input 
+                type="text" 
+                placeholder="Q Pesquisa" 
+                class="bg-transparent text-white placeholder-gray-400 focus:outline-none"
+                disabled
+            >
+            <span class="text-xs text-gray-500 ml-2">CTRL+K</span>
+        </div>
+    </div>
+    
+    <!-- Navigation -->
+    <div class="fixed top-8 right-8 z-0">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 text-white">
+                <a href="#" class="hover:text-cyan-400 transition-colors">Consulta</a>
+                <a href="#" class="hover:text-cyan-400 transition-colors">API</a>
+                <a href="#" class="hover:text-cyan-400 transition-colors">Add-in de Excel</a>
+                <a href="#" class="hover:text-cyan-400 transition-colors">Planos</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iMTIiIGZpbGw9IiNGRkY5RjkiLz4KPHBhdGggZD0iTTEyIDJMMTQuMDkgOC4yNkwyMiA5TDE0LjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDIgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjRkY5RjkiLz4KPC9zdmc+" alt="BR" class="w-6 h-6">
+                <span class="material-icons text-gray-400">dark_mode</span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/auth.js"></script>
+</body>
+</html>

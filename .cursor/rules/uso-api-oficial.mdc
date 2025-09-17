@@ -1,0 +1,118 @@
+---
+alwaysApply: false
+---
+Criar integração com API oficial do Resolve Cenprot, mantendo duas opções de acesso.
+- RPA (Robotic Process Automation) de web scraping para extrair dados de protestos através de navegação do site resolve.cenprot.org.br (JÁ DESENVOLVIDO, DEVE MANTER SEM ALTERAÇÕES)
+- Implementar uso da API oficial
+- Usar variável em .env USAR_RESOLVE_CENPROT_API_OFICIAL=true, para definir qual a forma de consulta
+
+1. enviar token para email (2fa)
+GET: https://api.resolve.cenprot.org.br/para-voce/api/auth/v2/generate-token/{RESOLVE_CENPROT_LOGIN}
+Observação: RESOLVE_CENPROT_LOGIN é uma variável já salva no .env
+
+
+2. obter token 2fa no email usando script para ler e-mails (`C:\src\resolve_cenprot\src\auth\email_extractor.py`)
+
+
+3. usar token 2fa para obter api token
+GET: https://api.resolve.cenprot.org.br/para-voce/api/auth/v2/validate-token/user/{RESOLVE_CENPROT_LOGIN}/{TOKEN 2FA}
+
+em caso de token 2fa obtido no e-mail estiver ok:
+{
+	"message": "Login efetuado com sucesso.",
+	"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjU0NTIwLCJkb2N1bWVudCI6IjMxOTEyOTA5MDAwMTQwIiwiaWF0IjoxNzU3NTExNzM2LCJleHAiOjE3NTc1OTgxMzZ9.LplgG2gf5PjxMD4OJ_RByVl9-u0xE1Hqb29An_a-5Vg",
+	"refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjU0NTIwLCJkb2N1bWVudCI6IjMxOTEyOTA5MDAwMTQwIiwiaWF0IjoxNzU3NTExNzM2LCJleHAiOjE3NTgxMTY1MzZ9.sb6ywr-FPBdqJnMUsgWV57BedXq05rwaa5Gy7DLcASM",
+	"user": {
+		"userId": 54520,
+		"document": "31912909000140",
+		"name": "DCA DISTRIBUIDORA DE COSMETICOS LTDA",
+		"phone": "33988013500",
+		"email": "rpaagn@gmail.com"
+	}
+}
+
+em caso de token 2fa obtido no e-mail estiver expirado, o retorno será `{"message": "Token inválido."}`, nesse casso o passo 1 e 2 deverá ser refeito para obter novo token 2fa
+
+4. Consultar CNPJ se possui protestos:
+GET: https://api.resolve.cenprot.org.br/para-voce/api/protests/v2/research/cenprot/{CNPJ}
+
+Headers:
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjU0NTIwLCJkb2N1bWVudCI6IjMxOTEyOTA5MDAwMTQwIiwiaWF0IjoxNzU3NTExNzM2LCJleHAiOjE3NTc1OTgxMzZ9.LplgG2gf5PjxMD4OJ_RByVl9-u0xE1Hqb29An_a-5Vg
+
+- Após o processo de verificação 2fa, e a consulta de cnpj estiver em uso, não há necessidade para toda nova consulta realizar o processo 2fa, o token obtido no passo 3 pode ser reutilizado para novas consultas
+- se o retorno da consulta for `{"message":"Unauthorized"}`, uma nova validação 2fa deverá ser realizada
+
+- Em caso de sucesso na consulta do cnpj, o retorno será:
+    - Sem prostetos, exemplo:
+        {
+            "status": "success",
+            "protests": {
+                "dataConsulta": "10/09/2025 11:15",
+                "cpfCnpj": "09438372000179",
+                "qtdTitulos": 0
+            }
+        }
+
+    - Com protestos, exemplo:
+        {
+            "status": "success",
+            "protests": {
+                "dataConsulta": "10/09/2025 11:18",
+                "cpfCnpj": "20891190000191",
+                "qtdTitulos": 3,
+                "cartorio": [
+                    {
+                        "uf": "BA",
+                        "dadosCartorio": [
+                            {
+                                "nomeCartorio": "CARTORIO DE NOTAS COM FUNÇÕES DE PROTESTO",
+                                "endereco": "RUA FRANCISCO SALES, 426G",
+                                "bairro": "CENTRO",
+                                "cidade": "GUARATINGA",
+                                "telefone": "7399980860",
+                                "codIBGE": "2911808",
+                                "numeroCartorio": "01",
+                                "qtdTitulos": 3,
+                                "titulos": [
+                                    {
+                                        "cpfCnpj": "20891190000191",
+                                        "dataProtesto": "",
+                                        "dataVencimento": "",
+                                        "valorProtestado": "299,85",
+                                        "anuenciaVencida": false,
+                                        "temAnuencia": true,
+                                        "nomeApresentante": "",
+                                        "nomeCedente": "",
+                                        "nm_chave": "*******************0407",
+                                        "vl_custas": "184.52"
+                                    },
+                                    {
+                                        "cpfCnpj": "20891190000191",
+                                        "dataProtesto": "",
+                                        "dataVencimento": "",
+                                        "valorProtestado": "373,68",
+                                        "anuenciaVencida": true,
+                                        "temAnuencia": true,
+                                        "nomeApresentante": "",
+                                        "nomeCedente": "",
+                                        "nm_chave": "*******************1129",
+                                        "vl_custas": "217.46"
+                                    },
+                                    {
+                                        "cpfCnpj": "20891190000191",
+                                        "dataProtesto": "",
+                                        "dataVencimento": "",
+                                        "valorProtestado": "389,62",
+                                        "anuenciaVencida": true,
+                                        "temAnuencia": false,
+                                        "nomeApresentante": "",
+                                        "nomeCedente": "",
+                                        "nm_chave": "*******************0428"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }

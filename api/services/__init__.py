@@ -1,0 +1,3 @@
+"""
+Serviços da API REST
+"""

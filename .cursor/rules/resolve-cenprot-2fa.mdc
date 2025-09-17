@@ -1,0 +1,415 @@
+---
+description: "Implementação específica de 2FA e integração com email para resolve.cenprot.org.br"
+globs: "*auth*.py,*email*.py,*2fa*.py"
+---
+
+# Resolve CenProt - Autenticação 2FA e Email
+
+## Sistema de Autenticação com 2FA
+
+### Fluxo Completo de Login
+```python
+from typing import Optional, List
+from dataclasses import dataclass
+import asyncio
+import re
+from playwright.async_api import Page
+
+@dataclass
+class LoginStep:
+    step_number: int
+    description: str
+    selector: str
+    action_type: str  # 'fill', 'click', 'wait'
+    value: Optional[str] = None
+    wait_condition: Optional[str] = None
+
+class ResolveAuthenticator:
+    LOGIN_STEPS = [
+        LoginStep(1, "Preencher CNPJ", "#cpfCnpj", "fill"),
+        LoginStep(2, "Clicar Continuar", "button:has-text('Continuar')", "click"),
+        LoginStep(3, "Marcar checkbox titular", "#confirmarTitular", "click"),
+        LoginStep(4, "Clicar Continuar novamente", "button:has-text('Continuar')", "click"),
+        LoginStep(5, "Clicar terceiro Continuar", "button:has-text('Continuar')", "click"),
+        LoginStep(6, "Aguardar campos 2FA", "input[name='otp-0']", "wait"),
+        LoginStep(7, "Preencher código 2FA", "input[name^='otp-']", "fill_otp"),
+        LoginStep(8, "Clicar Continuar final", "button:has-text('Continuar')", "click"),
+        LoginStep(9, "Verificar redirecionamento", "url", "wait", 
+                 wait_condition="**/dashboard/home")
+    ]
+```
+
+### Integração com Email para 2FA
+
+```python
+import imaplib
+import email
+from email.header import decode_header
+import time
+from datetime import datetime, timedelta
+
+class EmailCodeExtractor:
+    def __init__(self, email_address: str, password: str, imap_server: str = "imap.gmail.com"):
+        self.email_address = email_address
+        self.password = password
+        self.imap_server = imap_server
+        self.connection: Optional[imaplib.IMAP4_SSL] = None
+    
+    async def connect(self) -> bool:
+        """Conecta ao servidor IMAP"""
+        try:
+            self.connection = imaplib.IMAP4_SSL(self.imap_server)
+            self.connection.login(self.email_address, self.password)
+            self.connection.select("inbox")
+            logger.info("email_connected", email=self.email_address)
+            return True
+        except Exception as e:
+            logger.error("email_connection_failed", error=str(e))
+            return False
+    
+    async def wait_for_2fa_code(self, timeout_minutes: int = 5) -> Optional[str]:
+        """
+        Aguarda e extrai código 2FA do email do resolve.cenprot.org.br
+        """
+        if not self.connection:
+            await self.connect()
+            
+        start_time = datetime.now()
+        timeout_time = start_time + timedelta(minutes=timeout_minutes)
+        
+        logger.info("waiting_for_2fa_email", timeout_minutes=timeout_minutes)
+        
+        while datetime.now() < timeout_time:
+            try:
+                # Busca emails recentes do remetente resolve.cenprot.org.br
+                search_criteria = f'(FROM "resolve.cenprot.org.br" SINCE "{start_time.strftime("%d-%b-%Y")}")'
+                status, messages = self.connection.search(None, search_criteria)
+                
+                if status == 'OK' and messages[0]:
+                    # Pega o email mais recente
+                    msg_nums = messages[0].split()
+                    if msg_nums:
+                        latest_email = msg_nums[-1]
+                        
+                        # Busca o email
+                        status, msg_data = self.connection.fetch(latest_email, '(RFC822)')
+                        if status == 'OK':
+                            email_body = msg_data[0][1]
+                            email_message = email.message_from_bytes(email_body)
+                            
+                            # Extrai o código 2FA
+                            code = await self._extract_code_from_email(email_message)
+                            if code:
+                                logger.info("2fa_code_extracted", code_length=len(code))
+                                return code
+                
+                # Aguarda antes de tentar novamente
+                await asyncio.sleep(10)
+                
+            except Exception as e:
+                logger.error("email_check_error", error=str(e))
+                await asyncio.sleep(15)
+        
+        logger.warning("2fa_code_timeout", timeout_minutes=timeout_minutes)
+        return None
+    
+    async def _extract_code_from_email(self, email_message) -> Optional[str]:
+        """Extrai código 2FA do conteúdo do email"""
+        
+        def get_email_content(msg):
+            content = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        content += part.get_payload(decode=True).decode()
+            else:
+                content = msg.get_payload(decode=True).decode()
+            return content
+        
+        content = get_email_content(email_message)
+        
+        # Padrões comuns para códigos 2FA
+        patterns = [
+            r'código[:\s]*(\d{6})',  # "código: 123456"
+            r'verificação[:\s]*(\d{6})',  # "código de verificação: 123456"  
+            r'autenticação[:\s]*(\d{6})',  # "código de autenticação: 123456"
+            r'(\d{6})',  # Qualquer sequência de 6 dígitos
+            r'(\d{3}[\s-]\d{3})',  # Formato 123-456 ou 123 456
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE)
+            if matches:
+                code = re.sub(r'[\s-]', '', matches[0])  # Remove espaços e hífens
+                if len(code) == 6 and code.isdigit():
+                    return code
+        
+        logger.warning("no_2fa_code_found_in_email", content_preview=content[:200])
+        return None
+    
+    def disconnect(self):
+        """Desconecta do servidor IMAP"""
+        if self.connection:
+            self.connection.logout()
+            self.connection = None
+```
+
+### Preenchimento dos Campos 2FA
+
+```python
+class TwoFactorAuthHandler:
+    
+    @staticmethod
+    async def fill_otp_fields(page: Page, code: str) -> bool:
+        """
+        Preenche os 6 campos individuais do código 2FA
+        resolve.cenprot.org.br usa campos separados: otp-0, otp-1, otp-2, otp-3, otp-4, otp-5
+        """
+        if len(code) != 6 or not code.isdigit():
+            logger.error("invalid_2fa_code", code=code, length=len(code))
+            return False
+        
+        try:
+            # Aguarda todos os campos estarem visíveis
+            await page.wait_for_selector("input[name='otp-0']", timeout=10000)
+            
+            # Preenche cada campo individualmente
+            for i, digit in enumerate(code):
+                field_selector = f"input[name='otp-{i}']"
+                
+                # Aguarda o campo específico estar pronto
+                await page.wait_for_selector(field_selector, timeout=5000)
+                
+                # Limpa o campo e preenche com o dígito
+                await page.fill(field_selector, "")
+                await page.fill(field_selector, digit)
+                
+                # Pequeno delay para simular digitação humana
+                await asyncio.sleep(0.1)
+                
+                logger.debug("otp_field_filled", field=i, digit="*")
+            
+            # Aguarda um momento para o JavaScript processar
+            await asyncio.sleep(0.5)
+            
+            # Verifica se todos os campos foram preenchidos
+            for i in range(6):
+                field_value = await page.input_value(f"input[name='otp-{i}']")
+                if not field_value:
+                    logger.error("otp_field_empty_after_fill", field=i)
+                    return False
+            
+            logger.info("all_otp_fields_filled_successfully")
+            return True
+            
+        except Exception as e:
+            logger.error("otp_filling_error", error=str(e))
+            return False
+    
+    @staticmethod
+    async def wait_for_continue_button_enabled(page: Page, timeout: int = 30) -> bool:
+        """
+        O botão Continuar fica desabilitado até todos os campos 2FA serem preenchidos
+        """
+        try:
+            # Aguarda o botão ficar habilitado (sem atributo disabled)
+            await page.wait_for_function(
+                "document.querySelector('button:has-text(\"Continuar\")') && " +
+                "!document.querySelector('button:has-text(\"Continuar\")').disabled",
+                timeout=timeout * 1000
+            )
+            return True
+        except Exception as e:
+            logger.error("continue_button_not_enabled", error=str(e))
+            return False
+```
+
+### Classe Principal de Autenticação
+
+```python
+class ResolveAuthenticator:
+    def __init__(self, email_extractor: EmailCodeExtractor):
+        self.email_extractor = email_extractor
+        self.current_step = 0
+        
+    async def perform_full_login(self, page: Page, cnpj: str) -> bool:
+        """
+        Executa o processo completo de login com 2FA
+        """
+        logger.info("starting_login_process", cnpj=cnpj)
+        
+        try:
+            # Navega para página de login
+            await page.goto("https://resolve.cenprot.org.br/app/auth")
+            await page.wait_for_load_state("networkidle")
+            
+            # Passo 1: Preencher CNPJ
+            await self._execute_step(page, 1, cnpj)
+            
+            # Passo 2: Primeiro Continuar
+            await self._execute_step(page, 2)
+            
+            # Passo 3: Checkbox titular  
+            await self._execute_step(page, 3)
+            
+            # Passo 4: Segundo Continuar
+            await self._execute_step(page, 4)
+            
+            # Passo 5: Terceiro Continuar (dispara envio do email 2FA)
+            await self._execute_step(page, 5)
+            
+            # Aguarda campos 2FA aparecerem
+            await page.wait_for_selector("input[name='otp-0']", timeout=15000)
+            
+            # Aguarda e extrai código do email
+            logger.info("waiting_for_2fa_code_via_email")
+            code = await self.email_extractor.wait_for_2fa_code(timeout_minutes=3)
+            
+            if not code:
+                raise AuthenticationError("Código 2FA não recebido no email")
+            
+            # Preenche campos 2FA
+            success = await TwoFactorAuthHandler.fill_otp_fields(page, code)
+            if not success:
+                raise AuthenticationError("Falha ao preencher campos 2FA")
+            
+            # Aguarda botão Continuar ficar habilitado
+            button_enabled = await TwoFactorAuthHandler.wait_for_continue_button_enabled(page)
+            if not button_enabled:
+                raise AuthenticationError("Botão Continuar não habilitou após 2FA")
+            
+            # Clica Continuar final
+            await page.click("button:has-text('Continuar')")
+            
+            # Verifica redirecionamento para dashboard
+            await page.wait_for_url("**/dashboard/home", timeout=15000)
+            
+            logger.info("login_completed_successfully", cnpj=cnpj)
+            return True
+            
+        except Exception as e:
+            logger.error("login_process_failed", cnpj=cnpj, step=self.current_step, error=str(e))
+            # Screenshot para debug
+            await page.screenshot(path=f"login_failure_{cnpj}_{datetime.now().isoformat()}.png")
+            return False
+    
+    async def _execute_step(self, page: Page, step_num: int, value: str = None):
+        """Executa um passo específico do login"""
+        step = self.LOGIN_STEPS[step_num - 1]
+        self.current_step = step_num
+        
+        logger.info("executing_login_step", step=step_num, description=step.description)
+        
+        if step.action_type == "fill":
+            await page.wait_for_selector(step.selector, timeout=10000)
+            await page.fill(step.selector, value or step.value)
+            
+        elif step.action_type == "click":
+            await page.wait_for_selector(step.selector, timeout=10000)
+            await page.click(step.selector)
+            
+        elif step.action_type == "wait":
+            if step.wait_condition:
+                await page.wait_for_url(step.wait_condition, timeout=15000)
+            else:
+                await page.wait_for_selector(step.selector, timeout=10000)
+        
+        # Delay entre passos para parecer mais humano
+        await asyncio.sleep(0.5)
+```
+
+### Configuração de Email
+
+```python
+@dataclass
+class EmailConfig:
+    address: str
+    password: str  # App password para Gmail
+    imap_server: str = "imap.gmail.com"
+    imap_port: int = 993
+    
+    @classmethod
+    def from_env(cls) -> 'EmailConfig':
+        """Carrega configuração do email das variáveis de ambiente"""
+        import os
+        return cls(
+            address=os.getenv('RESOLVE_EMAIL', ''),
+            password=os.getenv('RESOLVE_EMAIL_PASSWORD', ''),
+            imap_server=os.getenv('RESOLVE_IMAP_SERVER', 'imap.gmail.com')
+        )
+    
+    def validate(self) -> bool:
+        """Valida se todas as configurações estão presentes"""
+        return bool(self.address and self.password)
+```
+
+### Exemplo de Uso Integrado
+
+```python
+async def main():
+    # Configuração
+    email_config = EmailConfig.from_env()
+    if not email_config.validate():
+        raise ValueError("Configurações de email não encontradas nas variáveis de ambiente")
+    
+    # Setup dos componentes
+    email_extractor = EmailCodeExtractor(
+        email_config.address, 
+        email_config.password
+    )
+    
+    authenticator = ResolveAuthenticator(email_extractor)
+    browser_manager = BrowserManager()
+    
+    try:
+        # Inicializa browser
+        context = await browser_manager.initialize()
+        page = await browser_manager.new_page()
+        
+        # Login completo
+        cnpj_login = os.getenv('RESOLVE_CENPROT_LOGIN')
+        success = await authenticator.perform_full_login(page, cnpj_login)
+        
+        if success:
+            logger.info("ready_for_scraping")
+            # Continua com o scraping...
+        else:
+            logger.error("authentication_failed")
+            
+    finally:
+        email_extractor.disconnect()
+        await browser_manager.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Variáveis de Ambiente Necessárias
+
+```bash
+# .env file
+RESOLVE_CENPROT_LOGIN=12.345.678/0001-90
+RESOLVE_EMAIL=seu.email@gmail.com
+RESOLVE_EMAIL_PASSWORD=app_password_gmail
+RESOLVE_IMAP_SERVER=imap.gmail.com
+```
+
+### Tratamento de Errors Específicos do 2FA
+
+```python
+class TwoFactorAuthError(ResolveScrapingError):
+    """Erro específico do processo 2FA"""
+    pass
+
+class EmailTimeoutError(TwoFactorAuthError):
+    """Timeout aguardando email com código 2FA"""
+    pass
+
+class InvalidCodeError(TwoFactorAuthError):
+    """Código 2FA inválido"""
+    pass
+
+class EmailConnectionError(TwoFactorAuthError):
+    """Erro de conexão com servidor de email"""
+    pass
+```

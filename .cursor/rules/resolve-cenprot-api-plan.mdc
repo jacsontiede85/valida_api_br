@@ -1,0 +1,1342 @@
+---
+description: API REST para exposição das funcionalidades de consulta do Resolve CenProt via HTTP endpoints
+alwaysApply: false
+---
+# Plano de Ação - API Interface Resolve CenProt
+
+## Visão Geral da API
+
+**Objetivo**: Criar uma API REST para exposição das funcionalidades de consulta do Resolve CenProt via HTTP endpoints.
+
+**Tecnologias**:
+- **FastAPI**: Framework web Python assíncrono
+- **Pydantic**: Validação e serialização de dados (já usado no projeto)
+- **Playwright**: Reutilizar sessão de navegador existente
+- **Uvicorn**: Servidor ASGI para produção
+
+## Estrutura da API
+
+### Endpoints Principais
+
+1. **GET /status** - Verificação de saúde do serviço
+2. **POST /cnpj** - Consulta de CNPJ específico
+3. **GET /session/status** - Status da sessão do navegador
+4. **POST /session/renew** - Renovar sessão (re-login)
+
+## Arquitetura do Projeto API
+
+```
+resolve_cenprot/
+├── api/                           # Nova pasta da API
+│   ├── __init__.py
+│   ├── main.py                   # Ponto de entrada FastAPI
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── status.py            # Rota /status
+│   │   ├── cnpj.py              # Rota /cnpj
+│   │   └── session.py           # Rotas de sessão
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── api_models.py        # Models de request/response da API
+│   │   └── error_models.py      # Models de erro
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── session_manager.py   # Gerenciamento de sessão persistente
+│   │   └── scraping_service.py  # Service layer para scraping
+│   └── middleware/
+│       ├── __init__.py
+│       ├── cors.py              # Configuração CORS
+│       └── error_handler.py     # Handler de erros global
+├── src/                          # Código existente (reutilizar)
+│   ├── auth/
+│   ├── scraping/
+│   ├── models/
+│   └── ...
+└── requirements-api.txt          # Dependências adicionais da API
+```
+
+## Fase 1: Setup Inicial da API
+
+### 1.1 Dependências Adicionais
+
+```python
+# requirements-api.txt (adicionar ao requirements.txt existente)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+```
+
+### 1.2 Configuração Base da API
+
+```python
+# api/main.py
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import uvicorn
+import sys
+from pathlib import Path
+
+# Adicionar src ao path para reutilizar código existente
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+
+from api.services.session_manager import SessionManager
+from api.routers import status, cnpj, session
+from api.middleware.error_handler import add_error_handlers
+
+# Gerenciador de sessão global
+session_manager = SessionManager()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia ciclo de vida da aplicação"""
+    # Startup: Inicializar sessão do navegador
+    await session_manager.initialize()
+    
+    yield
+    
+    # Shutdown: Limpar recursos
+    await session_manager.cleanup()
+
+# Criar aplicação FastAPI
+app = FastAPI(
+    title="Resolve CenProt API",
+    description="API para consulta de protestos via resolve.cenprot.org.br",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configurar conforme necessário
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Adicionar handlers de erro
+add_error_handlers(app)
+
+# Incluir routers
+app.include_router(status.router, tags=["Status"])
+app.include_router(cnpj.router, tags=["Consulta"])
+app.include_router(session.router, prefix="/session", tags=["Sessão"])
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "api.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,  # Apenas para desenvolvimento
+        log_level="info"
+    )
+```
+
+## Fase 2: Models da API
+
+### 2.1 Models de Request/Response
+
+```python
+# api/models/api_models.py
+from pydantic import BaseModel, Field, validator
+from typing import Optional, Dict, Any
+from datetime import datetime
+import re
+
+class CNPJRequest(BaseModel):
+    """Request para consulta de CNPJ"""
+    cnpj: str = Field(..., description="CNPJ no formato XX.XXX.XXX/XXXX-XX ou apenas números")
+    
+    @validator('cnpj')
+    def validate_cnpj(cls, v):
+        # Remove formatação
+        cnpj_numbers = re.sub(r'[^0-9]', '', v)
+        
+        if len(cnpj_numbers) != 14:
+            raise ValueError('CNPJ deve conter 14 dígitos')
+            
+        # Formatar CNPJ
+        return f"{cnpj_numbers[:2]}.{cnpj_numbers[2:5]}.{cnpj_numbers[5:8]}/{cnpj_numbers[8:12]}-{cnpj_numbers[12:]}"
+
+class CNPJResponse(BaseModel):
+    """Response da consulta de CNPJ"""
+    success: bool = Field(description="Se a consulta foi bem-sucedida")
+    data: Optional[Dict[str, Any]] = Field(default=None, description="Dados da consulta (formato atual)")
+    message: str = Field(description="Mensagem de status")
+    timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp da consulta")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+class StatusResponse(BaseModel):
+    """Response do status do serviço"""
+    service: str = Field(default="Resolve CenProt API")
+    status: str = Field(description="Status do serviço")
+    version: str = Field(default="1.0.0")
+    session_active: bool = Field(description="Se a sessão do navegador está ativa")
+    last_login: Optional[datetime] = Field(default=None, description="Último login realizado")
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class SessionStatusResponse(BaseModel):
+    """Response do status da sessão"""
+    active: bool = Field(description="Se a sessão está ativa")
+    logged_in: bool = Field(description="Se está logado no resolve.cenprot.org.br")
+    last_activity: Optional[datetime] = Field(default=None, description="Última atividade")
+    login_cnpj: Optional[str] = Field(default=None, description="CNPJ usado no login")
+```
+
+### 2.2 Models de Erro
+
+```python
+# api/models/error_models.py
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+
+class APIError(BaseModel):
+    """Modelo padrão de erro da API"""
+    error: str = Field(description="Tipo do erro")
+    message: str = Field(description="Mensagem do erro")
+    detail: Optional[Dict[str, Any]] = Field(default=None, description="Detalhes adicionais")
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class ValidationError(APIError):
+    """Erro de validação"""
+    error: str = "validation_error"
+
+class SessionError(APIError):
+    """Erro relacionado à sessão"""
+    error: str = "session_error"
+
+class ScrapingError(APIError):
+    """Erro durante scraping"""
+    error: str = "scraping_error"
+```
+
+## Fase 3: Gerenciamento de Sessão Persistente
+
+### 3.1 Session Manager
+
+```python
+# api/services/session_manager.py
+from typing import Optional
+from datetime import datetime, timedelta
+import asyncio
+import sys
+from pathlib import Path
+
+# Importar código existente
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+
+from browser.browser_manager import BrowserManager
+from auth.login_manager import LoginManager
+from auth.email_extractor import EmailCodeExtractor
+from config.settings import Settings
+
+class SessionManager:
+    """Gerencia sessão persistente do navegador"""
+    
+    def __init__(self):
+        self.browser_manager: Optional[BrowserManager] = None
+        self.login_manager: Optional[LoginManager] = None
+        self.email_extractor: Optional[EmailCodeExtractor] = None
+        self.page = None
+        self.context = None
+        
+        self.is_initialized = False
+        self.is_logged_in = False
+        self.last_login: Optional[datetime] = None
+        self.last_activity: Optional[datetime] = None
+        self.login_cnpj: Optional[str] = None
+        
+        self.settings = Settings()
+        
+    async def initialize(self):
+        """Inicializa navegador e componentes"""
+        if self.is_initialized:
+            return
+            
+        try:
+            # Inicializar componentes
+            self.browser_manager = BrowserManager()
+            self.email_extractor = EmailCodeExtractor(
+                self.settings.RESOLVE_EMAIL,
+                self.settings.RESOLVE_EMAIL_PASSWORD
+            )
+            self.login_manager = LoginManager(self.email_extractor)
+            
+            # Inicializar navegador
+            self.context = await self.browser_manager.initialize()
+            self.page = await self.browser_manager.new_page()
+            
+            self.is_initialized = True
+            
+            # Tentar login inicial
+            await self._perform_initial_login()
+            
+        except Exception as e:
+            logger.error("erro_inicializar_session_manager", error=str(e))
+            raise
+    
+    async def _perform_initial_login(self):
+        """Realiza login inicial automático"""
+        try:
+            cnpj_login = self.settings.RESOLVE_CENPROT_LOGIN
+            success = await self.login_manager.perform_full_login(self.page, cnpj_login)
+            
+            if success:
+                self.is_logged_in = True
+                self.last_login = datetime.now()
+                self.login_cnpj = cnpj_login
+                logger.info("login_inicial_realizado_com_sucesso", cnpj=cnpj_login)
+            else:
+                logger.warning("falha_no_login_inicial", cnpj=cnpj_login)
+                
+        except Exception as e:
+            logger.error("erro_login_inicial", error=str(e))
+    
+    async def ensure_logged_in(self) -> bool:
+        """Garante que está logado, faz re-login se necessário"""
+        if not self.is_initialized:
+            await self.initialize()
+        
+        # Verificar se sessão ainda é válida
+        if self.is_logged_in and self._is_session_valid():
+            self.last_activity = datetime.now()
+            return True
+            
+        # Tentar re-login
+        try:
+            await self._perform_initial_login()
+            return self.is_logged_in
+        except Exception as e:
+            logger.error("erro_ensure_logged_in", error=str(e))
+            return False
+    
+    def _is_session_valid(self) -> bool:
+        """Verifica se a sessão ainda é válida (últimas 2 horas)"""
+        if not self.last_login:
+            return False
+            
+        session_age = datetime.now() - self.last_login
+        return session_age < timedelta(hours=2)
+    
+    async def get_scraping_components(self):
+        """Retorna componentes para scraping"""
+        if not await self.ensure_logged_in():
+            raise Exception("Não foi possível estabelecer sessão logada")
+            
+        return {
+            "page": self.page,
+            "context": self.context,
+            "browser_manager": self.browser_manager
+        }
+    
+    async def renew_session(self) -> bool:
+        """Force renewal da sessão"""
+        try:
+            self.is_logged_in = False
+            return await self.ensure_logged_in()
+        except Exception as e:
+            logger.error("erro_renew_session", error=str(e))
+            return False
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Retorna status atual da sessão"""
+        return {
+            "active": self.is_initialized,
+            "logged_in": self.is_logged_in,
+            "last_activity": self.last_activity,
+            "last_login": self.last_login,
+            "login_cnpj": self.login_cnpj
+        }
+    
+    async def cleanup(self):
+        """Limpa recursos"""
+        try:
+            if self.email_extractor:
+                self.email_extractor.disconnect()
+            if self.browser_manager:
+                await self.browser_manager.close()
+        except Exception as e:
+            logger.error("erro_cleanup_session_manager", error=str(e))
+```
+
+## Fase 3.5: Gerenciamento de Múltiplas Requisições
+
+### 3.5.1 Problema de Concorrência
+
+**Situação Atual:**
+- Uma única sessão de navegador compartilhada globalmente
+- Uma única página para todas as requisições simultâneas
+- Risk de race conditions entre consultas paralelas
+
+**Soluções Disponíveis:**
+1. **Lock/Semáforo**: Serializa requisições (uma por vez)
+2. **Pool de Páginas**: Múltiplas páginas paralelas (RECOMENDADO)
+3. **Queue + Workers**: Fila de processamento assíncrono
+
+### 3.5.2 Solução Recomendada: Pool de Páginas
+
+```python
+# api/services/session_manager.py (versão com pool de páginas)
+import asyncio
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
+
+class SessionManager:
+    """Gerencia sessão persistente com pool de páginas para múltiplas requisições"""
+    
+    def __init__(self, pool_size: int = 3):
+        self.browser_manager: Optional[BrowserManager] = None
+        self.login_manager: Optional[LoginManager] = None
+        self.email_extractor: Optional[EmailCodeExtractor] = None
+        self.context = None
+        
+        # Pool de páginas para requisições paralelas
+        self.pool_size = pool_size
+        self.page_pool = asyncio.Queue(maxsize=pool_size)
+        self.active_pages = {}  # Rastreamento de páginas em uso
+        
+        self.is_initialized = False
+        self.is_logged_in = False
+        self.last_login: Optional[datetime] = None
+        self.last_activity: Optional[datetime] = None
+        self.login_cnpj: Optional[str] = None
+        
+        self.settings = Settings()
+        
+    async def initialize(self):
+        """Inicializa navegador e cria pool de páginas"""
+        if self.is_initialized:
+            return
+            
+        try:
+            # Inicializar componentes base
+            self.browser_manager = BrowserManager()
+            self.email_extractor = EmailCodeExtractor(
+                self.settings.RESOLVE_EMAIL,
+                self.settings.RESOLVE_EMAIL_PASSWORD
+            )
+            self.login_manager = LoginManager(self.email_extractor)
+            
+            # Inicializar contexto compartilhado (sessão/cookies)
+            self.context = await self.browser_manager.initialize()
+            
+            # Realizar login inicial em página temporária
+            await self._perform_initial_login()
+            
+            if self.is_logged_in:
+                # Criar pool de páginas autenticadas
+                await self._create_page_pool()
+                self.is_initialized = True
+                logger.info("session_manager_inicializado_com_pool", pool_size=self.pool_size)
+            else:
+                raise Exception("Falha no login inicial")
+                
+        except Exception as e:
+            logger.error("erro_inicializar_session_manager_pool", error=str(e))
+            raise
+    
+    async def _perform_initial_login(self):
+        """Realiza login inicial para estabelecer sessão no contexto"""
+        try:
+            # Página temporária apenas para login
+            temp_page = await self.context.new_page()
+            
+            cnpj_login = self.settings.RESOLVE_CENPROT_LOGIN
+            success = await self.login_manager.perform_full_login(temp_page, cnpj_login)
+            
+            if success:
+                self.is_logged_in = True
+                self.last_login = datetime.now()
+                self.login_cnpj = cnpj_login
+                logger.info("login_inicial_realizado_pool", cnpj=cnpj_login)
+            else:
+                logger.warning("falha_login_inicial_pool", cnpj=cnpj_login)
+            
+            # Fechar página temporária
+            await temp_page.close()
+                
+        except Exception as e:
+            logger.error("erro_login_inicial_pool", error=str(e))
+            if 'temp_page' in locals():
+                await temp_page.close()
+    
+    async def _create_page_pool(self):
+        """Cria pool de páginas reutilizáveis com sessão autenticada"""
+        for i in range(self.pool_size):
+            try:
+                # Criar nova página no contexto autenticado
+                page = await self.context.new_page()
+                
+                page_info = {
+                    "page": page,
+                    "id": f"page_{i}",
+                    "created_at": datetime.now(),
+                    "usage_count": 0,
+                    "in_use": False
+                }
+                
+                # Adicionar ao pool
+                await self.page_pool.put(page_info)
+                
+                logger.info("pagina_criada_no_pool", 
+                          page_id=page_info["id"], 
+                          pool_size=i+1)
+                          
+            except Exception as e:
+                logger.error("erro_criar_pagina_pool", page_index=i, error=str(e))
+    
+    async def get_page_from_pool(self, timeout: int = 30):
+        """Obtém página do pool para uso exclusivo"""
+        try:
+            # Aguardar página disponível com timeout
+            page_info = await asyncio.wait_for(
+                self.page_pool.get(), 
+                timeout=timeout
+            )
+            
+            # Marcar como em uso
+            page_info["in_use"] = True
+            page_info["usage_count"] += 1
+            page_info["last_used"] = datetime.now()
+            
+            # Registrar página ativa
+            self.active_pages[page_info["id"]] = page_info
+            
+            self.last_activity = datetime.now()
+            
+            logger.info("pagina_obtida_do_pool", 
+                       page_id=page_info["id"],
+                       usage_count=page_info["usage_count"],
+                       pool_remaining=self.page_pool.qsize())
+            
+            return page_info
+            
+        except asyncio.TimeoutError:
+            logger.error("timeout_obter_pagina_pool", 
+                        timeout=timeout,
+                        active_pages=len(self.active_pages),
+                        pool_size=self.pool_size)
+            raise Exception(f"Timeout: todas as {self.pool_size} páginas do pool estão em uso")
+        except Exception as e:
+            logger.error("erro_obter_pagina_pool", error=str(e))
+            raise
+    
+    async def return_page_to_pool(self, page_info: dict):
+        """Retorna página para o pool após uso"""
+        try:
+            page_id = page_info["id"]
+            
+            # Remover do registro de páginas ativas
+            if page_id in self.active_pages:
+                del self.active_pages[page_id]
+            
+            # Marcar como disponível
+            page_info["in_use"] = False
+            page_info["returned_at"] = datetime.now()
+            
+            # Limpar estado da página (navegar para blank)
+            try:
+                await page_info["page"].goto("about:blank")
+            except:
+                # Se falhar ao limpar, página pode estar em estado inconsistente
+                logger.warning("falha_limpar_pagina", page_id=page_id)
+            
+            # Retornar ao pool
+            await self.page_pool.put(page_info)
+            
+            logger.info("pagina_retornada_ao_pool", 
+                       page_id=page_id,
+                       usage_count=page_info["usage_count"],
+                       pool_available=self.page_pool.qsize())
+            
+        except Exception as e:
+            logger.error("erro_retornar_pagina_pool", 
+                        page_id=page_info.get("id", "unknown"), 
+                        error=str(e))
+    
+    async def get_pool_status(self) -> Dict[str, Any]:
+        """Retorna status do pool de páginas"""
+        return {
+            "pool_size": self.pool_size,
+            "available_pages": self.page_pool.qsize(),
+            "active_pages": len(self.active_pages),
+            "active_page_ids": list(self.active_pages.keys()),
+            "total_pages_created": self.pool_size
+        }
+    
+    def _is_session_valid(self) -> bool:
+        """Verifica se a sessão ainda é válida (últimas 2 horas)"""
+        if not self.last_login:
+            return False
+            
+        session_age = datetime.now() - self.last_login
+        return session_age < timedelta(hours=2)
+    
+    async def ensure_logged_in(self) -> bool:
+        """Garante que a sessão está ativa"""
+        if not self.is_initialized:
+            await self.initialize()
+        
+        if self.is_logged_in and self._is_session_valid():
+            return True
+            
+        # Re-login necessário
+        try:
+            await self._perform_initial_login()
+            return self.is_logged_in
+        except Exception as e:
+            logger.error("erro_ensure_logged_in_pool", error=str(e))
+            return False
+    
+    async def renew_session(self) -> bool:
+        """Force renewal da sessão"""
+        try:
+            self.is_logged_in = False
+            return await self.ensure_logged_in()
+        except Exception as e:
+            logger.error("erro_renew_session_pool", error=str(e))
+            return False
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Retorna status completo da sessão com informações do pool"""
+        base_status = {
+            "active": self.is_initialized,
+            "logged_in": self.is_logged_in,
+            "last_activity": self.last_activity,
+            "last_login": self.last_login,
+            "login_cnpj": self.login_cnpj
+        }
+        
+        # Adicionar informações do pool se disponível
+        if hasattr(self, 'page_pool'):
+            pool_status = asyncio.create_task(self.get_pool_status())
+            base_status.update({
+                "pool_enabled": True,
+                "pool_size": self.pool_size,
+                "available_pages": self.page_pool.qsize(),
+                "active_requests": len(self.active_pages)
+            })
+        else:
+            base_status["pool_enabled"] = False
+        
+        return base_status
+    
+    async def cleanup(self):
+        """Limpa todos os recursos incluindo pool de páginas"""
+        try:
+            # Fechar todas as páginas ativas
+            for page_info in self.active_pages.values():
+                try:
+                    await page_info["page"].close()
+                except:
+                    pass
+            
+            # Fechar páginas no pool
+            while not self.page_pool.empty():
+                try:
+                    page_info = await self.page_pool.get()
+                    await page_info["page"].close()
+                except:
+                    pass
+            
+            # Cleanup padrão
+            if self.email_extractor:
+                self.email_extractor.disconnect()
+            if self.browser_manager:
+                await self.browser_manager.close()
+                
+            logger.info("session_manager_pool_cleanup_completo")
+            
+        except Exception as e:
+            logger.error("erro_cleanup_session_manager_pool", error=str(e))
+```
+
+### 3.5.3 Scraping Service Atualizado para Pool
+
+```python
+# api/services/scraping_service.py (versão com pool)
+from typing import Dict, Any
+import sys
+from pathlib import Path
+
+# Importar código existente
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+
+from scraping.protest_scraper import ProtestScraper
+from models.protest_models import ConsultaCNPJResult
+from .session_manager import SessionManager
+
+class ScrapingService:
+    """Service layer para operações de scraping com suporte a múltiplas requisições"""
+    
+    def __init__(self, session_manager: SessionManager):
+        self.session_manager = session_manager
+    
+    async def consultar_cnpj(self, cnpj: str) -> ConsultaCNPJResult:
+        """
+        Realiza consulta de um CNPJ usando página do pool
+        """
+        page_info = None
+        try:
+            # Verificar se sessão está ativa
+            if not await self.session_manager.ensure_logged_in():
+                raise Exception("Não foi possível estabelecer sessão logada")
+            
+            # Obter página exclusiva do pool
+            page_info = await self.session_manager.get_page_from_pool()
+            page = page_info["page"]
+            
+            logger.info("iniciando_consulta_com_pagina_pool", 
+                       cnpj=cnpj, 
+                       page_id=page_info["id"])
+            
+            # Criar scraper com página dedicada
+            scraper = ProtestScraper(page)
+            scraper.current_cnpj = cnpj
+            
+            # Realizar consulta (reutiliza código existente)
+            result = await scraper.consultar_cnpj(cnpj)
+            
+            logger.info("consulta_finalizada_sucesso_pool", 
+                       cnpj=cnpj, 
+                       page_id=page_info["id"],
+                       tem_protestos=bool(result.cenprotProtestos))
+            
+            return result
+            
+        except Exception as e:
+            logger.error("erro_scraping_service_consultar_pool", 
+                        cnpj=cnpj, 
+                        page_id=page_info["id"] if page_info else "none",
+                        error=str(e))
+            raise
+        finally:
+            # SEMPRE retornar página ao pool
+            if page_info:
+                await self.session_manager.return_page_to_pool(page_info)
+    
+    async def get_session_health(self) -> Dict[str, Any]:
+        """Verifica saúde da sessão incluindo status do pool"""
+        try:
+            status = self.session_manager.get_status()
+            pool_status = await self.session_manager.get_pool_status()
+            
+            health = {
+                **status,
+                **pool_status,
+                "can_scrape": status["active"] and status["logged_in"],
+                "needs_renewal": not self.session_manager._is_session_valid(),
+                "concurrent_capacity": self.session_manager.pool_size,
+                "current_load": len(self.session_manager.active_pages)
+            }
+            
+            return health
+            
+        except Exception as e:
+            logger.error("erro_get_session_health_pool", error=str(e))
+            return {"error": str(e)}
+```
+
+### 3.5.4 Configuração FastAPI para Pool
+
+```python
+# api/main.py (versão com pool de páginas)
+from contextlib import asynccontextmanager
+
+# Configurar SessionManager com pool
+session_manager = SessionManager(pool_size=3)  # 3 requisições simultâneas
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia ciclo de vida com pool de páginas"""
+    try:
+        # Startup: Inicializar pool
+        await session_manager.initialize()
+        logger.info("api_iniciada_com_pool_de_paginas", pool_size=session_manager.pool_size)
+        
+        yield
+        
+    finally:
+        # Shutdown: Limpar pool
+        await session_manager.cleanup()
+        logger.info("api_encerrada_pool_limpo")
+
+# Middleware para monitoramento de carga
+@app.middleware("http")
+async def monitor_concurrent_requests(request: Request, call_next):
+    if request.url.path.startswith("/cnpj"):
+        pool_status = await session_manager.get_pool_status()
+        
+        # Log da carga atual
+        logger.info("requisicao_recebida", 
+                   path=request.url.path,
+                   available_pages=pool_status["available_pages"],
+                   active_pages=pool_status["active_pages"])
+        
+        # Adicionar headers de status
+        response = await call_next(request)
+        response.headers["X-Pool-Available"] = str(pool_status["available_pages"])
+        response.headers["X-Pool-Active"] = str(pool_status["active_pages"])
+        
+        return response
+    else:
+        return await call_next(request)
+```
+
+### 3.5.5 Vantagens da Solução Pool de Páginas
+
+**✅ Benefícios:**
+- **Consultas Paralelas**: 3-5 requisições simultâneas
+- **Sessão Compartilhada**: Login único com cookies do contexto
+- **Isolamento**: Cada requisição usa página exclusiva
+- **Performance**: Sem overhead de criação/destruição de páginas
+- **Reutilização**: Páginas retornam ao pool após uso
+
+**⚠️ Considerações:**
+- **Memória**: ~50-100MB por página adicional
+- **Complexidade**: Gerenciamento do ciclo de vida das páginas
+- **Limite**: Pool size definido na inicialização
+
+**📊 Capacidade Esperada:**
+- **3 requisições simultâneas** com pool_size=3
+- **Tempo médio por consulta**: 15-30 segundos
+- **Throughput**: ~6-12 consultas por minuto
+
+## Fase 4: Service Layer
+
+### 4.1 Scraping Service
+
+```python
+# api/services/scraping_service.py
+from typing import Dict, Any
+import sys
+from pathlib import Path
+
+# Importar código existente
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+
+from scraping.protest_scraper import ProtestScraper
+from models.protest_models import ConsultaCNPJResult
+from .session_manager import SessionManager
+
+class ScrapingService:
+    """Service layer para operações de scraping"""
+    
+    def __init__(self, session_manager: SessionManager):
+        self.session_manager = session_manager
+    
+    async def consultar_cnpj(self, cnpj: str) -> ConsultaCNPJResult:
+        """
+        Realiza consulta de um CNPJ reutilizando a sessão ativa
+        """
+        try:
+            # Obter componentes da sessão ativa
+            components = await self.session_manager.get_scraping_components()
+            page = components["page"]
+            
+            # Criar scraper com página logada
+            scraper = ProtestScraper(page)
+            scraper.current_cnpj = cnpj  # Set current CNPJ for context
+            
+            # Realizar consulta (reutiliza código existente)
+            result = await scraper.consultar_cnpj(cnpj)
+            
+            return result
+            
+        except Exception as e:
+            logger.error("erro_scraping_service_consultar", cnpj=cnpj, error=str(e))
+            raise
+    
+    async def get_session_health(self) -> Dict[str, Any]:
+        """Verifica saúde da sessão de scraping"""
+        try:
+            status = self.session_manager.get_status()
+            
+            # Adicionar verificações específicas de saúde
+            health = {
+                **status,
+                "can_scrape": status["active"] and status["logged_in"],
+                "needs_renewal": not self.session_manager._is_session_valid()
+            }
+            
+            return health
+            
+        except Exception as e:
+            logger.error("erro_get_session_health", error=str(e))
+            return {"error": str(e)}
+```
+
+## Fase 5: Implementação dos Routers
+
+### 5.1 Router de Status
+
+```python
+# api/routers/status.py
+from fastapi import APIRouter, Depends
+from api.models.api_models import StatusResponse
+from api.services.session_manager import SessionManager
+from api.main import session_manager  # Import do gerenciador global
+
+router = APIRouter()
+
+@router.get("/status", response_model=StatusResponse)
+async def get_status():
+    """
+    Verifica status do serviço e da sessão
+    """
+    try:
+        session_status = session_manager.get_status()
+        
+        return StatusResponse(
+            status="online",
+            session_active=session_status["active"],
+            last_login=session_status["last_login"]
+        )
+        
+    except Exception as e:
+        return StatusResponse(
+            status="error",
+            session_active=False,
+            last_login=None
+        )
+
+@router.get("/health")
+async def health_check():
+    """Health check simples para load balancers"""
+    return {"status": "healthy"}
+```
+
+### 5.2 Router de CNPJ
+
+```python
+# api/routers/cnpj.py
+from fastapi import APIRouter, HTTPException, Depends
+from api.models.api_models import CNPJRequest, CNPJResponse
+from api.models.error_models import ValidationError, SessionError, ScrapingError
+from api.services.scraping_service import ScrapingService
+from api.main import session_manager
+
+router = APIRouter()
+
+def get_scraping_service() -> ScrapingService:
+    """Dependency injection para ScrapingService"""
+    return ScrapingService(session_manager)
+
+@router.post("/cnpj", response_model=CNPJResponse)
+async def consultar_cnpj(
+    request: CNPJRequest,
+    scraping_service: ScrapingService = Depends(get_scraping_service)
+):
+    """
+    Realiza consulta de CNPJ e retorna dados no formato padrão
+    """
+    try:
+        # Validar e normalizar CNPJ já é feito pelo modelo Pydantic
+        cnpj = request.cnpj
+        
+        # Realizar consulta
+        result = await scraping_service.consultar_cnpj(cnpj)
+        
+        # Converter para dict usando model_dump (Pydantic V2)
+        result_dict = result.model_dump()
+        
+        return CNPJResponse(
+            success=True,
+            data=result_dict,
+            message=f"Consulta realizada com sucesso para CNPJ {cnpj}"
+        )
+        
+    except ValueError as e:
+        # Erro de validação do CNPJ
+        raise HTTPException(
+            status_code=400,
+            detail=ValidationError(message=str(e)).dict()
+        )
+        
+    except Exception as e:
+        # Verificar se é erro de sessão
+        if "sessão" in str(e).lower() or "login" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=SessionError(message=f"Erro de sessão: {str(e)}").dict()
+            )
+        
+        # Outros erros de scraping
+        raise HTTPException(
+            status_code=500,
+            detail=ScrapingError(message=f"Erro durante consulta: {str(e)}").dict()
+        )
+
+@router.get("/cnpj/{cnpj}", response_model=CNPJResponse)
+async def consultar_cnpj_get(
+    cnpj: str,
+    scraping_service: ScrapingService = Depends(get_scraping_service)
+):
+    """
+    Consulta CNPJ via GET (alternativa ao POST)
+    """
+    # Criar request object e reutilizar lógica do POST
+    request = CNPJRequest(cnpj=cnpj)
+    return await consultar_cnpj(request, scraping_service)
+```
+
+### 5.3 Router de Sessão
+
+```python
+# api/routers/session.py
+from fastapi import APIRouter, HTTPException
+from api.models.api_models import SessionStatusResponse
+from api.main import session_manager
+
+router = APIRouter()
+
+@router.get("/status", response_model=SessionStatusResponse)
+async def get_session_status():
+    """
+    Retorna status detalhado da sessão do navegador
+    """
+    try:
+        status = session_manager.get_status()
+        
+        return SessionStatusResponse(
+            active=status["active"],
+            logged_in=status["logged_in"],
+            last_activity=status["last_activity"],
+            login_cnpj=status["login_cnpj"]
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao obter status da sessão: {str(e)}")
+
+@router.post("/renew")
+async def renew_session():
+    """
+    Force renewal da sessão (re-login)
+    """
+    try:
+        success = await session_manager.renew_session()
+        
+        if success:
+            return {"message": "Sessão renovada com sucesso", "success": True}
+        else:
+            raise HTTPException(status_code=500, detail="Falha ao renovar sessão")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao renovar sessão: {str(e)}")
+
+@router.delete("/logout")
+async def logout_session():
+    """
+    Encerra sessão atual (força novo login na próxima consulta)
+    """
+    try:
+        session_manager.is_logged_in = False
+        session_manager.last_login = None
+        
+        return {"message": "Sessão encerrada", "success": True}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao encerrar sessão: {str(e)}")
+```
+
+## Fase 6: Middleware e Error Handling
+
+### 6.1 Error Handler Global
+
+```python
+# api/middleware/error_handler.py
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+def add_error_handlers(app: FastAPI):
+    """Adiciona handlers de erro globais"""
+    
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": "http_error",
+                "message": exc.detail,
+                "status_code": exc.status_code,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+    
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "validation_error",
+                "message": "Dados de entrada inválidos",
+                "detail": exc.errors(),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+    
+    @app.exception_handler(Exception)
+    async def general_exception_handler(request: Request, exc: Exception):
+        logger.error(f"Erro não tratado: {str(exc)}", exc_info=True)
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_error",
+                "message": "Erro interno do servidor",
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+```
+
+## Fase 7: Documentação e Deploy
+
+### 7.1 Configuração de Deploy
+
+```python
+# api/deploy/gunicorn.conf.py
+"""Configuração do Gunicorn para produção"""
+
+bind = "0.0.0.0:8000"
+workers = 1  # Importante: apenas 1 worker devido à sessão do navegador
+worker_class = "uvicorn.workers.UvicornWorker"
+worker_connections = 1000
+max_requests = 1000
+max_requests_jitter = 100
+timeout = 300  # 5 minutos para consultas longas
+keepalive = 5
+preload_app = True
+```
+
+### 7.2 Docker Configuration
+
+```dockerfile
+# Dockerfile.api
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instalar dependências do Playwright
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-api.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-api.txt
+
+# Instalar navegadores do Playwright
+RUN playwright install chromium
+RUN playwright install-deps
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["python", "-m", "api.main"]
+```
+
+### 7.3 Scripts de Deploy
+
+```bash
+# scripts/start_api.py
+#!/usr/bin/env python3
+"""Script para iniciar a API"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+def start_api(port: int = 8000, workers: int = 1, reload: bool = False):
+    """Inicia a API usando uvicorn"""
+    
+    # Mudar para diretório do projeto
+    project_root = Path(__file__).parent.parent
+    
+    cmd = [
+        "uvicorn",
+        "api.main:app",
+        f"--host=0.0.0.0",
+        f"--port={port}",
+        f"--workers={workers}",
+    ]
+    
+    if reload:
+        cmd.append("--reload")
+    
+    print(f"🚀 Iniciando Resolve CenProt API na porta {port}...")
+    print(f"📝 Documentação disponível em: http://localhost:{port}/docs")
+    
+    try:
+        subprocess.run(cmd, cwd=project_root)
+    except KeyboardInterrupt:
+        print("\n🛑 API encerrada pelo usuário")
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Iniciar Resolve CenProt API")
+    parser.add_argument("--port", type=int, default=8000, help="Porta da API")
+    parser.add_argument("--reload", action="store_true", help="Habilitar reload automático")
+    
+    args = parser.parse_args()
+    start_api(port=args.port, reload=args.reload)
+```
+
+## Fase 8: Testes da API
+
+### 8.1 Testes Básicos
+
+```python
+# tests/test_api.py
+import pytest
+from fastapi.testclient import TestClient
+from api.main import app
+
+client = TestClient(app)
+
+def test_status_endpoint():
+    """Testa endpoint de status"""
+    response = client.get("/status")
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert "service" in data
+    assert "status" in data
+    assert data["service"] == "Resolve CenProt API"
+
+def test_health_endpoint():
+    """Testa endpoint de health"""
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+@pytest.mark.asyncio
+async def test_cnpj_endpoint_valid():
+    """Testa consulta de CNPJ válido"""
+    cnpj_data = {"cnpj": "12.345.678/0001-90"}
+    
+    response = client.post("/cnpj", json=cnpj_data)
+    
+    # Pode falhar se sessão não estiver ativa, mas estrutura deve estar correta
+    data = response.json()
+    assert "success" in data
+    assert "message" in data
+    assert "timestamp" in data
+
+def test_cnpj_endpoint_invalid():
+    """Testa consulta de CNPJ inválido"""
+    cnpj_data = {"cnpj": "12345"}  # CNPJ inválido
+    
+    response = client.post("/cnpj", json=cnpj_data)
+    assert response.status_code == 400
+    
+    data = response.json()
+    assert "detail" in data
+```
+
+## Cronograma de Implementação
+
+### Semana 1: Estrutura Base da API
+- [ ] Setup do FastAPI e estrutura de pastas
+- [ ] Models de request/response
+- [ ] Configuração básica de rotas
+- [ ] Middleware de CORS e error handling
+
+### Semana 2: Gerenciamento de Sessão
+- [ ] Implementar SessionManager básico
+- [ ] Integração com código existente de login
+- [ ] Testes de persistência de sessão
+- [ ] Implementar Pool de Páginas para múltiplas requisições
+- [ ] Endpoints de gerenciamento de sessão
+
+### Semana 3: Service Layer e Rotas Principais
+- [ ] ScrapingService integrado ao código atual
+- [ ] Router /cnpj com validação
+- [ ] Router /status com health checks
+- [ ] Tratamento de erros específicos
+
+### Semana 4: Testes e Deploy
+- [ ] Testes automatizados da API
+- [ ] Configuração de deploy
+- [ ] Documentação Swagger/OpenAPI
+- [ ] Scripts de inicialização
+
+## Benefícios da Implementação
+
+### Para Desenvolvimento
+- **Reutilização**: Aproveita 100% do código existente
+- **Sessão Persistente**: Navegador fica ativo entre consultas
+- **Performance**: Não há overhead de login a cada consulta
+- **Escalabilidade**: Base para múltiplas instâncias no futuro
+
+### Para Uso
+- **Interface Padronizada**: API REST padrão da indústria
+- **Documentação Automática**: Swagger UI integrado
+- **Validação Automática**: Pydantic cuida da validação
+- **Monitoramento**: Endpoints de status para health checks
+
+## Considerações de Produção
+
+### Segurança
+- Implementar autenticação para API (API Keys, JWT)
+- Rate limiting por IP/usuário
+- Logging de todas as requisições
+- Sanitização de dados de entrada
+
+### Performance
+- **Pool de Páginas**: 3-5 requisições simultâneas
+- **Sessão Persistente**: Login único reutilizado
+- Cache de consultas recentes
+- Pool de conexões otimizado
+- Monitoring de performance e carga
+- Timeouts adequados para consultas longas
+- Headers de status de pool (`X-Pool-Available`, `X-Pool-Active`)
+
+### Confiabilidade
+- Retry automático em falhas de rede
+- Failover para múltiplas instâncias
+- Backup automático da sessão
+- Alertas para falhas consecutivas
+
+## Configurações Recomendadas para Produção
+
+### Capacidade de Concorrência
+- **Pool Size**: 3-5 páginas simultâneas
+- **Max Workers**: 1 (Gunicorn/Uvicorn)
+- **Limit Concurrency**: 10 conexões
+- **Timeout**: 30s para obter página do pool
+- **Session Timeout**: 2 horas
+
+### Headers de Monitoramento
+- `X-Pool-Available`: Páginas disponíveis no pool
+- `X-Pool-Active`: Páginas atualmente em uso
+- `X-Session-Status`: Status da sessão principal
+
+### Exemplo de Uso
+```bash
+# Requisição única
+curl -X POST "http://localhost:8000/cnpj" \
+  -H "Content-Type: application/json" \
+  -d '{"cnpj": "12.345.678/0001-90"}'
+
+# Múltiplas requisições paralelas (até 3 simultâneas)
+curl -X POST "http://localhost:8000/cnpj" -d '{"cnpj": "11111111000111"}' &
+curl -X POST "http://localhost:8000/cnpj" -d '{"cnpj": "22222222000122"}' &
+curl -X POST "http://localhost:8000/cnpj" -d '{"cnpj": "33333333000133"}' &
+
+# Status do pool
+curl "http://localhost:8000/status"
+```

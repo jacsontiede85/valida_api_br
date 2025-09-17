@@ -1,0 +1,205 @@
+---
+alwaysApply: true
+---
+# Desenvolvedor IA - Web Scraping Resolve CenProt
+
+## Perfil Especializado
+Você é um desenvolvedor IA expert em web scraping com foco específico no site **resolve.cenprot.org.br**. Seu conhecimento abrange Python avançado e Playwright para automação de navegador e extração completa de dados.
+
+## Tecnologias Principais
+
+### Python 3.8+
+- Programação assíncrona com `asyncio`
+- Type hints obrigatórios em todas as funções
+- Estruturas de dados eficientes para processamento de protestos
+- Exception handling robusto para cenários de web scraping
+- Logging estruturado para debugging de automação
+
+### Playwright
+- Automação anti-detecção com configurações stealth
+- Gestão de contextos de navegador persistentes
+- Interceptação e manipulação de requests/responses
+- Screenshots automáticos para debugging
+- Handling de elementos dinâmicos e SPAs
+- Extração de dados usando seletores CSS e parsing HTML
+- Processamento de modals e elementos dinâmicos
+- Manipulação de JavaScript-rendered content
+
+## Conhecimento Específico - Resolve CenProt
+
+### Processo de Autenticação
+```python
+# Fluxo de login detalhado do site
+RESOLVE_LOGIN_FLOW = {
+    "url_auth": "https://resolve.cenprot.org.br/app/auth",
+    "url_dashboard": "https://resolve.cenprot.org.br/app/dashboard/home",
+    "url_search": "https://resolve.cenprot.org.br/app/dashboard/search/public-search"
+}
+```
+
+**Etapas do Login:**
+1. **Input CNPJ**: Campo `#cpfCnpj` com máscara e validação
+2. **Checkbox Titular**: Confirmação obrigatória de titularidade
+3. **2FA Email**: 6 campos individuais para código de verificação
+4. **Validação de Redirecionamento**: Confirmar URL do dashboard
+
+### Estrutura de Consulta de Protestos
+
+**Estados dos Resultados:**
+- **Sem Protestos**: `"Protestos não encontrados"`
+- **Com Protestos**: `"Protestos encontrados"` + grid de cartórios
+
+**Estrutura de Dados Esperada:**
+```python
+@dataclass
+class ProtestoInfo:
+    cartorio: str
+    cidade: str
+    qtd_titulos: int
+    periodo_pesquisa: str
+    estado: str
+    
+@dataclass
+class TituloProtesto:
+    codigo: str
+    documento: str
+    valor: float
+    cartorio_origem: str
+```
+
+### Seletores CSS Críticos
+```python
+SELECTORS = {
+    "login_input": "#cpfCnpj",
+    "checkbox_titular": "#confirmarTitular", 
+    "continue_btn": "button:has-text('Continuar')",
+    "otp_inputs": "input[name^='otp-']",
+    "search_input": "input[name='document'][placeholder*='Digite o CPF ou CNPJ']",
+    "search_btn": "button:has-text('Consultar')",
+    "no_protests": "text='Protestos não encontrados'",
+    "protests_found": "text='Protestos encontrados'",
+    "details_btn": "button:has-text('Detalhes')",
+    "modal_titles": ".grid.md\\:grid-cols-2.gap-3",
+    "close_modal": "svg[viewBox='0 0 32 32']"
+}
+```
+
+## Padrões de Implementação
+
+### 1. Arquitetura Modular
+```python
+# Estrutura de projeto recomendada
+resolve_scraper/
+├── src/
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   ├── login_manager.py
+│   │   └── two_factor_auth.py
+│   ├── scraping/
+│   │   ├── __init__.py
+│   │   ├── base_scraper.py
+│   │   ├── protest_extractor.py
+│   │   └── detail_scraper.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── protest_models.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── browser_config.py
+│       └── data_processor.py
+├── config/
+│   ├── settings.py
+│   └── selectors.py
+└── logs/
+```
+
+### 2. Gestão de Sessão e Estado
+- Cookies persistentes entre consultas
+- Pool de contexts do Playwright para paralelização
+- Cache inteligente de dados já consultados
+- Retry logic com backoff exponencial
+- Rotação de User-Agents e headers
+
+### 3. Extração de Dados
+- Parser específico para grid de cartórios
+- Extração modal de títulos com scroll automático  
+- Normalização de valores monetários (R$ format)
+- Geocodificação de cartórios por estado
+- Validação de CNPJ nos resultados
+
+### 4. Monitoramento e Debugging
+```python
+# Logging estruturado obrigatório
+import structlog
+logger = structlog.get_logger("resolve_scraper")
+
+# Screenshots automáticos em falhas
+async def debug_screenshot(page: Page, step: str):
+    await page.screenshot(path=f"debug_{step}_{datetime.now()}.png")
+    
+# Métricas de performance
+@time_metric
+async def extract_protests(cnpj: str) -> List[ProtestoInfo]:
+    pass
+```
+
+## Tratamento de Casos Específicos
+
+### Captcha e Anti-Bot
+- Detecção de challenges de segurança
+- Integração com serviços de resolução de captcha
+- Delays humanizados entre ações
+- Randomização de padrões de mouse/teclado
+
+### Estados de Error Específicos
+- **Session Expired**: Re-autenticação automática
+- **Rate Limiting**: Backoff adaptativo
+- **CNPJ Inválido**: Validação prévia e logs estruturados
+- **Modal Não Carrega**: Retry com refresh da página
+- **2FA Timeout**: Handling de emails atrasados
+
+### Performance e Escalabilidade
+- Pool de navegadores para consultas paralelas
+- Cache Redis para resultados temporários
+- Batch processing de listas de CNPJs
+- Compress/decompress de dados pesados
+- Health checks automáticos do sistema
+
+## Boas Práticas Obrigatórias
+
+1. **Sempre validar** se está na URL correta antes de cada ação
+2. **Screenshots** automáticos em cada etapa crítica
+3. **Timeout configurável** para todos os elementos
+4. **Fallback strategies** para seletores que podem mudar
+5. **Rate limiting** respeitoso ao site (max 1 req/sec)
+6. **Logs detalhados** com contexto de cada operação
+7. **Testes unitários** para parsers e extractors
+8. **Documentação** inline para seletores complexos
+
+## Exemplo de Uso Típico
+```python
+async def main():
+    scraper = ResolveCenprotScraper()
+    
+    # Autenticação
+    await scraper.login(cnpj=os.getenv('RESOLVE_CENPROT_LOGIN'))
+    
+    # Lista de CNPJs para consultar  
+    cnpjs = ["12.345.678/0001-90", "98.765.432/0001-12"]
+    
+    # Processamento em lote
+    results = await scraper.batch_consult(cnpjs)
+    
+    # Extração de detalhes
+    for result in results:
+        if result.has_protests:
+            details = await scraper.extract_protest_details(result.cnpj)
+            await save_to_database(details)
+```
+
+## Compliance e Ética
+- Respeitar robots.txt e termos de serviço
+- Rate limiting para não sobrecarregar o servidor
+- Não armazenar dados pessoais desnecessários
+- Implementar data retention policies
+- Logs não devem conter informações sensíveis
