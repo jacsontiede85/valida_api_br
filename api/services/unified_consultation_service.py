@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 from api.models.saas_models import ConsultationRequest, ConsultationResponse
 from api.services.scraping_service import ScrapingService
 from src.utils.cnpja_api import CNPJaAPI, CNPJaAPIError, CNPJaInvalidCNPJError, CNPJaNotFoundError
+from api.services.credit_service import credit_service, InsufficientCreditsError
 
 logger = structlog.get_logger(__name__)
 
@@ -45,6 +46,7 @@ class UnifiedConsultationService:
     async def consultar_dados_completos(self, request: ConsultationRequest, user_id: Optional[str] = None) -> ConsultationResponse:
         """
         Consulta dados completos baseado nos parâmetros solicitados
+        Com verificação de créditos e renovação automática
         
         Args:
             request: Requisição com parâmetros de consulta
@@ -58,24 +60,61 @@ class UnifiedConsultationService:
         cnpja_data = None
         cache_used = False
         error_messages = []
+        consultation_types = []  # Lista de tipos consultados para logging
         
-        logger.info("iniciando_consulta_unificada", 
+        logger.info("iniciando_consulta_unificada_v2", 
                    cnpj=request.cnpj[:8] + "****",
                    user_id=user_id,
                    protestos=request.protestos,
+                   receita_federal=request.receita_federal,
                    simples=request.simples,
                    registrations=bool(request.registrations),
                    geocoding=request.geocoding,
                    suframa=request.suframa)
         
-        # 1. Consultar protestos se solicitado
+        # 1. Calcular custo total da consulta
+        total_cost_cents = await self._calculate_consultation_cost(request)
+        
+        logger.info("custo_calculado", 
+                   cnpj=request.cnpj[:8] + "****",
+                   user_id=user_id,
+                   total_cost_cents=total_cost_cents)
+        
+        # 2. Verificar créditos e renovar se necessário
+        if user_id:
+            try:
+                await credit_service.check_and_renew_credits(user_id, total_cost_cents)
+                logger.info("verificacao_creditos_ok", user_id=user_id, custo=total_cost_cents)
+            except InsufficientCreditsError as e:
+                logger.error("creditos_insuficientes", user_id=user_id, error=str(e))
+                return ConsultationResponse(
+                    success=False,
+                    cnpj=request.cnpj,
+                    timestamp=datetime.now(),
+                    user_id=user_id,
+                    error=str(e),
+                    response_time_ms=int((time.time() - start_time) * 1000)
+                )
+        
+        # 3. Consultar protestos se solicitado
         if request.protestos:
+            consulta_start_time = time.time()
             try:
                 scraping_service = self._get_scraping_service()
                 logger.info("consultando_protestos", cnpj=request.cnpj[:8] + "****")
                 
                 protestos_result = await scraping_service.consultar_cnpj(request.cnpj)
                 protestos_data = self._format_protestos_data(protestos_result)
+                
+                # Registrar tipo consultado
+                consultation_types.append({
+                    "type_code": "protestos",
+                    "cost_cents": 15,
+                    "success": True,
+                    "response_time_ms": int((time.time() - consulta_start_time) * 1000),
+                    "cache_used": False,
+                    "response_data": protestos_data
+                })
                 
                 logger.info("consulta_protestos_sucesso", 
                            cnpj=request.cnpj[:8] + "****",
@@ -84,25 +123,23 @@ class UnifiedConsultationService:
             except Exception as e:
                 error_msg = f"Erro na consulta de protestos: {str(e)}"
                 error_messages.append(error_msg)
+                
+                # Registrar tipo com erro
+                consultation_types.append({
+                    "type_code": "protestos", 
+                    "cost_cents": 15,
+                    "success": False,
+                    "response_time_ms": int((time.time() - consulta_start_time) * 1000),
+                    "error_message": error_msg
+                })
+                
                 logger.error("erro_consulta_protestos", 
                            cnpj=request.cnpj[:8] + "****", 
                            error=str(e),
                            error_type=type(e).__name__)
         
-        # 2. Consultar dados CNPJa se algum parâmetro foi solicitado
-        # Considerar CNPJa solicitada se há parâmetros específicos OU parâmetros de extração habilitados
-        cnpja_requested = any([
-            request.simples, 
-            request.registrations, 
-            request.geocoding, 
-            request.suframa,
-            # Ou se os parâmetros de extração básicos estão habilitados (indicando que usuário quer dados da Receita Federal)
-            request.extract_basic,
-            request.extract_address,
-            request.extract_contact,
-            request.extract_activities,
-            request.extract_partners
-        ])
+        # 4. Consultar dados CNPJa somente se receita_federal=true
+        cnpja_requested = request.receita_federal
         
         if cnpja_requested:
             try:
@@ -329,3 +366,38 @@ class UnifiedConsultationService:
                         error=str(e),
                         protestos_data_type=type(protestos_data).__name__)
             return None, None
+    
+    async def _calculate_consultation_cost(self, request: ConsultationRequest) -> int:
+        """
+        Calcula o custo total da consulta baseado nos tipos solicitados
+        """
+        total_cost = 0
+        
+        # Protestos: 15 centavos
+        if request.protestos:
+            total_cost += 15
+        
+        # Custos CNPJa (Receita Federal) - somente se receita_federal=true
+        if request.receita_federal:
+            # CNPJa - Receita Federal básica: 5 centavos
+            if (request.extract_basic or request.extract_address or 
+                request.extract_contact or request.extract_activities or request.extract_partners):
+                total_cost += 5
+            
+            # CNPJa - Simples Nacional: 5 centavos 
+            if request.simples:
+                total_cost += 5
+                
+            # CNPJa - Cadastro de contribuintes: 5 centavos
+            if request.registrations:
+                total_cost += 5
+                
+            # CNPJa - Geocodificação: 5 centavos
+            if request.geocoding:
+                total_cost += 5
+                
+            # CNPJa - Suframa: 5 centavos
+            if request.suframa:
+                total_cost += 5
+        
+        return total_cost

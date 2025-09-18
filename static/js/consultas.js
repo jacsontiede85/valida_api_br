@@ -105,6 +105,9 @@ class ConsultasManager {
             return;
         }
 
+        // Fechar accordion das subopções da Receita Federal
+        this.collapseReceitaFederalOptions();
+
         this.showLoading();
         
         try {
@@ -122,10 +125,28 @@ class ConsultasManager {
     toggleReceitaFederalOptions() {
         const receitaFederalCheckbox = document.getElementById('receita-federal');
         const subOptionsContainer = document.getElementById('receita-sub-options');
+        const toggleIcon = document.getElementById('receita-toggle-icon');
         const subCheckboxes = ['simples', 'registrations', 'geocoding', 'suframa'];
         const strategySelect = document.getElementById('strategy');
         
         const isEnabled = receitaFederalCheckbox.checked;
+        
+        // Animar abertura/fechamento do accordion
+        if (isEnabled) {
+            // Abrir
+            subOptionsContainer.classList.remove('accordion-collapsed');
+            subOptionsContainer.classList.add('accordion-expanded');
+            if (toggleIcon) {
+                toggleIcon.style.transform = 'rotate(180deg)';
+            }
+        } else {
+            // Fechar
+            subOptionsContainer.classList.remove('accordion-expanded');
+            subOptionsContainer.classList.add('accordion-collapsed');
+            if (toggleIcon) {
+                toggleIcon.style.transform = 'rotate(0deg)';
+            }
+        }
         
         // Habilitar/desabilitar subopções
         subCheckboxes.forEach(id => {
@@ -162,16 +183,20 @@ class ConsultasManager {
                 ? strategySelect.className.replace('text-gray-400', 'text-white')
                 : strategySelect.className.replace('text-white', 'text-gray-400');
         }
+    }
+
+    // Função para fechar accordion após consulta
+    collapseReceitaFederalOptions() {
+        const subOptionsContainer = document.getElementById('receita-sub-options');
+        const toggleIcon = document.getElementById('receita-toggle-icon');
         
-        // Alterar opacidade do container
         if (subOptionsContainer) {
-            if (isEnabled) {
-                subOptionsContainer.classList.remove('opacity-50');
-                subOptionsContainer.classList.add('opacity-100');
-            } else {
-                subOptionsContainer.classList.remove('opacity-100');
-                subOptionsContainer.classList.add('opacity-50');
-            }
+            subOptionsContainer.classList.remove('accordion-expanded');
+            subOptionsContainer.classList.add('accordion-collapsed');
+        }
+        
+        if (toggleIcon) {
+            toggleIcon.style.transform = 'rotate(0deg)';
         }
     }
 
@@ -210,9 +235,12 @@ class ConsultasManager {
             // Dados jurídicos  
             protestos: document.getElementById('protestos')?.checked || false,
             
+            // Controle principal da Receita Federal
+            receita_federal: receitaFederalEnabled,
+            
             // Dados da Receita Federal (só se a opção principal estiver habilitada)
             simples: receitaFederalEnabled ? (document.getElementById('simples')?.checked || false) : false,
-            registrations: receitaFederalEnabled && document.getElementById('registrations')?.checked ? 'BR' : null,
+            registrations: receitaFederalEnabled ? (document.getElementById('registrations')?.checked || false) : false,
             geocoding: receitaFederalEnabled ? (document.getElementById('geocoding')?.checked || false) : false,
             suframa: receitaFederalEnabled ? (document.getElementById('suframa')?.checked || false) : false,
             
@@ -691,6 +719,9 @@ class ConsultasManager {
         document.getElementById('protestos').checked = true;
         document.getElementById('receita-federal').checked = false;
         
+        // Fechar accordion das subopções da Receita Federal
+        this.collapseReceitaFederalOptions();
+        
         // Desabilitar subopções da Receita Federal
         this.toggleReceitaFederalOptions();
         
@@ -796,8 +827,26 @@ class ConsultasManager {
             // Mostrar modal
             modal.classList.remove('hidden');
             
-            // Focar no conteúdo JSON para facilitar seleção
-            jsonContent.focus();
+            // Forçar barra de rolagem após um pequeno delay para garantir que o conteúdo foi renderizado
+            setTimeout(() => {
+                // Forçar recálculo do layout
+                jsonContent.style.overflow = 'auto';
+                jsonContent.style.overflowX = 'auto';
+                jsonContent.style.overflowY = 'auto';
+                
+                // Adicionar uma altura mínima que force a barra de rolagem
+                const contentHeight = jsonContent.scrollHeight;
+                const containerHeight = jsonContent.clientHeight;
+                
+                if (contentHeight > containerHeight) {
+                    console.log('📏 JSON precisa de rolagem:', { contentHeight, containerHeight });
+                } else {
+                    console.log('📏 JSON não precisa de rolagem:', { contentHeight, containerHeight });
+                }
+                
+                // Focar no conteúdo JSON para facilitar seleção
+                jsonContent.focus();
+            }, 100);
         }
     }
     
@@ -973,7 +1022,23 @@ class ConsultasManager {
                     <div><span class="text-gray-400">Porte:</span> <span class="text-white font-medium">${basico.porte || 'N/A'}</span></div>
                     <div><span class="text-gray-400">Capital Social:</span> <span class="text-white font-medium">${this.formatarMoeda(basico.capital_social || 0)}</span></div>
                     <div><span class="text-gray-400">Data Fundação:</span> <span class="text-white font-medium">${basico.data_fundacao || 'N/A'}</span></div>
+                    <div><span class="text-gray-400">Data Situação:</span> <span class="text-white font-medium">${basico.data_situacao || 'N/A'}</span></div>
+                    <div><span class="text-gray-400">Tipo:</span> <span class="text-white font-medium">${basico.matriz_filial || 'N/A'}</span></div>
                 </div>
+                ${basico.natureza_juridica ? `
+                <div class="mt-3 pt-3 border-t border-gray-600">
+                    <div class="text-sm">
+                        <span class="text-gray-400">Natureza Jurídica:</span> 
+                        <span class="text-white font-medium">${basico.natureza_juridica}</span>
+                    </div>
+                </div>` : ''}
+                ${basico.ultima_atualizacao ? `
+                <div class="mt-2 pt-2 border-t border-gray-700">
+                    <div class="text-xs text-gray-500">
+                        <span class="material-icons text-xs">update</span>
+                        Última atualização: ${basico.ultima_atualizacao}
+                    </div>
+                </div>` : ''}
             </div>`;
         }
         
@@ -986,15 +1051,178 @@ class ConsultasManager {
                     <span class="material-icons text-blue-400 text-sm">location_on</span>
                     Endereço ${endereco.latitude ? '(com geolocalização)' : ''}
                 </h4>
-                <div class="text-sm">
-                    <p class="text-white">${endereco.logradouro || ''} ${endereco.numero || ''}</p>
-                    <p class="text-gray-300">${endereco.bairro || ''} - ${endereco.cidade || ''} - ${endereco.uf || ''}</p>
-                    <p class="text-gray-300">CEP: ${endereco.cep || 'N/A'}</p>
-                    ${endereco.latitude ? `<p class="text-green-400 text-xs mt-2">📍 Lat: ${endereco.latitude}, Long: ${endereco.longitude}</p>` : ''}
+                <div class="text-sm space-y-2">
+                    <div>
+                        <div class="text-white font-medium">${endereco.logradouro || ''} ${endereco.numero || ''}</div>
+                        ${endereco.complemento ? `<div class="text-gray-300 text-sm">${endereco.complemento}</div>` : ''}
+                    </div>
+                    <div class="text-gray-300">
+                        <div>${endereco.bairro || ''} - ${endereco.cidade || ''} - ${endereco.uf || ''}</div>
+                        <div>CEP: <span class="font-mono">${endereco.cep || 'N/A'}</span></div>
+                        ${endereco.pais ? `<div>País: ${endereco.pais}</div>` : ''}
+                        ${endereco.municipio_ibge ? `<div class="text-xs text-gray-500">Cód. IBGE: ${endereco.municipio_ibge}</div>` : ''}
+                    </div>
+                    ${endereco.latitude ? `
+                    <div class="mt-3 pt-3 border-t border-gray-600">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="material-icons text-green-400 text-sm">location_on</span>
+                            <span class="text-green-200 font-medium text-sm">Coordenadas</span>
+                        </div>
+                        <div class="text-xs text-gray-300 font-mono">
+                            <div>Latitude: ${endereco.latitude}</div>
+                            <div>Longitude: ${endereco.longitude}</div>
+                        </div>
+                    </div>` : ''}
                 </div>
             </div>`;
         }
         
+        // Contato
+        if (dadosReceita.contato) {
+            const contato = dadosReceita.contato;
+            html += `
+            <div class="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <h4 class="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                    <span class="material-icons text-green-400 text-sm">contact_phone</span>
+                    Contato
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+            
+            // Telefones
+            if (contato.telefones && contato.telefones.length > 0) {
+                html += `
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="material-icons text-blue-400 text-sm">phone</span>
+                            <span class="text-sm text-gray-400 font-medium">Telefones</span>
+                        </div>
+                        <div class="space-y-1">`;
+                
+                contato.telefones.forEach(tel => {
+                    const tipoIcon = tel.tipo === 'MOBILE' ? 'smartphone' : 'phone';
+                    const tipoLabel = tel.tipo === 'MOBILE' ? 'Celular' : 'Fixo';
+                    html += `
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="material-icons text-gray-500 text-xs">${tipoIcon}</span>
+                            <span class="text-white">${tel.telefone}</span>
+                            <span class="text-gray-500 text-xs">(${tipoLabel})</span>
+                        </div>`;
+                });
+                
+                html += '</div></div>';
+            }
+            
+            // Emails
+            if (contato.emails && contato.emails.length > 0) {
+                html += `
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="material-icons text-green-400 text-sm">email</span>
+                            <span class="text-sm text-gray-400 font-medium">E-mails</span>
+                        </div>
+                        <div class="space-y-1">`;
+                
+                contato.emails.forEach(email => {
+                    const tipoLabel = email.propriedade === 'CORPORATE' ? 'Corporativo' : email.propriedade;
+                    html += `
+                        <div class="flex items-start gap-2 text-sm">
+                            <span class="material-icons text-gray-500 text-xs">alternate_email</span>
+                            <div>
+                                <div class="text-white break-all">${email.email}</div>
+                                <div class="text-gray-500 text-xs">${tipoLabel}</div>
+                            </div>
+                        </div>`;
+                });
+                
+                html += '</div></div>';
+            }
+            
+            html += '</div></div>';
+        }
+
+        // Atividades (CNAEs)
+        if (dadosReceita.atividades) {
+            const atividades = dadosReceita.atividades;
+            html += `
+            <div class="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <h4 class="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                    <span class="material-icons text-purple-400 text-sm">work</span>
+                    Atividades Econômicas (CNAEs)
+                </h4>`;
+            
+            // CNAE Principal
+            if (atividades.cnae_principal) {
+                const cnae = atividades.cnae_principal;
+                html += `
+                    <div class="mb-4 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="material-icons text-purple-400 text-sm">star</span>
+                            <span class="text-purple-200 font-semibold text-sm">Atividade Principal</span>
+                        </div>
+                        <div class="text-sm">
+                            <div class="text-white font-medium">${cnae.id} - ${cnae.descricao}</div>
+                        </div>
+                    </div>`;
+            }
+            
+            // CNAEs Secundários
+            if (atividades.cnaes_secundarios && atividades.cnaes_secundarios.length > 0) {
+                html += `
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="material-icons text-blue-400 text-sm">list</span>
+                            <span class="text-blue-200 font-semibold text-sm">Atividades Secundárias (${atividades.cnaes_secundarios.length})</span>
+                        </div>
+                        <div class="space-y-2 max-h-64 overflow-y-auto">`;
+                
+                atividades.cnaes_secundarios.forEach((cnae, index) => {
+                    html += `
+                        <div class="p-2 bg-gray-700 rounded text-sm">
+                            <span class="text-white font-mono">${cnae.id}</span>
+                            <span class="text-gray-300 ml-2">${cnae.descricao}</span>
+                        </div>`;
+                });
+                
+                html += '</div></div>';
+            }
+            
+            html += '</div>';
+        }
+
+        // Sócios
+        if (dadosReceita.socios && dadosReceita.socios.length > 0) {
+            html += `
+            <div class="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <h4 class="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                    <span class="material-icons text-indigo-400 text-sm">people</span>
+                    Sócios e Administradores
+                </h4>
+                <div class="space-y-3">`;
+            
+            dadosReceita.socios.forEach((socio, index) => {
+                const maskedDoc = socio.documento ? socio.documento.replace(/(\d{3})\d{6}(\d{2})/, '$1******$2') : 'N/A';
+                html += `
+                    <div class="p-3 bg-gray-700 rounded">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <div class="text-white font-semibold">${socio.nome}</div>
+                                <div class="text-indigo-300 text-sm">${socio.cargo}</div>
+                            </div>
+                            <div class="text-xs text-gray-400 text-right">
+                                <div>${socio.tipo_pessoa === 'NATURAL' ? 'Pessoa Física' : 'Pessoa Jurídica'}</div>
+                                ${socio.faixa_etaria ? `<div>Idade: ${socio.faixa_etaria} anos</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs text-gray-300">
+                            <div><span class="text-gray-400">CPF/CNPJ:</span> ${maskedDoc}</div>
+                            <div><span class="text-gray-400">Entrada:</span> ${socio.data_entrada || 'N/A'}</div>
+                        </div>
+                    </div>`;
+            });
+            
+            html += '</div></div>';
+        }
+
         // Simples Nacional
         if (dadosReceita.simples) {
             const simples = dadosReceita.simples;
@@ -1031,13 +1259,24 @@ class ConsultasManager {
             
             dadosReceita.registros_estaduais.forEach(registro => {
                 const statusClass = registro.ativo ? 'text-green-400' : 'text-red-400';
+                const statusIcon = registro.ativo ? 'check_circle' : 'cancel';
                 html += `
-                    <div class="flex items-center justify-between p-2 bg-gray-700 rounded text-sm">
-                        <div>
-                            <span class="text-white font-medium">${registro.uf}</span>
-                            <span class="text-gray-400 ml-2">${registro.numero}</span>
+                    <div class="p-3 bg-gray-700 rounded">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="material-icons ${statusClass} text-sm">${statusIcon}</span>
+                                <div>
+                                    <div class="text-white font-medium">${registro.uf} - ${registro.numero}</div>
+                                    <div class="text-gray-400 text-xs">${registro.tipo || 'IE Normal'}</div>
+                                </div>
+                            </div>
+                            <span class="${statusClass} font-medium text-sm">${registro.ativo ? 'ATIVO' : 'INATIVO'}</span>
                         </div>
-                        <span class="${statusClass} font-medium">${registro.ativo ? 'ATIVO' : 'INATIVO'}</span>
+                        ${registro.situacao || registro.data_situacao ? `
+                        <div class="grid grid-cols-2 gap-3 text-xs text-gray-300 mt-2 pt-2 border-t border-gray-600">
+                            ${registro.situacao ? `<div><span class="text-gray-400">Situação:</span> ${registro.situacao}</div>` : ''}
+                            ${registro.data_situacao ? `<div><span class="text-gray-400">Data Situação:</span> ${registro.data_situacao}</div>` : ''}
+                        </div>` : ''}
                     </div>`;
             });
             

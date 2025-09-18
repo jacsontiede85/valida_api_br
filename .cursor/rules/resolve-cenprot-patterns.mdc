@@ -1,8 +1,6 @@
 ---
-description: "Padrões de código e estruturas para web scraping resolve.cenprot.org.br"
-globs: "*.py"
+alwaysApply: false
 ---
-
 # Padrões de Código - Resolve CenProt Scraping
 
 ## Estruturas de Dados Obrigatórias

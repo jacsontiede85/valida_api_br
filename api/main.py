@@ -22,7 +22,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from .services.session_manager import SessionManager
 from .services.scraping_service import ScrapingService
-from .routers import status, cnpj, session
+from .routers import status, cnpj, session, auth
 from .middleware.error_handler import add_error_handlers
 from src.config.logging_config import LoggingConfig
 
@@ -147,6 +147,7 @@ add_error_handlers(app)
 app.include_router(status.router, tags=["Status"])
 app.include_router(cnpj.router, tags=["Consulta"])
 app.include_router(session.router, prefix="/session", tags=["Sessão"])
+app.include_router(auth.router, prefix="/api/v1", tags=["Autenticação"])
 
 
 @app.get("/")

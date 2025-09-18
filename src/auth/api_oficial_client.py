@@ -19,9 +19,25 @@ logger = structlog.get_logger(__name__)
 
 
 class ApiOficialClient:
-    """Cliente para API oficial do Resolve CenProt"""
+    """Cliente para API oficial do Resolve CenProt com padrão Singleton"""
+    
+    _instance: Optional['ApiOficialClient'] = None
+    _initialized: bool = False
+    
+    def __new__(cls) -> 'ApiOficialClient':
+        """Implementa padrão Singleton para reutilizar token JWT entre consultas"""
+        if cls._instance is None:
+            cls._instance = super(ApiOficialClient, cls).__new__(cls)
+            logger.info("nova_instancia_singleton_api_oficial_criada")
+        else:
+            logger.info("reutilizando_instancia_singleton_api_oficial")
+        return cls._instance
     
     def __init__(self):
+        # Evitar reinicialização se já foi inicializado
+        if ApiOficialClient._initialized:
+            return
+            
         self.base_url = settings.RESOLVE_CENPROT_API_BASE_URL
         self.login = settings.RESOLVE_CENPROT_LOGIN
         self.access_token: Optional[str] = None
@@ -35,6 +51,10 @@ class ApiOficialClient:
         
         # HTTP client singleton para evitar fechamento prematuro
         self._client = None
+        
+        # Marcar como inicializado
+        ApiOficialClient._initialized = True
+        logger.info("singleton_api_oficial_inicializado")
     
     @property
     async def client(self) -> httpx.AsyncClient:
@@ -452,5 +472,24 @@ class ApiOficialClient:
         return {
             "authenticated": not self._is_token_expired(),
             "token_expires_at": self.token_expires_at.isoformat() if self.token_expires_at else None,
-            "login": self.login[:8] + "****" if self.login else None
+            "login": self.login[:8] + "****" if self.login else None,
+            "singleton_instance": True,
+            "instance_id": id(self)
         }
+    
+    @classmethod
+    def reset_singleton(cls):
+        """
+        Reseta o singleton (útil para testes e debugging)
+        ATENÇÃO: Use apenas em casos especiais
+        """
+        if cls._instance:
+            logger.warning("resetando_singleton_api_oficial")
+            # Fechar conexões se existirem
+            if hasattr(cls._instance, '_client') and cls._instance._client:
+                # Não aguardar async aqui, apenas marcar para fechamento
+                pass
+            
+            cls._instance = None
+            cls._initialized = False
+            logger.info("singleton_api_oficial_resetado")

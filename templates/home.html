@@ -94,7 +94,7 @@
 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">CTRL+K</span>
 </div>
 <div class="flex items-center space-x-2 bg-blue-500/20 text-blue-400 px-3 py-1 rounded-md">
-<span data-stat="creditos-disponiveis">0</span>
+<span data-stat="creditos-disponiveis">R$ 0,00</span>
 <span class="material-icons text-sm">toll</span>
 </div>
 </div>
@@ -121,36 +121,99 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
 <div class="card p-4">
 <h3 class="text-sm font-medium text-gray-400">Créditos Disponíveis</h3>
-<p class="text-3xl font-bold mt-2" data-stat="creditos-disponiveis">0</p>
-<p class="text-xs text-gray-500 mt-1">Renovam em <span data-renewal-date>--</span></p>
+<p class="text-3xl font-bold mt-2 text-green-400" data-stat="creditos-disponiveis">R$ 0,00</p>
+<div class="flex justify-between text-xs text-gray-500 mt-1">
+<span>Comprados: <span data-stat="creditos-comprados" class="text-blue-400">R$ 0,00</span></span>
+<span>Usados: <span data-stat="creditos-usados" class="text-red-400">R$ 0,00</span></span>
+</div>
+<p class="text-xs text-gray-500 mt-1">Renovação automática: <span data-auto-renewal-status class="text-green-400">Ativa</span></p>
 </div>
 <div class="card p-4">
 <h3 class="text-sm font-medium text-gray-400">Consumo no Período</h3>
-<p class="text-3xl font-bold mt-2" data-stat="consumo-periodo">0</p>
-<p class="text-xs text-gray-500 mt-1" data-msg="consumo-periodo-msg">Nenhum consumo registrado</p>
+<p class="text-3xl font-bold mt-2 text-orange-400" data-stat="consumo-periodo">R$ 0,00</p>
+<div class="text-xs text-gray-500 mt-1">
+<div class="flex justify-between mb-1">
+<span>Protestos:</span>
+<span data-stat="consumo-protestos" class="text-yellow-400">R$ 0,00</span>
+</div>
+<div class="flex justify-between">
+<span>Receita Federal:</span>
+<span data-stat="consumo-receita" class="text-green-400">R$ 0,00</span>
+</div>
+</div>
 </div>
 <div class="card p-4">
 <h3 class="text-sm font-medium text-gray-400">Consultas Realizadas</h3>
-<p class="text-3xl font-bold mt-2" data-stat="consultas-realizadas">0</p>
-<p class="text-xs text-gray-500 mt-1" data-msg="consultas-realizadas-msg">Nenhuma consulta realizada</p>
+<p class="text-3xl font-bold mt-2 text-blue-400" data-stat="consultas-realizadas">0</p>
+<div class="text-xs text-gray-500 mt-1">
+<div class="flex justify-between mb-1">
+<span>Protestos:</span>
+<span data-stat="consultas-protestos" class="text-yellow-400">0</span>
+</div>
+<div class="flex justify-between">
+<span>Receita Federal:</span>
+<span data-stat="consultas-receita" class="text-green-400">0</span>
+</div>
+</div>
 </div>
 <div class="card p-4">
 <h3 class="text-sm font-medium text-gray-400">Custo Total</h3>
-<p class="text-3xl font-bold mt-2" data-stat="custo-total">R$ 0,00</p>
-<p class="text-xs text-gray-500 mt-1" data-msg="custo-total-msg">Custo médio por consulta: R$ 0,00</p>
+<p class="text-3xl font-bold mt-2 text-purple-400" data-stat="custo-total">R$ 0,00</p>
+<div class="text-xs text-gray-500 mt-1">
+<div class="mb-1">Custo médio: <span data-stat="custo-medio" class="text-white">R$ 0,00</span></div>
+<div class="text-xs text-gray-600">Protestos R$0,15 • Receita R$0,05</div>
+</div>
 </div>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 <div class="lg:col-span-3 card p-6">
-<h2 class="text-lg font-semibold mb-4">Consumo de API por Período</h2>
+<h2 class="text-lg font-semibold mb-4">Consumo de Créditos por Período</h2>
 <div class="relative h-64">
 <canvas id="apiConsumptionChart"></canvas>
 </div>
+<div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+<div class="flex items-center justify-between p-2 bg-gray-800 rounded">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-yellow-400 rounded"></div>
+<span>Protestos</span>
+</div>
+<span class="text-yellow-400 font-medium" data-stat="chart-protestos">R$ 0,00</span>
+</div>
+<div class="flex items-center justify-between p-2 bg-gray-800 rounded">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-green-400 rounded"></div>
+<span>Receita Federal</span>
+</div>
+<span class="text-green-400 font-medium" data-stat="chart-receita">R$ 0,00</span>
+</div>
+</div>
 </div>
 <div class="lg:col-span-2 card p-6">
-<h2 class="text-lg font-semibold mb-4">Volume de Consultas por API</h2>
+<h2 class="text-lg font-semibold mb-4">Tipos de Consulta</h2>
 <div class="relative h-64">
 <canvas id="apiVolumeChart"></canvas>
+</div>
+<div class="mt-4 space-y-2 text-sm">
+<div class="flex justify-between items-center">
+<span class="flex items-center gap-2">
+<span class="material-icons text-yellow-400 text-sm">gavel</span>
+<span>Protestos</span>
+</span>
+<div class="text-right">
+<div class="text-white font-medium" data-stat="tipo-protestos-count">0</div>
+<div class="text-yellow-400 text-xs">R$0,15 cada</div>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="flex items-center gap-2">
+<span class="material-icons text-green-400 text-sm">business</span>
+<span>Receita Federal</span>
+</span>
+<div class="text-right">
+<div class="text-white font-medium" data-stat="tipo-receita-count">0</div>
+<div class="text-green-400 text-xs">R$0,05 cada</div>
+</div>
+</div>
 </div>
 </div>
 </div>

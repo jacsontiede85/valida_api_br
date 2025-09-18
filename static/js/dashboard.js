@@ -47,11 +47,32 @@ class Dashboard {
     }
 
     getAuthToken() {
-        // Verificar localStorage para token
-        return localStorage.getItem('auth_token') || 
-               localStorage.getItem('api_key') || 
-               localStorage.getItem('dev_token') ||
-               null;
+        // Verificar localStorage para token - APENAS JWT tokens válidos
+        const authToken = localStorage.getItem('auth_token');
+        const sessionToken = localStorage.getItem('session_token');
+        
+        console.log('🔍 Tokens disponíveis:');
+        console.log('  auth_token:', authToken ? authToken.substring(0, 20) + '...' : 'null');
+        console.log('  session_token:', sessionToken ? sessionToken.substring(0, 20) + '...' : 'null');
+        
+        // Priorizar auth_token (JWT novo) sobre session_token (legacy)
+        const token = authToken || sessionToken;
+        
+        // Verificar se o token parece ser um JWT (formato xxx.yyy.zzz)
+        if (token && token.includes('.') && token.split('.').length === 3) {
+            console.log('✅ Token JWT válido encontrado');
+            return token;
+        } else if (token) {
+            console.warn('❌ Token encontrado mas não é um JWT válido:', token.substring(0, 20) + '...');
+            // Limpar token inválido
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('api_key'); // Limpar possível API key antiga
+            return null;
+        }
+        
+        console.warn('❌ Nenhum token JWT válido encontrado');
+        return null;
     }
 
     setAuthHeader(token) {
@@ -62,28 +83,51 @@ class Dashboard {
         };
     }
 
+    async fetchWithAuth(url, options = {}) {
+        // Método para fazer requisições autenticadas
+        const defaultOptions = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                ...this.authHeader
+            }
+        };
+        
+        // Mesclar opções fornecidas com as padrão
+        const finalOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
+        };
+
+        try {
+            const response = await fetch(url, finalOptions);
+            return response;
+        } catch (error) {
+            console.error('❌ Erro na requisição autenticada:', error);
+            throw error;
+        }
+    }
+
     async loadDashboardData(period = '30d') {
         try {
             console.log(`📊 Carregando dados do dashboard para período: ${period}`);
             
-            // Tentar obter uma API key real do banco de dados
-            let apiKey = this.getAuthToken();
-            if (!apiKey || !apiKey.startsWith('rcp_')) {
-                try {
-                    // Primeiro tentar API key real
-                    apiKey = await this.getRealApiKey();
-                    if (!apiKey) {
-                        // Fallback para API key de desenvolvimento
-                        apiKey = await this.getDevApiKey();
-                    }
-                    if (apiKey) {
-                        this.setAuthHeader(apiKey);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Não foi possível obter API key');
-                    return;
-                }
+            // Verificar se temos um token JWT válido
+            const token = this.getAuthToken();
+            if (!token) {
+                console.error('❌ Nenhum token JWT válido encontrado - redirecionando para login');
+                window.location.href = '/login';
+                return;
             }
+            
+            // Configurar header de autorização
+            this.setAuthHeader(token);
+            
+            console.log(`🔑 Usando token JWT para autenticação: ${token.substring(0, 30)}...`);
             
             // Carregar estatísticas do dashboard
             const response = await this.fetchWithAuth(`${this.apiBaseUrl}/dashboard/stats?period=${period}`);
@@ -470,7 +514,7 @@ class Dashboard {
             this.charts.consumptionChart.destroy();
         }
 
-        // Usar dados reais ou fallback para dados mock
+        // Usar dados reais ou fallback padrão
         const chartData = data.consumption_chart || {
             labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
             data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -542,7 +586,7 @@ class Dashboard {
             this.charts.volumeChart.destroy();
         }
 
-        // Usar dados reais ou fallback para dados mock
+        // Usar dados reais ou fallback padrão
         const chartData = data.volume_by_api || {
             labels: ['CNPJ Consult', 'Protestos', 'Histórico', 'Outros'],
             data: [0, 0, 0, 0],

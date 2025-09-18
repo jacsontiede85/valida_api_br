@@ -70,14 +70,25 @@ class AuthManager {
         try {
             this.showLoading('loginBtn', 'Entrando...');
             
-            // Simulate API call (replace with real Supabase auth)
+            // Call login API
             const response = await this.loginUser(email, password);
             
             if (response.success) {
                 this.showSuccess('Login realizado com sucesso!');
-                // Store auth token
-                localStorage.setItem('auth_token', response.token);
+                
+                // Store auth token and API key
+                if (response.token) {
+                    localStorage.setItem('auth_token', response.token);
+                    localStorage.setItem('session_token', response.token);
+                }
+                
+                if (response.api_key && response.api_key.startsWith('rcp_')) {
+                    localStorage.setItem('api_key', response.api_key);
+                }
+                
                 localStorage.setItem('user_email', email);
+                localStorage.setItem('user_id', response.user_id || '');
+                localStorage.setItem('user_name', response.name || email.split('@')[0]);
                 
                 // Redirect to dashboard
                 setTimeout(() => {
@@ -88,7 +99,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('Login error:', error);
-            this.showError('Erro interno do servidor');
+            this.showError(error.message || 'Erro ao fazer login. Verifique suas credenciais.');
         } finally {
             this.hideLoading('loginBtn', 'Entrar');
         }
@@ -111,25 +122,36 @@ class AuthManager {
         try {
             this.showLoading('registerBtn', 'Criando conta...');
             
-            // Simulate API call (replace with real Supabase auth)
+            // Call register API
             const response = await this.registerUser(email, password);
             
             if (response.success) {
-                this.showSuccess('Conta criada com sucesso!');
-                // Store auth token
-                localStorage.setItem('auth_token', response.token);
+                this.showSuccess(response.message || 'Conta criada com sucesso! Você ganhou 7 dias de trial.');
+                
+                // Store auth token and API key
+                if (response.token) {
+                    localStorage.setItem('auth_token', response.token);
+                    localStorage.setItem('session_token', response.token);
+                }
+                
+                if (response.api_key && response.api_key.startsWith('rcp_')) {
+                    localStorage.setItem('api_key', response.api_key);
+                }
+                
                 localStorage.setItem('user_email', email);
+                localStorage.setItem('user_id', response.user_id || '');
+                localStorage.setItem('user_name', response.name || email.split('@')[0]);
                 
                 // Redirect to dashboard
                 setTimeout(() => {
                     window.location.href = '/dashboard';
-                }, 1000);
+                }, 1500);
             } else {
                 this.showError(response.message || 'Erro ao criar conta');
             }
         } catch (error) {
             console.error('Register error:', error);
-            this.showError('Erro interno do servidor');
+            this.showError(error.message || 'Erro ao criar conta. Tente novamente.');
         } finally {
             this.hideLoading('registerBtn', 'Cadastrar');
         }

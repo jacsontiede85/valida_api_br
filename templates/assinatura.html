@@ -95,27 +95,148 @@
             </div>
             
             <!-- Assinatura Atual -->
-            <div data-current-subscription>
-              <!-- Será preenchido dinamicamente pelo JavaScript -->
+            <div data-current-subscription class="px-4 py-3">
+              <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-6 mb-6">
+                <h3 class="text-white text-lg font-bold mb-4">Assinatura Atual</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div class="space-y-3">
+                      <div class="flex justify-between">
+                        <span class="text-[#92adc9]">Plano:</span>
+                        <span class="text-white font-medium" data-current-plan-name>Carregando...</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-[#92adc9]">Status:</span>
+                        <span data-current-status class="px-2 py-1 rounded text-xs font-medium">Carregando...</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-[#92adc9]">Valor Mensal:</span>
+                        <span class="text-white font-medium" data-current-price>R$ --</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-[#92adc9]">Renovação Automática:</span>
+                        <span data-auto-renewal class="text-green-400">Ativa</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 class="text-white font-medium mb-3">Créditos</h4>
+                    <div class="space-y-3">
+                      <div class="bg-[#192633] rounded-lg p-4">
+                        <div class="flex justify-between items-center">
+                          <span class="text-[#92adc9]">Disponíveis:</span>
+                          <span class="text-green-400 font-bold text-lg" data-credits-available>R$ --</span>
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="text-center">
+                          <div class="text-blue-400 font-medium" data-credits-total>R$ --</div>
+                          <div class="text-[#92adc9] text-xs">Total Comprados</div>
+                        </div>
+                        <div class="text-center">
+                          <div class="text-red-400 font-medium" data-credits-used>R$ --</div>
+                          <div class="text-[#92adc9] text-xs">Já Utilizados</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <!-- Planos Disponíveis -->
-            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Planos disponíveis</h2>
-            <div class="grid grid-cols-[repeat(auto-fit,minmax(228px,1fr))] gap-2.5 px-4 py-3 @3xl:grid-cols-4" data-plans-container>
-              <!-- Planos serão carregados dinamicamente pelo JavaScript -->
+            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Planos Disponíveis</h2>
+            <div class="px-4 py-3">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6" data-plans-container>
+                <!-- Template de Plano -->
+                <div class="plan-template hidden" data-plan-template>
+                  <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-6 relative overflow-hidden">
+                    <!-- Badge Popular -->
+                    <div class="popular-badge absolute top-0 right-0 bg-[#1172d4] text-white px-3 py-1 text-xs font-medium rounded-bl-lg" style="display: none;">
+                      Mais Popular
+                    </div>
+                    
+                    <div class="text-center mb-6">
+                      <h3 class="text-white text-xl font-bold mb-2" data-plan-name>Plano</h3>
+                      <div class="mb-4">
+                        <span class="text-4xl font-bold text-white" data-plan-price>R$ 0</span>
+                        <span class="text-[#92adc9] text-sm">/mês</span>
+                      </div>
+                      <div class="text-[#1172d4] font-medium" data-plan-credits>R$ 0,00 em créditos</div>
+                    </div>
+                    
+                    <div class="space-y-3 mb-6" data-plan-features>
+                      <!-- Features serão preenchidas dinamicamente -->
+                    </div>
+                    
+                    <div class="border-t border-[#324d67] pt-4 mb-4">
+                      <div class="text-sm text-[#92adc9] mb-2">Consultas Estimadas:</div>
+                      <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="text-center p-2 bg-[#192633] rounded">
+                          <div class="text-yellow-400 font-medium" data-plan-protests>0</div>
+                          <div class="text-[#92adc9]">Protestos</div>
+                        </div>
+                        <div class="text-center p-2 bg-[#192633] rounded">
+                          <div class="text-green-400 font-medium" data-plan-receita>0</div>
+                          <div class="text-[#92adc9]">Receita Federal</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button class="w-full py-3 px-4 rounded-lg font-medium transition-colors" data-plan-button>
+                      Selecionar Plano
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Informações sobre Renovação Automática -->
+              <div class="mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <div class="flex items-start gap-3">
+                  <span class="material-icons text-blue-400 mt-0.5">info</span>
+                  <div class="flex-1">
+                    <h4 class="text-blue-200 font-medium mb-2">Renovação Automática</h4>
+                    <p class="text-blue-300 text-sm leading-relaxed">
+                      Quando seus créditos se esgotarem, uma nova assinatura será automaticamente cobrada 
+                      para garantir que você nunca fique sem acesso aos serviços. Você pode desativar 
+                      essa funcionalidade a qualquer momento.
+                    </p>
+                    <div class="mt-3 flex items-center gap-2">
+                      <input type="checkbox" id="auto-renewal-toggle" checked class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                      <label for="auto-renewal-toggle" class="text-sm text-blue-200">Manter renovação automática ativa</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <!-- Histórico de Faturamento -->
-            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Histórico de faturamento</h2>
+            <!-- Uso Recente de Créditos -->
+            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Uso Recente de Créditos</h2>
             <div class="px-4 py-3">
-              <div class="text-center text-[#92adc9] py-8">
-                <p>Histórico de faturas será implementado em breve</p>
-                <p class="text-sm mt-2">Acesse a página de <a href="/faturas" class="text-[#1172d4] hover:underline">Faturas</a> para ver o histórico completo</p>
+              <div class="bg-[#111a22] border border-[#324d67] rounded-lg overflow-hidden">
+                <div class="p-4 border-b border-[#324d67]">
+                  <h3 class="text-white font-medium">Transações Recentes</h3>
+                </div>
+                <div class="divide-y divide-[#324d67]" data-recent-transactions>
+                  <div class="p-4 text-center text-[#92adc9]">
+                    <span class="material-icons text-4xl mb-2 opacity-50">history</span>
+                    <p>Carregando transações recentes...</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mt-4 text-center">
+                <a href="/faturas" class="text-[#1172d4] hover:underline text-sm">
+                  Ver histórico completo de faturas →
+                </a>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+    <!-- Scripts -->
+    <script src="/static/js/auth-utils.js"></script>
+    <script src="/static/js/assinatura.js"></script>
   </body>
 </html>

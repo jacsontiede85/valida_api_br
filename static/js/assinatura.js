@@ -29,39 +29,25 @@ class AssinaturaManager {
 
     async loadPlans() {
         try {
-            const response = await fetch('/api/v1/subscription-plans');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/subscription-plans');
             this.availablePlans = data.plans || [];
             console.log('✅ Planos carregados:', this.availablePlans.length);
         } catch (error) {
             console.error('❌ Erro ao carregar planos:', error);
-            // Fallback para dados mock
-            this.availablePlans = this.getMockPlans();
+            this.availablePlans = [];
+            this.showErrorState('Erro ao carregar planos');
         }
     }
 
     async loadCurrentSubscription() {
         try {
-            const response = await fetch('/api/v1/subscription/current');
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log('⚠️ Usuário não autenticado, usando modo demo');
-                    this.userSubscription = this.getMockSubscription();
-                    return;
-                }
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/subscription/current');
             this.userSubscription = data.subscription;
             console.log('✅ Assinatura atual carregada:', this.userSubscription);
         } catch (error) {
             console.error('❌ Erro ao carregar assinatura:', error);
-            this.userSubscription = this.getMockSubscription();
+            this.userSubscription = null;
+            this.showErrorState('Erro ao carregar assinatura atual');
         }
     }
 
@@ -345,9 +331,9 @@ class AssinaturaManager {
         const plan = this.availablePlans.find(p => p.id === this.userSubscription.plan_id);
         if (!plan || !plan.queries_limit) return 'Ilimitadas';
         
-        // Aqui você implementaria a lógica para calcular consultas restantes
-        // Por enquanto, retornamos um valor mock
-        return `${Math.floor(Math.random() * plan.queries_limit)} / ${plan.queries_limit}`;
+        // TODO: Implementar cálculo real de consultas restantes baseado no uso
+        // Por enquanto, retornamos o limite do plano
+        return `0 / ${plan.queries_limit}`;
     }
 
     formatDate(dateString) {
@@ -379,44 +365,32 @@ class AssinaturaManager {
         alert(message);
     }
 
-    // Dados mock para desenvolvimento
-    getMockPlans() {
-        return [
-            {
-                id: '1',
-                name: 'Starter',
-                description: 'Plano básico para começar',
-                price_cents: 2990,
-                queries_limit: 100,
-                api_keys_limit: 1
-            },
-            {
-                id: '2',
-                name: 'Professional',
-                description: 'Plano profissional com mais recursos',
-                price_cents: 9990,
-                queries_limit: 1000,
-                api_keys_limit: 5
-            },
-            {
-                id: '3',
-                name: 'Enterprise',
-                description: 'Plano empresarial com recursos ilimitados',
-                price_cents: 29990,
-                queries_limit: null,
-                api_keys_limit: null
-            }
-        ];
-    }
-
-    getMockSubscription() {
-        return {
-            id: 'sub-123',
-            plan_id: '1',
-            status: 'active',
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        };
+    showErrorState(message) {
+        console.warn('⚠️ Estado de erro em assinaturas:', message);
+        
+        const plansContainer = document.querySelector('#planos-container');
+        const currentPlanSection = document.querySelector('#current-plan');
+        
+        if (plansContainer) {
+            plansContainer.innerHTML = `
+                <div class="text-center py-8 text-red-500">
+                    <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">Erro ao Carregar</h3>
+                    <p>${message}</p>
+                    <button onclick="location.reload()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700">
+                        Tentar Novamente
+                    </button>
+                </div>
+            `;
+        }
+        
+        if (currentPlanSection) {
+            currentPlanSection.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
+                    <h3 class="font-bold">Erro: ${message}</h3>
+                </div>
+            `;
+        }
     }
 }
 

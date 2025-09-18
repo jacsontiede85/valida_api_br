@@ -68,6 +68,49 @@
         .warning {
             color: #F59E0B;
         }
+        /* Accordion Animation */
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .accordion-expanded {
+            max-height: 500px !important;
+            opacity: 1 !important;
+        }
+        .accordion-collapsed {
+            max-height: 0 !important;
+            opacity: 0 !important;
+        }
+        /* Custom scrollbar para o JSON viewer */
+        #json-content {
+            /* Forçar barra de rolagem sempre visível */
+            overflow-x: auto !important;
+            overflow-y: auto !important;
+            /* Para Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: #6B7280 #374151;
+        }
+        
+        /* Para navegadores Webkit (Chrome, Safari, Edge) */
+        #json-content::-webkit-scrollbar {
+            width: 12px !important;
+            height: 12px !important;
+            display: block !important;
+        }
+        #json-content::-webkit-scrollbar-track {
+            background: #374151 !important;
+            border-radius: 6px !important;
+        }
+        #json-content::-webkit-scrollbar-thumb {
+            background: #6B7280 !important;
+            border-radius: 6px !important;
+            border: 2px solid #374151 !important;
+        }
+        #json-content::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF !important;
+        }
+        #json-content::-webkit-scrollbar-corner {
+            background: #374151 !important;
+        }
     </style>
 </head>
 <body>
@@ -115,7 +158,12 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <h1 class="text-2xl font-bold text-white">Consultas</h1>
-                        <p class="text-gray-400 mt-1">Consulte informações de CNPJ em tempo real</p>
+                        <p class="text-gray-400 mt-1">● Protestos ● Receita Federal ● Simples Nacional ● Contribuintes - IE ● SUFRAMA ● Geocodificação</p>
+                        <div class="mt-2 text-xs" data-header-costs>
+                            <span class="text-yellow-400" data-header-cost="protestos">● Protestos: Carregando...</span>
+                            <span class="text-green-400 ml-4" data-header-cost="receita_federal">● Receita Federal: Carregando...</span>
+                            <span class="text-blue-400 ml-4" data-header-cost="outros">● Demais serviços: Carregando...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -151,7 +199,7 @@
                                     <div class="flex items-center">
                                         <input id="protestos" name="protestos" type="checkbox" checked 
                                                class="h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                        <label for="protestos" class="ml-4 text-base text-gray-200 cursor-pointer">
+                                        <label for="protestos" class="ml-4 text-base text-gray-200 cursor-pointer flex-1">
                                             <div class="flex items-center gap-2">
                                                 <span class="material-icons text-yellow-400 text-lg">gavel</span>
                                                 <span class="font-semibold">Protestos (CENPROT)</span>
@@ -163,20 +211,24 @@
                                 
                                 <!-- Opção Principal: Receita Federal -->  
                                 <div class="bg-gray-800/40 border border-gray-600/50 rounded-lg p-4">
-                                    <div class="flex items-center mb-4">
+                                    <div class="flex items-center">
                                         <input id="receita-federal" name="receita-federal" type="checkbox" 
                                                class="h-5 w-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                                        <label for="receita-federal" class="ml-4 text-base text-gray-200 cursor-pointer">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-icons text-green-400 text-lg">business</span>
-                                                <span class="font-semibold">Receita Federal</span>
+                                        <label for="receita-federal" class="ml-4 text-base text-gray-200 cursor-pointer flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-icons text-green-400 text-lg">business</span>
+                                                    <span class="font-semibold">Receita Federal</span>
+                                                </div>
+                                                <span id="receita-toggle-icon" class="material-icons text-gray-500 text-sm transition-transform duration-200">expand_more</span>
                                             </div>
                                             <span class="text-gray-400 block text-sm mt-1">Dados cadastrais, situação, contatos, endereço, CNAEs e sócios.</span>
                                         </label>
                                     </div>
                                     
                                     <!-- Subopções da Receita Federal -->
-                                    <div id="receita-sub-options" class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1 ml-6 opacity-50 transition-opacity duration-200">
+                                    <div id="receita-sub-options" class="accordion-content accordion-collapsed overflow-hidden">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 ml-6">
                                         <div class="flex items-center gap-2 p-1.5 rounded bg-gray-700/20 border border-gray-700/20">
                                             <input id="simples" name="simples" type="checkbox" disabled
                                                    class="h-3.5 w-3.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-1">
@@ -243,6 +295,7 @@
                                                 Cache acelera consultas mas pode retornar dados mais antigos
                                             </p>
                                         </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -257,16 +310,47 @@
                                     </p>
                                 </div>
                             </div>
+                            
+                            <!-- Resumo de Custos -->
+                            <div id="cost-summary" class="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg" style="display: none;">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-blue-200 font-semibold">Resumo do Custo</h4>
+                                    <span class="material-icons text-blue-400">info</span>
+                                </div>
+                                <div class="space-y-1 text-sm" id="cost-breakdown">
+                                    <!-- Itens serão preenchidos dinamicamente -->
+                                </div>
+                                <div class="border-t border-blue-500/30 mt-3 pt-3 flex justify-between items-center">
+                                    <span class="text-blue-200 font-semibold">Total:</span>
+                                    <span class="text-blue-200 font-bold text-lg" id="total-cost">R$ 0,00</span>
+                                </div>
+                                <div class="mt-2 text-xs text-blue-300">
+                                    <span class="material-icons text-xs">account_balance_wallet</span>
+                                    Créditos disponíveis: <span id="available-credits">R$ --</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Aviso de Créditos Insuficientes -->
+                            <div id="insufficient-credits-warning" class="hidden mt-4 p-3 bg-orange-900/20 border border-orange-500/30 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-icons text-orange-400 text-sm">account_balance_wallet</span>
+                                    <p class="text-orange-200 text-sm">
+                                        Créditos insuficientes. Será feita renovação automática da assinatura.
+                                    </p>
+                                </div>
+                            </div>
                         
                         <!-- Botões de Ação -->
                         <div class="mt-8 pt-6 border-t border-gray-700/50">
                             <div class="flex gap-4 justify-center">
                             <button 
                                 type="submit" 
+                                id="consultar-btn"
                                 class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
                             >
                                 <span class="material-icons text-sm">search</span>
-                                Consultar
+                                <span id="btn-text">Consultar</span>
+                                <span id="btn-cost" class="hidden ml-2 bg-white/20 px-2 py-1 rounded text-xs">R$ 0,00</span>
                             </button>
                             <button 
                                 type="button" 
@@ -331,16 +415,13 @@
                 </div>
             </div>
             
-            <div class="flex-1 overflow-hidden">
-                <pre id="json-content" class="bg-gray-900 p-4 rounded-lg text-sm text-green-400 overflow-auto h-full whitespace-pre-wrap font-mono"></pre>
-            </div>
-            
-            <div class="mt-4 text-xs text-gray-500 text-center">
-                Pressione Ctrl+A para selecionar todo o conteúdo
+            <div class="flex-1" style="min-height: 400px;">
+                <pre id="json-content" class="bg-gray-900 p-4 rounded-lg text-sm text-green-400 whitespace-pre-wrap font-mono" style="height: 400px; overflow-x: auto; overflow-y: auto; min-height: 400px;"></pre>
             </div>
         </div>
     </div>
 
+    <script src="/static/js/cost_loader.js"></script>
     <script src="/static/js/consultas.js"></script>
 </body>
 </html>

@@ -79,22 +79,13 @@ class PerfilManager {
 
     async loadUserData() {
         try {
-            const response = await fetch('/api/v1/auth/me');
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log('⚠️ Usuário não autenticado, usando modo demo');
-                    this.userData = this.getMockUserData();
-                    return;
-                }
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/auth/me');
             this.userData = data.user;
             console.log('✅ Dados do usuário carregados:', this.userData);
         } catch (error) {
             console.error('❌ Erro ao carregar dados do usuário:', error);
-            this.userData = this.getMockUserData();
+            this.userData = null;
+            this.showErrorState('Erro ao carregar dados do perfil');
         }
     }
 
@@ -236,7 +227,7 @@ class PerfilManager {
                 return;
             }
 
-            const response = await fetch('/api/v1/auth/profile', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -625,30 +616,29 @@ class PerfilManager {
         alert(message);
     }
 
-    // Dados mock para desenvolvimento
-    getMockUserData() {
-        return {
-            id: 'user-123',
-            name: 'João Silva',
-            email: 'joao@exemplo.com',
-            avatar: null,
-            two_factor_enabled: false,
-            created_at: '2024-01-15T10:30:00Z',
-            last_login_at: '2024-09-15T08:45:00Z',
-            notification_settings: {
-                email_notifications: true,
-                api_alerts: true,
-                billing_alerts: true,
-                security_alerts: true,
-                marketing_emails: false
-            },
-            account_stats: {
-                total_queries: 1250,
-                api_keys_count: 3,
-                subscription_days: 245,
-                last_query_date: '2024-09-15T08:30:00Z'
-            }
-        };
+    showErrorState(message) {
+        console.warn('⚠️ Estado de erro no perfil:', message);
+        
+        const profileContainer = document.querySelector('#profile-container');
+        const basicInfoSection = document.querySelector('#basic-info');
+        
+        if (profileContainer) {
+            profileContainer.innerHTML = `
+                <div class="text-center py-12 text-red-500">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-6"></i>
+                    <h2 class="text-2xl font-bold mb-4">Erro ao Carregar Perfil</h2>
+                    <p class="mb-6">${message}</p>
+                    <div class="space-x-4">
+                        <button onclick="location.reload()" class="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700">
+                            Tentar Novamente
+                        </button>
+                        <button onclick="window.location.href='/login'" class="bg-gray-600 text-white px-6 py-3 rounded hover:bg-gray-700">
+                            Fazer Login Novamente
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
     }
 }
 

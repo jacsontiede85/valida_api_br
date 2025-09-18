@@ -100,7 +100,35 @@
             
             <!-- Estatísticas da Conta -->
             <div data-account-stats class="px-4 py-3">
-              <!-- Será preenchido dinamicamente pelo JavaScript -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-4">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-[#92adc9] text-sm">Créditos Disponíveis</p>
+                      <p class="text-green-400 text-2xl font-bold" data-profile-credits-available>R$ --</p>
+                    </div>
+                    <span class="material-icons text-green-400 text-2xl">account_balance_wallet</span>
+                  </div>
+                </div>
+                <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-4">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-[#92adc9] text-sm">Total Utilizado</p>
+                      <p class="text-red-400 text-2xl font-bold" data-profile-credits-used>R$ --</p>
+                    </div>
+                    <span class="material-icons text-red-400 text-2xl">trending_down</span>
+                  </div>
+                </div>
+                <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-4">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-[#92adc9] text-sm">Consultas Este Mês</p>
+                      <p class="text-blue-400 text-2xl font-bold" data-profile-monthly-queries>--</p>
+                    </div>
+                    <span class="material-icons text-blue-400 text-2xl">search</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <!-- Informações Pessoais -->
@@ -172,6 +200,17 @@
                   </div>
                   <button class="btn btn-outline" data-change-password>Alterar Senha</button>
                 </div>
+                
+                <div class="flex items-center justify-between p-4 bg-[#192633] rounded-lg border border-[#324d67]">
+                  <div>
+                    <h3 class="text-white font-medium">Renovação Automática</h3>
+                    <p class="text-[#92adc9] text-sm">Status: <span data-auto-renewal-status class="text-green-400">Ativa</span></p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm text-[#92adc9]" data-renewal-count>0 renovações</span>
+                    <button class="btn btn-outline" data-manage-renewal>Gerenciar</button>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -205,6 +244,22 @@
                 
                 <div class="flex items-center justify-between p-4 bg-[#192633] rounded-lg border border-[#324d67]">
                   <div>
+                    <h3 class="text-white font-medium">Alertas de Créditos</h3>
+                    <p class="text-[#92adc9] text-sm">Notificações quando créditos estão baixos</p>
+                  </div>
+                  <input type="checkbox" data-notification-setting="credits_alerts" class="toggle" checked />
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-[#192633] rounded-lg border border-[#324d67]">
+                  <div>
+                    <h3 class="text-white font-medium">Renovações Automáticas</h3>
+                    <p class="text-[#92adc9] text-sm">Notificações sobre renovações automáticas</p>
+                  </div>
+                  <input type="checkbox" data-notification-setting="renewal_alerts" class="toggle" checked />
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-[#192633] rounded-lg border border-[#324d67]">
+                  <div>
                     <h3 class="text-white font-medium">Alertas de Segurança</h3>
                     <p class="text-[#92adc9] text-sm">Notificações sobre atividades suspeitas</p>
                   </div>
@@ -217,6 +272,56 @@
                     <p class="text-[#92adc9] text-sm">Receber novidades e ofertas especiais</p>
                   </div>
                   <input type="checkbox" data-notification-setting="marketing_emails" class="toggle" />
+                </div>
+              </div>
+            </div>
+            
+            <!-- Configurações de Créditos -->
+            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Configurações de Créditos</h2>
+            <div class="px-4 py-3">
+              <div class="space-y-4">
+                <div class="p-4 bg-[#192633] rounded-lg border border-[#324d67]">
+                  <h3 class="text-white font-medium mb-3">Limite de Alerta de Créditos</h3>
+                  <p class="text-[#92adc9] text-sm mb-4">
+                    Defina quando receber alertas sobre créditos baixos
+                  </p>
+                  <div class="flex items-center gap-4">
+                    <label class="text-sm text-[#92adc9]">Alertar quando créditos forem menores que:</label>
+                    <select class="form-input w-32" data-credit-alert-threshold>
+                      <option value="100">R$ 1,00</option>
+                      <option value="300">R$ 3,00</option>
+                      <option value="500" selected>R$ 5,00</option>
+                      <option value="1000">R$ 10,00</option>
+                      <option value="2000">R$ 20,00</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="p-4 bg-[#192633] rounded-lg border border-[#324d67]">
+                  <h3 class="text-white font-medium mb-3">Histórico de Uso</h3>
+                  <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p class="text-[#92adc9] mb-1">Consultas de Protestos:</p>
+                      <p class="text-yellow-400 font-medium" data-usage-protests>-- (R$ --)</p>
+                    </div>
+                    <div>
+                      <p class="text-[#92adc9] mb-1">Consultas Receita Federal:</p>
+                      <p class="text-green-400 font-medium" data-usage-receita>-- (R$ --)</p>
+                    </div>
+                    <div>
+                      <p class="text-[#92adc9] mb-1">Outras Consultas:</p>
+                      <p class="text-blue-400 font-medium" data-usage-others>-- (R$ --)</p>
+                    </div>
+                    <div>
+                      <p class="text-[#92adc9] mb-1">Total Este Mês:</p>
+                      <p class="text-white font-bold" data-usage-total>-- (R$ --)</p>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <a href="/history" class="text-[#1172d4] hover:underline text-sm">
+                      Ver histórico completo →
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -236,5 +341,8 @@
         </div>
       </div>
     </div>
+    <!-- Scripts -->
+    <script src="/static/js/auth-utils.js"></script>
+    <script src="/static/js/perfil.js"></script>
   </body>
 </html>

@@ -59,12 +59,12 @@ class APIKeysManager {
                 this.renderAPIKeys();
                 console.log(`✅ ${this.apiKeys.length} API keys carregadas`);
             } else {
-                console.warn('⚠️ Erro ao carregar API keys, usando dados mock');
-                this.loadMockData();
+                console.error('❌ API keys indisponíveis');
+                this.showErrorState('API indisponível');
             }
         } catch (error) {
             console.error('❌ Erro ao carregar API keys:', error);
-            this.loadMockData();
+            this.showErrorState('Erro ao carregar dados');
         } finally {
             this.showLoading(false);
         }
@@ -77,41 +77,29 @@ class APIKeysManager {
         }
     }
 
-    loadMockData() {
-        this.apiKeys = [
-            {
-                id: "dev-key-1",
-                name: "Chave Principal",
-                description: "Chave para desenvolvimento",
-                key: "rcp_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                key_hash: "dev_hash_1",
-                created_at: new Date().toISOString(),
-                last_used: new Date(Date.now() - 3600000).toISOString(),
-                is_active: true
-            },
-            {
-                id: "dev-key-2",
-                name: "Chave de Teste",
-                description: "Chave para testes",
-                key: "rcp_abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                key_hash: "dev_hash_2",
-                created_at: new Date(Date.now() - 86400000).toISOString(),
-                last_used: null,
-                is_active: true
-            },
-            {
-                id: "dev-key-3",
-                name: "Chave Revogada",
-                description: "Chave revogada",
-                key: "rcp_9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-                key_hash: "dev_hash_3",
-                created_at: new Date(Date.now() - 172800000).toISOString(),
-                last_used: new Date(Date.now() - 259200000).toISOString(),
-                is_active: false
-            }
-        ];
+    showErrorState(message) {
+        console.warn('⚠️ Exibindo estado de erro:', message);
         
-        this.renderAPIKeys();
+        const tbody = document.querySelector('#api-keys-table');
+        const emptyState = document.querySelector('#empty-state');
+        
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+                        <p>Erro ao carregar API keys: ${message}</p>
+                        <button onclick="location.reload()" class="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Tentar Novamente
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        if (emptyState) {
+            emptyState.classList.add('hidden');
+        }
     }
 
     renderAPIKeys() {

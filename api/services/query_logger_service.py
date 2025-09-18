@@ -1,8 +1,8 @@
 """
-Serviço para registrar consultas no histórico
+Serviço para registrar consultas no histórico - Nova Estrutura v2.0
 """
 import structlog
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from api.middleware.auth_middleware import get_supabase_client
 
@@ -12,6 +12,246 @@ class QueryLoggerService:
     def __init__(self):
         self.supabase = get_supabase_client()
     
+    async def log_consultation(
+        self,
+        user_id: str,
+        api_key_id: Optional[str],
+        cnpj: str,
+        consultation_types: List[Dict[str, Any]],  # Lista de tipos consultados com custos
+        response_time_ms: Optional[int] = None,
+        status: str = "success",
+        error_message: Optional[str] = None,
+        cache_used: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Registra uma consulta completa no novo formato
+        
+        Args:
+            user_id: ID do usuário
+            api_key_id: ID da API key usada
+            cnpj: CNPJ consultado
+            consultation_types: Lista de tipos consultados:
+                [
+                    {
+                        "type_code": "protestos",
+                        "cost_cents": 15,
+                        "success": True,
+                        "response_data": {...},
+                        "cache_used": False,
+                        "response_time_ms": 1500,
+                        "error_message": None
+                    },
+                    ...
+                ]
+            response_time_ms: Tempo total da consulta
+            status: Status geral da consulta
+            error_message: Mensagem de erro se houver
+            cache_used: Se usou cache geral
+            
+        Returns:
+            Dict com dados da consulta registrada
+        """
+        try:
+            if not self.supabase:
+                logger.warning("Supabase não configurado - consulta não será registrada")
+                return None
+            
+            # Calcular custo total
+            total_cost_cents = sum(ct.get("cost_cents", 0) for ct in consultation_types)
+            
+            # 1. Inserir consulta principal
+            consultation_data = {
+                "user_id": user_id,
+                "api_key_id": self._validate_api_key_id(api_key_id),
+                "cnpj": cnpj,
+                "total_cost_cents": total_cost_cents,
+                "response_time_ms": response_time_ms,
+                "status": status,
+                "error_message": error_message,
+                "cache_used": cache_used,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            consultation_response = self.supabase.table("consultations").insert(consultation_data).execute()
+            
+            if not consultation_response.data:
+                logger.error("falha_inserir_consulta_principal", user_id=user_id, cnpj=cnpj)
+                return None
+                
+            consultation_id = consultation_response.data[0]["id"]
+            
+            # 2. Inserir detalhes por tipo de consulta
+            await self._log_consultation_details(consultation_id, consultation_types)
+            
+            # 3. Atualizar analytics diários
+            await self.update_daily_analytics(user_id, consultation_types, total_cost_cents)
+            
+            logger.info(
+                "consulta_completa_registrada",
+                user_id=user_id,
+                cnpj=cnpj,
+                consultation_id=consultation_id,
+                total_cost=total_cost_cents,
+                types_count=len(consultation_types)
+            )
+            
+            return consultation_response.data[0]
+                
+        except Exception as e:
+            logger.error("erro_registrar_consulta_completa", user_id=user_id, cnpj=cnpj, error=str(e))
+            return None
+    
+    async def _log_consultation_details(self, consultation_id: str, consultation_types: List[Dict[str, Any]]) -> bool:
+        """
+        Registra detalhes de cada tipo de consulta
+        """
+        try:
+            details_to_insert = []
+            
+            for ct in consultation_types:
+                # Obter ID do tipo de consulta
+                type_id = await self._get_consultation_type_id(ct["type_code"])
+                if not type_id:
+                    logger.warning("tipo_consulta_nao_encontrado", type_code=ct["type_code"])
+                    continue
+                
+                detail = {
+                    "consultation_id": consultation_id,
+                    "consultation_type_id": type_id,
+                    "success": ct.get("success", True),
+                    "cost_cents": ct.get("cost_cents", 0),
+                    "response_data": ct.get("response_data"),
+                    "cache_used": ct.get("cache_used", False),
+                    "response_time_ms": ct.get("response_time_ms"),
+                    "error_message": ct.get("error_message"),
+                    "created_at": datetime.now().isoformat()
+                }
+                
+                details_to_insert.append(detail)
+            
+            if details_to_insert:
+                response = self.supabase.table("consultation_details").insert(details_to_insert).execute()
+                return bool(response.data)
+            
+            return True
+            
+        except Exception as e:
+            logger.error("erro_registrar_detalhes", consultation_id=consultation_id, error=str(e))
+            return False
+    
+    async def _get_consultation_type_id(self, type_code: str) -> Optional[str]:
+        """
+        Obtém ID do tipo de consulta pelo código
+        """
+        try:
+            response = self.supabase.table("consultation_types").select("id").eq("code", type_code).execute()
+            return response.data[0]["id"] if response.data else None
+        except Exception as e:
+            logger.error("erro_obter_tipo_id", type_code=type_code, error=str(e))
+            return None
+    
+    def _validate_api_key_id(self, api_key_id: Optional[str]) -> Optional[str]:
+        """
+        Valida se api_key_id é um UUID válido
+        """
+        if not api_key_id:
+            return None
+            
+        try:
+            import uuid
+            uuid.UUID(api_key_id)
+            return api_key_id
+        except ValueError:
+            logger.warning("api_key_id_invalido", api_key_id=api_key_id)
+            return None
+    
+    async def update_daily_analytics(
+        self,
+        user_id: str,
+        consultation_types: List[Dict[str, Any]],
+        total_cost_cents: int
+    ) -> bool:
+        """
+        Atualiza analytics diários com nova estrutura
+        """
+        try:
+            if not self.supabase:
+                return False
+            
+            today = datetime.now().date().isoformat()
+            
+            # Contar consultas por tipo
+            consultations_by_type = {}
+            costs_by_type = {}
+            successful_count = 0
+            failed_count = 0
+            
+            for ct in consultation_types:
+                type_code = ct["type_code"]
+                cost = ct.get("cost_cents", 0)
+                success = ct.get("success", True)
+                
+                consultations_by_type[type_code] = consultations_by_type.get(type_code, 0) + 1
+                costs_by_type[type_code] = costs_by_type.get(type_code, 0) + cost
+                
+                if success:
+                    successful_count += 1
+                else:
+                    failed_count += 1
+            
+            # Verificar se já existe analytics para hoje
+            existing = self.supabase.table("daily_analytics").select("*").eq("user_id", user_id).eq("date", today).execute()
+            
+            if existing.data:
+                # Atualizar existente
+                current = existing.data[0]
+                
+                # Mesclar consultations_by_type
+                current_by_type = current.get("consultations_by_type", {})
+                for type_code, count in consultations_by_type.items():
+                    current_by_type[type_code] = current_by_type.get(type_code, 0) + count
+                
+                # Mesclar costs_by_type
+                current_costs = current.get("costs_by_type", {})
+                for type_code, cost in costs_by_type.items():
+                    current_costs[type_code] = current_costs.get(type_code, 0) + cost
+                
+                update_data = {
+                    "total_consultations": current["total_consultations"] + len(consultation_types),
+                    "successful_consultations": current["successful_consultations"] + successful_count,
+                    "failed_consultations": current["failed_consultations"] + failed_count,
+                    "total_cost_cents": current["total_cost_cents"] + total_cost_cents,
+                    "credits_used_cents": current["credits_used_cents"] + total_cost_cents,
+                    "consultations_by_type": current_by_type,
+                    "costs_by_type": current_costs,
+                    "updated_at": datetime.now().isoformat()
+                }
+                
+                response = self.supabase.table("daily_analytics").update(update_data).eq("id", current["id"]).execute()
+            else:
+                # Criar novo
+                analytics_data = {
+                    "user_id": user_id,
+                    "date": today,
+                    "total_consultations": len(consultation_types),
+                    "successful_consultations": successful_count,
+                    "failed_consultations": failed_count,
+                    "total_cost_cents": total_cost_cents,
+                    "credits_used_cents": total_cost_cents,
+                    "consultations_by_type": consultations_by_type,
+                    "costs_by_type": costs_by_type,
+                    "created_at": datetime.now().isoformat()
+                }
+                
+                response = self.supabase.table("daily_analytics").insert(analytics_data).execute()
+            
+            return bool(response.data)
+            
+        except Exception as e:
+            logger.error("erro_atualizar_analytics_diarios", user_id=user_id, error=str(e))
+            return False
+    
+    # Método de compatibilidade com código antigo
     async def log_query(
         self,
         user_id: str,
@@ -24,105 +264,42 @@ class QueryLoggerService:
         success: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
-        Registra uma consulta no histórico
+        Método de compatibilidade - mapeia para nova estrutura
         """
-        try:
-            if not self.supabase:
-                logger.warning("Supabase não configurado - consulta não será registrada")
-                return None
-            
-            # Determinar status baseado no response_status
-            status = "success" if success and response_status < 400 else "error"
-            
-            query_data = {
-                "user_id": user_id,
-                "api_key_id": api_key_id,  # Pode ser None se não for UUID válido
-                "cnpj": cnpj,
-                "endpoint": endpoint,
-                "response_status": response_status,
-                "credits_used": credits_used,
+        # Mapear endpoint antigo para tipos de consulta
+        consultation_types = []
+        
+        if "protest" in endpoint.lower() or "cnpj" in endpoint.lower():
+            consultation_types.append({
+                "type_code": "protestos",
+                "cost_cents": 15,
+                "success": success,
                 "response_time_ms": response_time_ms,
-                "status": status,
-                "created_at": datetime.now().isoformat()
-            }
-            
-            # Se api_key_id não é um UUID válido, remover do insert
-            if api_key_id and not api_key_id.startswith("00000000-0000-0000-0000-000000000"):
-                # Verificar se é um UUID válido
-                try:
-                    import uuid
-                    uuid.UUID(api_key_id)
-                except ValueError:
-                    # Não é um UUID válido, remover do insert
-                    query_data.pop("api_key_id", None)
-            
-            # Inserir no banco
-            response = self.supabase.table("query_history").insert(query_data).execute()
-            
-            if response.data:
-                logger.info(
-                    "consulta_registrada",
-                    user_id=user_id,
-                    cnpj=cnpj,
-                    status=status,
-                    query_id=response.data[0]["id"]
-                )
-                return response.data[0]
-            else:
-                logger.error("Falha ao registrar consulta no histórico")
-                return None
-                
-        except Exception as e:
-            logger.error("erro_registrar_consulta", user_id=user_id, cnpj=cnpj, error=str(e))
-            return None
-    
-    async def update_query_analytics(
-        self,
-        user_id: str,
-        date: str,
-        total_queries: int = 1,
-        successful_queries: int = 1,
-        failed_queries: int = 0,
-        total_credits_used: int = 1
-    ) -> bool:
-        """
-        Atualiza ou cria analytics diários para o usuário
-        """
-        try:
-            if not self.supabase:
-                return False
-            
-            # Verificar se já existe analytics para esta data
-            existing = self.supabase.table("query_analytics").select("*").eq("user_id", user_id).eq("date", date).execute()
-            
-            if existing.data:
-                # Atualizar existente
-                update_data = {
-                    "total_queries": existing.data[0]["total_queries"] + total_queries,
-                    "successful_queries": existing.data[0]["successful_queries"] + successful_queries,
-                    "failed_queries": existing.data[0]["failed_queries"] + failed_queries,
-                    "total_credits_used": existing.data[0]["total_credits_used"] + total_credits_used
-                }
-                
-                response = self.supabase.table("query_analytics").update(update_data).eq("id", existing.data[0]["id"]).execute()
-            else:
-                # Criar novo
-                analytics_data = {
-                    "user_id": user_id,
-                    "date": date,
-                    "total_queries": total_queries,
-                    "successful_queries": successful_queries,
-                    "failed_queries": failed_queries,
-                    "total_credits_used": total_credits_used
-                }
-                
-                response = self.supabase.table("query_analytics").insert(analytics_data).execute()
-            
-            return bool(response.data)
-            
-        except Exception as e:
-            logger.error("erro_atualizar_analytics", user_id=user_id, date=date, error=str(e))
-            return False
+                "cache_used": False
+            })
+        
+        if not consultation_types:
+            # Default para protestos se não conseguir mapear
+            consultation_types.append({
+                "type_code": "protestos", 
+                "cost_cents": credits_used * 5,  # Converter créditos antigos
+                "success": success,
+                "response_time_ms": response_time_ms,
+                "cache_used": False
+            })
+        
+        status = "success" if success and response_status < 400 else "error"
+        error_message = f"HTTP {response_status}" if response_status >= 400 else None
+        
+        return await self.log_consultation(
+            user_id=user_id,
+            api_key_id=api_key_id,
+            cnpj=cnpj,
+            consultation_types=consultation_types,
+            response_time_ms=response_time_ms,
+            status=status,
+            error_message=error_message
+        )
 
 # Instância global do serviço
 query_logger_service = QueryLoggerService()

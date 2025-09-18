@@ -205,6 +205,98 @@ class APIKeyService:
         except Exception as e:
             logger.error(f"Erro ao atualizar último uso da API key {key_id}: {e}")
             return False
+    
+    async def get_keys_usage_v2(self, user_id: str) -> List[dict]:
+        """
+        Obtém uso detalhado das API keys v2.0
+        """
+        try:
+            if not self.supabase:
+                return self._generate_mock_keys_usage()
+            
+            # Buscar API keys do usuário
+            keys_result = self.supabase.table("api_keys").select(
+                "id, name, key, is_active, created_at, last_used_at"
+            ).eq("user_id", user_id).execute()
+            
+            keys_usage = []
+            for key_data in keys_result.data:
+                # Buscar uso diário da chave (consultas de hoje)
+                today = datetime.now().strftime("%Y-%m-%d")
+                
+                # Buscar consultas da chave hoje
+                consultations_result = self.supabase.table("consultations").select(
+                    "id, total_cost_cents, created_at, status"
+                ).eq("api_key_id", key_data["id"]).gte(
+                    "created_at", f"{today}T00:00:00"
+                ).lte("created_at", f"{today}T23:59:59").execute()
+                
+                # Calcular estatísticas
+                daily_queries = len(consultations_result.data)
+                daily_cost = sum(c["total_cost_cents"] for c in consultations_result.data)
+                successful_queries = len([c for c in consultations_result.data if c["status"] == "success"])
+                
+                key_usage = {
+                    "id": key_data["id"],
+                    "name": key_data["name"],
+                    "key": key_data["key"][:20] + "..." if key_data["key"] else "N/A",
+                    "is_active": key_data["is_active"],
+                    "created_at": key_data["created_at"],
+                    "last_used_at": key_data.get("last_used_at"),
+                    "daily_queries": daily_queries,
+                    "daily_cost": daily_cost,
+                    "daily_cost_formatted": f"R$ {daily_cost / 100:.2f}",
+                    "success_rate": (successful_queries / daily_queries * 100) if daily_queries > 0 else 0
+                }
+                
+                keys_usage.append(key_usage)
+            
+            return keys_usage
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar uso das API keys: {e}")
+            return self._generate_mock_keys_usage()
+    
+    def _generate_mock_keys_usage(self) -> List[dict]:
+        """Gera dados mock para uso das chaves"""
+        return [
+            {
+                "id": "key-1",
+                "name": "Produção",
+                "key": "rcp_1234567890abcdef...",
+                "is_active": True,
+                "created_at": "2024-01-15T10:30:00Z",
+                "last_used_at": "2024-09-17T08:45:00Z",
+                "daily_queries": 15,
+                "daily_cost": 225,  # R$ 2,25
+                "daily_cost_formatted": "R$ 2,25",
+                "success_rate": 93.3
+            },
+            {
+                "id": "key-2",
+                "name": "Desenvolvimento",
+                "key": "rcp_abcdef1234567890...",
+                "is_active": True,
+                "created_at": "2024-02-10T14:20:00Z",
+                "last_used_at": "2024-09-16T16:30:00Z",
+                "daily_queries": 3,
+                "daily_cost": 45,  # R$ 0,45
+                "daily_cost_formatted": "R$ 0,45",
+                "success_rate": 100.0
+            },
+            {
+                "id": "key-3",
+                "name": "Testes",
+                "key": "rcp_fedcba0987654321...",
+                "is_active": False,
+                "created_at": "2024-01-05T09:15:00Z",
+                "last_used_at": "2024-08-20T11:10:00Z",
+                "daily_queries": 0,
+                "daily_cost": 0,
+                "daily_cost_formatted": "R$ 0,00",
+                "success_rate": 0.0
+            }
+        ]
 
 # Instância global do serviço
 api_key_service = APIKeyService()

@@ -112,8 +112,9 @@ class ConsultationRequest(BaseModel):
     
     # Parâmetros de consulta (todos opcionais com defaults para backward compatibility)
     protestos: bool = True          # Manter compatibilidade - sempre true por default
+    receita_federal: bool = False   # Habilitar consulta CNPJa (dados da Receita Federal)
     simples: bool = False           # CNPJa - Simples Nacional/MEI
-    registrations: Optional[str] = None  # CNPJa - 'BR' para todos os estados
+    registrations: bool = False         # CNPJa - true para buscar inscrições ('BR'), false para None
     geocoding: bool = False         # CNPJa - Geolocalização
     suframa: bool = False          # CNPJa - SUFRAMA
     strategy: str = "CACHE_IF_FRESH" # CNPJa - Estratégia de cache

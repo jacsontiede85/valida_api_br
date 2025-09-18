@@ -1,0 +1,169 @@
+{
+    "url": "https://api.cnpja.com/office/53002464000101",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "4b41c1f7d9f3ff8a1c7b320228f25f9c",
+        "trace-id": "60e69c734b03e60fd85d09e7ab38ce70",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "e854fdeefe7fc5430c827c97b125fe5b",
+        "date": "Thu, 18 Sep 2025 19:03:22 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "2301",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-18T16:03:22.454022",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "53002464000101",
+        "company": {
+            "id": 53002464,
+            "name": "53.002.464 RUBIA MARA DOS SANTOS DANTAS TIEDE",
+            "equity": 1,
+            "nature": {
+                "id": 2135,
+                "text": "Empresário (Individual)"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [],
+            "simei": {
+                "optant": true,
+                "since": "2023-11-25"
+            },
+            "simples": {
+                "optant": true,
+                "since": "2023-11-25"
+            }
+        },
+        "alias": null,
+        "founded": "2023-11-25",
+        "head": true,
+        "statusDate": "2023-11-25",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3168606,
+            "street": "Rua Doze de Outubro",
+            "number": "619",
+            "details": "Casa a",
+            "district": "Sao Cristovao",
+            "city": "Teófilo Otoni",
+            "state": "MG",
+            "zip": "39804648",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -17.837169,
+            "longitude": -41.517466
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "33",
+                "number": "88838151"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "suporte.palshop@gmail.com",
+                "domain": "gmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4541206,
+            "text": "Comércio a varejo de peças e acessórios novos para  motocicletas e motonetas"
+        },
+        "sideActivities": [
+            {
+                "id": 4751201,
+                "text": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+            },
+            {
+                "id": 4752100,
+                "text": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+            },
+            {
+                "id": 4755502,
+                "text": "Comercio varejista de artigos de armarinho"
+            },
+            {
+                "id": 4755503,
+                "text": "Comercio varejista de artigos de cama, mesa e banho"
+            },
+            {
+                "id": 4756300,
+                "text": "Comércio varejista especializado de instrumentos musicais e acessórios"
+            },
+            {
+                "id": 4763601,
+                "text": "Comércio varejista de brinquedos e artigos recreativos"
+            },
+            {
+                "id": 4763602,
+                "text": "Comércio varejista de artigos esportivos"
+            },
+            {
+                "id": 4763603,
+                "text": "Comércio varejista de bicicletas e triciclos; peças e acessórios"
+            },
+            {
+                "id": 4772500,
+                "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+            },
+            {
+                "id": 4781400,
+                "text": "Comércio varejista de artigos do vestuário e acessórios"
+            },
+            {
+                "id": 4782201,
+                "text": "Comércio varejista de calçados"
+            },
+            {
+                "id": 4783101,
+                "text": "Comércio varejista de artigos de joalheria"
+            },
+            {
+                "id": 4789099,
+                "text": "Comércio varejista de outros produtos não especificados anteriormente"
+            }
+        ],
+        "registrations": [
+            {
+                "number": "0047675700015",
+                "state": "MG",
+                "enabled": true,
+                "statusDate": "2023-11-25",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

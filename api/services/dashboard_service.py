@@ -2,7 +2,7 @@
 Serviço para dados do dashboard (Visão Geral)
 """
 import structlog
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from api.middleware.auth_middleware import get_supabase_client
 
@@ -32,40 +32,57 @@ class DashboardService:
             else:
                 start_date = end_date - timedelta(days=30)
             
-            # Buscar dados de consultas do período
-            query_history = self.supabase.table("query_history").select("*").eq("user_id", user_id).gte("created_at", start_date.isoformat()).lte("created_at", end_date.isoformat()).execute()
+            # Buscar dados das novas tabelas de consultas do período
+            consultations = self.supabase.table("consultations").select(
+                "*, consultation_details(*, consultation_types(*))"
+            ).eq("user_id", user_id).gte("created_at", start_date.isoformat()).lte("created_at", end_date.isoformat()).execute()
             
-            # Debug logs removidos
-            
-            # Buscar dados de analytics do período
-            analytics = self.supabase.table("query_analytics").select("*").eq("user_id", user_id).gte("date", start_date.strftime("%Y-%m-%d")).lte("date", end_date.strftime("%Y-%m-%d")).execute()
-            
-            # Calcular estatísticas - usar analytics se query_history estiver vazio
-            if query_history.data:
-                total_queries = len(query_history.data)
-                successful_queries = len([q for q in query_history.data if q.get("status") == "success"])
-                failed_queries = total_queries - successful_queries
-                total_credits_used = sum(q.get("credits_used", 0) for q in query_history.data)
+            # Fallback para tabelas antigas se as novas não existirem
+            if not consultations.data:
+                # Buscar dados de consultas do período (tabela antiga)
+                query_history = self.supabase.table("query_history").select("*").eq("user_id", user_id).gte("created_at", start_date.isoformat()).lte("created_at", end_date.isoformat()).execute()
+                
+                # Buscar dados de analytics do período
+                analytics = self.supabase.table("query_analytics").select("*").eq("user_id", user_id).gte("date", start_date.strftime("%Y-%m-%d")).lte("date", end_date.strftime("%Y-%m-%d")).execute()
+                
+                # Usar dados antigos se consultas novas não existirem
+                if query_history.data:
+                    total_queries = len(query_history.data)
+                    successful_queries = len([q for q in query_history.data if q.get("status") == "success"])
+                    failed_queries = total_queries - successful_queries
+                    total_credits_used = sum(q.get("credits_used", 0) for q in query_history.data)
+                else:
+                    total_queries = sum(a.get("total_queries", 0) for a in analytics.data)
+                    successful_queries = sum(a.get("successful_queries", 0) for a in analytics.data)
+                    failed_queries = sum(a.get("failed_queries", 0) for a in analytics.data)
+                    total_credits_used = sum(a.get("total_credits_used", 0) for a in analytics.data)
             else:
-                # Usar dados de analytics se query_history estiver vazio
-                total_queries = sum(a.get("total_queries", 0) for a in analytics.data)
-                successful_queries = sum(a.get("successful_queries", 0) for a in analytics.data)
-                failed_queries = sum(a.get("failed_queries", 0) for a in analytics.data)
-                total_credits_used = sum(a.get("total_credits_used", 0) for a in analytics.data)
+                # Calcular estatísticas das novas tabelas
+                total_queries = len(consultations.data)
+                successful_queries = len([c for c in consultations.data if c.get("status") == "success"])
+                failed_queries = total_queries - successful_queries
+                
+                # Calcular custo total em créditos (converter de centavos)
+                total_cost_cents = sum(c.get("total_cost_cents", 0) for c in consultations.data)
+                total_credits_used = total_cost_cents / 100  # Converter centavos para reais
             
-            # Buscar assinatura do usuário
-            subscription = self.supabase.table("subscriptions").select("*, subscription_plans(*)").eq("user_id", user_id).eq("status", "active").execute()
-            
-            # Calcular créditos disponíveis
-            credits_available = 0
+            # Buscar assinatura do usuário (com fallback se não existir)
+            credits_available = 10.0  # Créditos padrão de R$ 10,00
             credits_renewal_date = None
-            if subscription.data:
-                plan = subscription.data[0].get("subscription_plans", {})
-                plan_limit = plan.get("queries_limit")
-                if plan_limit:
-                    credits_used_this_period = sum(a.get("total_credits_used", 0) for a in analytics.data)
-                    credits_available = max(0, plan_limit - credits_used_this_period)
-                    credits_renewal_date = subscription.data[0].get("current_period_end")
+            
+            try:
+                subscription = self.supabase.table("subscriptions").select("*, subscription_plans(*)").eq("user_id", user_id).eq("status", "active").execute()
+                
+                if subscription.data:
+                    plan = subscription.data[0].get("subscription_plans", {})
+                    plan_limit = plan.get("queries_limit")
+                    if plan_limit:
+                        credits_used_this_period = total_credits_used
+                        credits_available = max(0, (plan_limit / 100) - credits_used_this_period)  # Converter de centavos
+                        credits_renewal_date = subscription.data[0].get("current_period_end")
+            except Exception as sub_error:
+                logger.warning("erro_buscar_assinatura", user_id=user_id, error=str(sub_error))
+                # Usar valores padrão se não conseguir buscar assinatura
             
             # Calcular custo médio por consulta
             avg_cost_per_query = 0.0
@@ -74,13 +91,18 @@ class DashboardService:
                 avg_cost_per_query = 0.10
             
             # Gerar dados de gráfico de consumo por período
-            if query_history.data:
+            if consultations.data:
+                # Usar dados das novas consultas para gráficos
+                consumption_chart = self._generate_consumption_chart_v2(consultations.data, start_date, end_date)
+                volume_by_api = self._generate_volume_by_api_v2(consultations.data)
+            elif 'query_history' in locals() and query_history.data:
+                # Usar dados antigos se disponíveis
                 consumption_chart = self._generate_consumption_chart(query_history.data, start_date, end_date)
                 volume_by_api = self._generate_volume_by_api(query_history.data)
             else:
-                # Usar dados de analytics para gráficos
-                consumption_chart = self._generate_consumption_chart_from_analytics(analytics.data, start_date, end_date)
-                volume_by_api = self._generate_volume_by_api_from_analytics(analytics.data)
+                # Usar dados vazios se não tiver nenhuma fonte
+                consumption_chart = []
+                volume_by_api = {"protestos": 0, "receita_federal": 0, "outros": 0}
             
             return {
                 "credits_available": credits_available,
@@ -275,6 +297,75 @@ class DashboardService:
             "period": "30d",
             "success_rate": 0
         }
+    
+    def _generate_consumption_chart_v2(self, consultations_data: List[dict], start_date: datetime, end_date: datetime) -> List[dict]:
+        """Gerar dados de gráfico de consumo das novas tabelas"""
+        try:
+            daily_data = {}
+            current_date = start_date.date()
+            
+            # Inicializar todos os dias com zero
+            while current_date <= end_date.date():
+                daily_data[current_date.isoformat()] = {"protestos": 0, "receita_federal": 0, "outros": 0}
+                current_date += timedelta(days=1)
+            
+            # Processar consultas
+            for consultation in consultations_data:
+                consultation_date = datetime.fromisoformat(consultation['created_at']).date().isoformat()
+                if consultation_date in daily_data:
+                    # Somar custos dos detalhes por tipo
+                    details = consultation.get('consultation_details', [])
+                    for detail in details:
+                        cost_reais = detail.get('cost_cents', 0) / 100
+                        type_info = detail.get('consultation_types', {})
+                        type_code = type_info.get('code', 'outros')
+                        
+                        if type_code == 'protestos':
+                            daily_data[consultation_date]["protestos"] += cost_reais
+                        elif type_code == 'receita_federal':
+                            daily_data[consultation_date]["receita_federal"] += cost_reais
+                        else:
+                            daily_data[consultation_date]["outros"] += cost_reais
+            
+            # Converter para formato do gráfico
+            chart_data = []
+            for date, costs in sorted(daily_data.items()):
+                chart_data.append({
+                    "date": date,
+                    "protestos": round(costs["protestos"], 2),
+                    "receita_federal": round(costs["receita_federal"], 2),
+                    "outros": round(costs["outros"], 2)
+                })
+            
+            return chart_data
+            
+        except Exception as e:
+            logger.warning("erro_gerar_chart_v2", error=str(e))
+            return []
+    
+    def _generate_volume_by_api_v2(self, consultations_data: List[dict]) -> dict:
+        """Gerar dados de volume por API das novas tabelas"""
+        try:
+            volume_data = {"protestos": 0, "receita_federal": 0, "outros": 0}
+            
+            for consultation in consultations_data:
+                details = consultation.get('consultation_details', [])
+                for detail in details:
+                    type_info = detail.get('consultation_types', {})
+                    type_code = type_info.get('code', 'outros')
+                    
+                    if type_code == 'protestos':
+                        volume_data["protestos"] += 1
+                    elif type_code == 'receita_federal':
+                        volume_data["receita_federal"] += 1
+                    else:
+                        volume_data["outros"] += 1
+            
+            return volume_data
+            
+        except Exception as e:
+            logger.warning("erro_gerar_volume_v2", error=str(e))
+            return {"protestos": 0, "receita_federal": 0, "outros": 0}
 
 # Instância global do serviço
 dashboard_service = DashboardService()

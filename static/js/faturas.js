@@ -97,20 +97,15 @@ class FaturasManager {
                 ...this.filters
             });
 
-            const response = await fetch(`/api/v1/invoices?${params}`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON(`/api/v1/invoices?${params}`);
             this.invoices = data.invoices || [];
             this.pagination.total = data.total || 0;
             console.log('✅ Faturas carregadas:', this.invoices.length, 'registros');
         } catch (error) {
             console.error('❌ Erro ao carregar faturas:', error);
-            // Fallback para dados mock
-            this.invoices = this.getMockInvoices();
-            this.pagination.total = this.invoices.length;
+            this.invoices = [];
+            this.pagination.total = 0;
+            this.showErrorState('Erro ao carregar faturas');
         }
     }
 
@@ -197,7 +192,7 @@ class FaturasManager {
         try {
             this.showLoading('Preparando download...');
 
-            const response = await fetch(`/api/v1/invoices/${invoiceId}/download`);
+            const response = await AuthUtils.authenticatedFetch(`/api/v1/invoices/${invoiceId}/download`);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -226,12 +221,7 @@ class FaturasManager {
         try {
             this.showLoading('Carregando fatura...');
 
-            const response = await fetch(`/api/v1/invoices/${invoiceId}`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON(`/api/v1/invoices/${invoiceId}`);
             this.showInvoiceModal(data.invoice);
             
         } catch (error) {
@@ -246,7 +236,7 @@ class FaturasManager {
         try {
             this.showLoading('Processando pagamento...');
 
-            const response = await fetch(`/api/v1/invoices/${invoiceId}/pay`, {
+            const response = await AuthUtils.authenticatedFetch(`/api/v1/invoices/${invoiceId}/pay`, {
                 method: 'POST'
             });
 
@@ -530,34 +520,34 @@ class FaturasManager {
         alert(message);
     }
 
-    // Dados mock para desenvolvimento
-    getMockInvoices() {
-        const statuses = ['paid', 'pending', 'overdue', 'cancelled'];
-        const amounts = [2990, 9990, 29990, 4990, 14990];
+    showErrorState(message) {
+        console.warn('⚠️ Estado de erro em faturas:', message);
         
-        return Array.from({ length: 20 }, (_, i) => {
-            const createdDate = new Date(Date.now() - i * 30 * 24 * 60 * 60 * 1000);
-            const dueDate = new Date(createdDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-            const status = statuses[Math.floor(Math.random() * statuses.length)];
-            const amount = amounts[Math.floor(Math.random() * amounts.length)];
-            
-            return {
-                id: `inv-${i + 1}`,
-                invoice_number: `INV-${String(i + 1).padStart(4, '0')}`,
-                amount: amount,
-                status: status,
-                created_at: createdDate.toISOString(),
-                due_date: dueDate.toISOString(),
-                paid_at: status === 'paid' ? new Date(createdDate.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString() : null,
-                payment_method: status === 'paid' ? 'Cartão de Crédito' : null,
-                items: [
-                    {
-                        description: 'Plano de Assinatura - Mês',
-                        amount: amount
-                    }
-                ]
-            };
-        });
+        const invoicesContainer = document.querySelector('[data-invoices-container]');
+        const summaryContainer = document.querySelector('[data-summary-container]');
+        
+        if (invoicesContainer) {
+            invoicesContainer.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">Erro ao Carregar Faturas</h3>
+                        <p>${message}</p>
+                        <button onclick="location.reload()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700">
+                            Tentar Novamente
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
+                    <h3 class="font-bold">Erro: ${message}</h3>
+                </div>
+            `;
+        }
     }
 }
 

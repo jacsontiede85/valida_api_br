@@ -2,6 +2,8 @@
 Middleware de autenticação para o SaaS
 """
 import os
+import jwt
+from datetime import datetime
 from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -14,6 +16,10 @@ from api.middleware.mock_auth import get_mock_auth
 load_dotenv()
 
 logger = structlog.get_logger("auth_middleware")
+
+# Configuração JWT
+JWT_SECRET = os.getenv("JWT_SECRET", "valida-jwt-secret-2024")
+JWT_ALGORITHM = "HS256"
 
 # Configuração do Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -48,6 +54,29 @@ class AuthUser:
         self.email = email
         self.api_key = api_key
 
+def verify_jwt_token(token: str) -> Optional[dict]:
+    """
+    Verifica um token JWT gerado pelo nosso sistema
+    """
+    try:
+        logger.info(f"🔍 Verificando JWT token: {token[:30]}...")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        logger.info(f"✅ JWT válido para usuário: {payload.get('email')}")
+        
+        # Verificar se o token não expirou
+        exp = payload.get("exp")
+        if exp and datetime.fromtimestamp(exp) < datetime.utcnow():
+            logger.warning("❌ Token JWT expirado")
+            return None
+            
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.warning("❌ Token JWT expirado")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"❌ Token JWT inválido: {e}")
+        return None
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Optional[AuthUser]:
@@ -55,9 +84,21 @@ async def get_current_user(
     Obtém o usuário atual baseado no token JWT ou API key
     """
     if not credentials:
+        logger.warning("❌ Nenhuma credencial fornecida")
         return None
     
     token = credentials.credentials
+    logger.info(f"🔍 Token recebido: {token[:30]}...")
+    
+    # Primeiro, tentar verificar como nosso JWT
+    jwt_payload = verify_jwt_token(token)
+    if jwt_payload:
+        logger.info(f"✅ Usuário autenticado via JWT: {jwt_payload.get('email')}")
+        return AuthUser(
+            user_id=jwt_payload.get("user_id"),
+            email=jwt_payload.get("email"),
+            api_key=None
+        )
     
     # Verificar se é uma API key
     if token.startswith("rcp_"):
@@ -107,33 +148,10 @@ async def get_current_user(
             logger.error(f"Erro ao verificar API key: {e}")
             raise HTTPException(status_code=401, detail="Erro interno na verificação da API key")
     
-    # Se não há cliente Supabase configurado, usar modo mock para JWT
-    if not supabase_client:
-        logger.warning("Supabase não configurado, usando modo mock para JWT")
-        mock_auth = get_mock_auth()
-        user_data = mock_auth.get_user_by_token(token)
-        if user_data:
-            return AuthUser(
-                user_id=user_data["id"],
-                email=user_data["email"]
-            )
-        else:
-            raise HTTPException(status_code=401, detail="Token inválido")
-    
-    try:
-        # Verificar se é um token JWT do Supabase
-        response = supabase_client.auth.get_user(token)
-        if response.user:
-            return AuthUser(
-                user_id=response.user.id,
-                email=response.user.email
-            )
-        else:
-            raise HTTPException(status_code=401, detail="Token inválido")
-                
-    except Exception as e:
-        logger.error(f"Erro na autenticação: {e}")
-        raise HTTPException(status_code=401, detail="Erro na autenticação")
+    # Se não foi JWT nem API key, token inválido
+    logger.warning(f"❌ Token não reconhecido como JWT ou API key válida: {token[:20]}...")
+    logger.warning(f"   Token completo: {token}")
+    raise HTTPException(status_code=401, detail="Token inválido")
 
 async def require_auth(user: Optional[AuthUser] = Depends(get_current_user)) -> AuthUser:
     """
@@ -156,3 +174,42 @@ def get_supabase_client() -> Optional[Client]:
     Retorna o cliente Supabase configurado
     """
     return supabase_client
+
+async def get_current_user_optional(request: Request) -> Optional[AuthUser]:
+    """
+    Obtém o usuário atual de forma opcional (não obrigatória)
+    Usado para páginas que podem mostrar conteúdo personalizado se autenticado
+    """
+    try:
+        # Tentar extrair token do Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            # Tentar cookie de sessão se não houver header
+            # Primeiro tentar auth_token (JWT), depois session_token (legacy)
+            auth_token = request.cookies.get("auth_token")
+            session_token = request.cookies.get("session_token")
+            
+            if auth_token:
+                auth_header = f"Bearer {auth_token}"
+            elif session_token:
+                auth_header = f"Bearer {session_token}"
+            else:
+                return None
+        
+        # Simular HTTPAuthorizationCredentials
+        token = auth_header.replace("Bearer ", "")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials=token
+        )
+        
+        # Usar a função existente get_current_user
+        user = await get_current_user(credentials)
+        return user
+        
+    except HTTPException:
+        # Se autenticação falhar, retornar None ao invés de erro
+        return None
+    except Exception as e:
+        logger.warning(f"Erro ao obter usuário opcional: {e}")
+        return None

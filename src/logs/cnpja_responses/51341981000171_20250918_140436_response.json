@@ -1,0 +1,214 @@
+{
+    "url": "https://api.cnpja.com/office/51341981000171",
+    "method": "GET",
+    "params": {
+        "strategy": "ONLINE",
+        "simples": "true",
+        "geocoding": "true",
+        "suframa": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "1ac16cb52446555cd435c17b1ca986c9",
+        "trace-id": "64b6f3c3bca597034fd00d2f62549722",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "880da67f636d26ac02238a04236059da",
+        "date": "Thu, 18 Sep 2025 17:04:36 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "3250",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-18T14:04:36.669585",
+    "response_body": {
+        "updated": "2025-09-18T17:04:31.263Z",
+        "taxId": "51341981000171",
+        "company": {
+            "id": 51341981,
+            "name": "DROGARIA FANTONIFARMA LTDA",
+            "equity": 29500,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2024-12-13",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "47c44423-ad6c-4c44-b52b-b38f02eddbce",
+                        "name": "Ruber Marco Fantoni",
+                        "type": "NATURAL",
+                        "taxId": "***004387**",
+                        "age": "41-50"
+                    }
+                }
+            ],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": true,
+                "since": "2023-07-07"
+            }
+        },
+        "alias": "Farmacia Fantonifarma",
+        "founded": "2023-07-07",
+        "head": true,
+        "statusDate": "2023-07-07",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3205002,
+            "street": "Avenida das Palmeiras",
+            "number": "36",
+            "details": null,
+            "district": "José de Anchieta",
+            "city": "Serra",
+            "state": "ES",
+            "zip": "29162278",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -20.1947578,
+            "longitude": -40.2726349
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "27",
+                "number": "92543829"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "fantonifarma@gmail.com",
+                "domain": "gmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4771701,
+            "text": "Comércio varejista de produtos farmacêuticos, sem manipulação de fórmulas"
+        },
+        "sideActivities": [
+            {
+                "id": 4713002,
+                "text": "Lojas de variedades, exceto lojas de departamentos ou magazines"
+            },
+            {
+                "id": 4721104,
+                "text": "Comércio varejista de doces, balas, bombons e semelhantes"
+            },
+            {
+                "id": 4729602,
+                "text": "Comércio varejista de mercadorias em lojas de conveniência"
+            },
+            {
+                "id": 4729699,
+                "text": "Comércio varejista de produtos alimentícios em geral ou especializado em produtos alimentícios não especificados anteriormente"
+            },
+            {
+                "id": 4751201,
+                "text": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+            },
+            {
+                "id": 4752100,
+                "text": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+            },
+            {
+                "id": 4753900,
+                "text": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+            },
+            {
+                "id": 4759899,
+                "text": "Comércio varejista de outros artigos de uso pessoal e doméstico não especificados anteriormente"
+            },
+            {
+                "id": 4761002,
+                "text": "Comércio varejista de jornais e revistas"
+            },
+            {
+                "id": 4761003,
+                "text": "Comércio varejista de artigos de papelaria"
+            },
+            {
+                "id": 4762800,
+                "text": "Comércio varejista de discos, CDs, DVDs e fitas"
+            },
+            {
+                "id": 4763601,
+                "text": "Comércio varejista de brinquedos e artigos recreativos"
+            },
+            {
+                "id": 4771703,
+                "text": "Comércio varejista de produtos farmacêuticos homeopáticos"
+            },
+            {
+                "id": 4772500,
+                "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+            },
+            {
+                "id": 4773300,
+                "text": "Comércio varejista de artigos médicos e ortopédicos"
+            },
+            {
+                "id": 4774100,
+                "text": "Comércio varejista de artigos de óptica"
+            },
+            {
+                "id": 4789004,
+                "text": "Comércio varejista de animais vivos e de artigos e alimentos para animais de estimação"
+            },
+            {
+                "id": 6619302,
+                "text": "Correspondentes de instituições financeiras"
+            },
+            {
+                "id": 8630506,
+                "text": "Serviços de vacinação e imunização humana"
+            },
+            {
+                "id": 8650099,
+                "text": "Atividades de profissionais da área de saúde não especificadas anteriormente"
+            }
+        ],
+        "registrations": [
+            {
+                "number": "084110830",
+                "state": "ES",
+                "enabled": true,
+                "statusDate": "2025-05-28",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ],
+        "suframa": []
+    }
+}

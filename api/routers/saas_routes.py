@@ -210,11 +210,20 @@ async def consult_cnpj(
     
     Parâmetros aceitos:
     - protestos: bool - Consultar protestos (default: true) 
-    - simples: bool - Dados Simples Nacional (default: false)
-    - registrations: str - Inscrições estaduais 'BR' (default: None)
-    - geocoding: bool - Geolocalização (default: false)
-    - suframa: bool - Dados SUFRAMA (default: false)  
-    - strategy: str - Cache strategy (default: 'CACHE_IF_FRESH')
+    - receita_federal: bool - Consultar dados da Receita Federal (default: false)
+        - simples: bool - Dados Simples Nacional (default: false)
+        - registrations: bool - Buscar inscrições estaduais (default: false)
+        - geocoding: bool - Geolocalização (default: false)
+        - suframa: bool - Dados SUFRAMA (default: false)  
+        - strategy: str - Cache strategy (default: 'CACHE_IF_FRESH')
+            - 'CACHE_IF_FRESH' = Buscar dados do cache se estiver atualizado (<=20 dias)
+            - 'ONLINE' = Buscar sempre online nas fontes e não usar cache (mais lento e maior custo)
+        
+        - extract_basic: bool - Dados básicos da empresa (default: true)
+        - extract_address: bool - Endereço (default: true)
+        - extract_contact: bool - Contatos (default: true)
+        - extract_activities: bool - CNAEs (default: true)
+        - extract_partners: bool - Sócios (default: true)
     """
     try:
         # Verificar autenticação - aceitar tanto header quanto corpo da requisição
@@ -240,6 +249,10 @@ async def consult_cnpj(
             logger.warning("nenhum_usuario_autenticado")
             raise HTTPException(status_code=401, detail="API key necessária")
         
+        # Converter registrations de bool para string antes da consulta
+        original_registrations = request.registrations
+        request.registrations = 'BR' if original_registrations else None
+        
         # Usar novo serviço unificado
         from api.services.unified_consultation_service import UnifiedConsultationService
         
@@ -250,8 +263,9 @@ async def consult_cnpj(
                    user_id=user.user_id,
                    parametros={
                        "protestos": request.protestos,
+                       "receita_federal": request.receita_federal,
                        "simples": request.simples,
-                       "registrations": bool(request.registrations),
+                       "registrations": bool(original_registrations),
                        "geocoding": request.geocoding,
                        "suframa": request.suframa,
                        "strategy": request.strategy
@@ -280,29 +294,88 @@ async def consult_cnpj(
             except:
                 pass
         
-        # Registrar consulta no histórico usando dados do resultado
+        # Registrar consulta no histórico usando novo sistema
         try:
-            await query_logger_service.log_query(
+            # Preparar tipos de consulta baseado no request
+            consultation_types = []
+            
+            if request.protestos:
+                consultation_types.append({
+                    "type_code": "protestos",
+                    "cost_cents": 15,  # R$ 0,15 por consulta de protestos
+                    "success": result.success and bool(result.protestos_data),
+                    "response_data": result.protestos_data if result.success else None,
+                    "cache_used": result.cache_used,
+                    "response_time_ms": result.response_time_ms or 0,
+                    "error_message": None if result.success else result.message
+                })
+            
+            # Logging de consultas CNPJa (Receita Federal) - somente se receita_federal=true
+            if request.receita_federal:
+                if original_registrations:
+                    consultation_types.append({
+                        "type_code": "receita_federal", 
+                        "cost_cents": 5,  # R$ 0,05 por consulta da Receita Federal
+                        "success": result.success and bool(result.receita_data),
+                        "response_data": result.receita_data if result.success else None,
+                        "cache_used": result.cache_used,
+                        "response_time_ms": result.response_time_ms or 0,
+                        "error_message": None if result.success else result.message
+                    })
+                
+                if request.simples:
+                    consultation_types.append({
+                        "type_code": "simples_nacional",
+                        "cost_cents": 5,  # R$ 0,05 por consulta do Simples Nacional
+                        "success": result.success and bool(result.simples_data),
+                        "response_data": result.simples_data if result.success else None,
+                        "cache_used": result.cache_used,
+                        "response_time_ms": result.response_time_ms or 0,
+                        "error_message": None if result.success else result.message
+                    })
+                
+                if request.suframa:
+                    consultation_types.append({
+                        "type_code": "suframa",
+                        "cost_cents": 5,  # R$ 0,05 por consulta SUFRAMA
+                        "success": result.success and bool(result.suframa_data),
+                        "response_data": result.suframa_data if result.success else None,
+                        "cache_used": result.cache_used,
+                        "response_time_ms": result.response_time_ms or 0,
+                        "error_message": None if result.success else result.message
+                    })
+            
+            # Se não especificou nenhum tipo, assumir protestos como padrão
+            if not consultation_types:
+                consultation_types.append({
+                    "type_code": "protestos",
+                    "cost_cents": 15,
+                    "success": result.success,
+                    "response_data": result.protestos_data if result.success else None,
+                    "cache_used": result.cache_used,
+                    "response_time_ms": result.response_time_ms or 0,
+                    "error_message": None if result.success else result.message
+                })
+            
+            # Usar novo sistema de logging
+            logged_consultation = await query_logger_service.log_consultation(
                 user_id=user_id,
-                api_key_id=api_key_uuid or api_key_id,
+                api_key_id=api_key_uuid,
                 cnpj=request.cnpj,
-                endpoint="/api/v1/cnpj/consult",
-                response_status=200 if result.success else 400,
-                credits_used=1,
+                consultation_types=consultation_types,
                 response_time_ms=result.response_time_ms or 0,
-                success=result.success
+                status="success" if result.success else "error",
+                error_message=result.message if not result.success else None,
+                cache_used=result.cache_used
             )
             
-            # Atualizar analytics diários
-            today = datetime.now().strftime("%Y-%m-%d")
-            await query_logger_service.update_query_analytics(
-                user_id=user_id,
-                date=today,
-                total_queries=1,
-                successful_queries=1 if result.success else 0,
-                failed_queries=0 if result.success else 1,
-                total_credits_used=1
-            )
+            if logged_consultation:
+                logger.info("consulta_registrada_novo_formato", 
+                           consultation_id=logged_consultation.get("id"),
+                           user_id=user_id,
+                           types_count=len(consultation_types))
+            else:
+                logger.warning("falha_registrar_consulta", user_id=user_id, cnpj=request.cnpj[:8] + "****")
         except Exception as log_error:
             # Log do erro mas não falhar a consulta por causa do logging
             logger.error("erro_logging_consulta", 

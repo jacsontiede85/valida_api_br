@@ -20,7 +20,7 @@ project_root = current_dir.parent.parent  # resolve_cenprot/
 sys.path.append(str(project_root))
 
 # Carregar variáveis de ambiente
-load_dotenv('resolve-cenprot.exe.env')
+load_dotenv()
 
 # Importar OracleProtestoManager
 try:
