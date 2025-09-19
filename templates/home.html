@@ -116,6 +116,21 @@
             </div>
         </header> -->
         <main class="flex-1 p-6 overflow-y-auto">
+            <!-- 🎨 Loader discreto otimizado - UX v2.2 -->
+            <div id="dashboard-loader" class="fixed top-4 right-4 z-50 bg-gray-800/95 backdrop-blur-sm rounded-lg p-3 shadow-xl border border-gray-700/50 hidden transition-all duration-300 ease-out opacity-0 transform translate-y-2 scale-95">
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-500/30 border-t-blue-500"></div>
+                        <div class="absolute inset-0 animate-pulse rounded-full h-4 w-4 border border-blue-400/20"></div>
+                    </div>
+                    <span class="text-sm text-gray-200 font-medium tracking-wide">Atualizando dados...</span>
+                </div>
+                <!-- Mini barra de progresso sutil -->
+                <div class="mt-2 h-0.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse rounded-full"></div>
+                </div>
+            </div>
+
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold">Visão Geral</h1>
                 <div class="flex items-center space-x-4">
@@ -136,9 +151,9 @@
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div class="card p-4">
+                <div class="card p-4 transition-all duration-200 hover:bg-gray-800/50 hover:scale-105 hover:shadow-xl">
                     <h3 class="text-sm font-medium text-gray-400">Créditos Disponíveis</h3>
-                    <p class="text-3xl font-bold mt-2 text-green-400" data-stat="creditos-disponiveis">R$ 0,00</p>
+                    <p class="text-3xl font-bold mt-2 text-green-400 transition-all duration-300" data-stat="creditos-disponiveis">R$ 0,00</p>
                     <div class="flex justify-between text-xs text-gray-500 mt-1">
                         <span>Comprados: <span data-stat="creditos-comprados" class="text-blue-400">R$
                                 0,00</span></span>
@@ -147,9 +162,9 @@
                     <p class="text-xs text-gray-500 mt-1">Renovação automática: <span data-auto-renewal-status
                             class="text-green-400">Ativa</span></p>
                 </div>
-                <div class="card p-4">
+                <div class="card p-4 transition-all duration-200 hover:bg-gray-800/50 hover:scale-105 hover:shadow-xl">
                     <h3 class="text-sm font-medium text-gray-400">Consumo no Período</h3>
-                    <p class="text-3xl font-bold mt-2 text-orange-400" data-stat="consumo-periodo-total">R$ 0,00</p>
+                    <p class="text-3xl font-bold mt-2 text-orange-400 transition-all duration-300" data-stat="consumo-periodo-total">R$ 0,00</p>
                     <div class="text-xs text-gray-500 mt-1">
                         <div class="flex justify-between mb-1">
                             <span>Protestos:</span>
@@ -177,9 +192,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="card p-4">
+                <div class="card p-4 transition-all duration-200 hover:bg-gray-800/50 hover:scale-105 hover:shadow-xl">
                     <h3 class="text-sm font-medium text-gray-400">Consultas Realizadas</h3>
-                    <p class="text-3xl font-bold mt-2 text-blue-400" data-stat="total_consultations">0</p>
+                    <p class="text-3xl font-bold mt-2 text-blue-400 transition-all duration-300" data-stat="total_consultations">0</p>
                     <div class="text-xs text-gray-500 mt-1">
                         <div class="flex justify-between mb-1">
                             <span>Protestos:</span>
@@ -207,9 +222,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="card p-4">
+                <div class="card p-4 transition-all duration-200 hover:bg-gray-800/50 hover:scale-105 hover:shadow-xl">
                     <h3 class="text-sm font-medium text-gray-400">Custo Total</h3>
-                    <p class="text-3xl font-bold mt-2 text-purple-400" data-stat="total_cost">R$ 0,00</p>
+                    <p class="text-3xl font-bold mt-2 text-purple-400 transition-all duration-300" data-stat="total_cost">R$ 0,00</p>
                     <div class="text-xs text-gray-500 mt-1">
                         <div class="mb-1">Custo médio: <span data-stat="custo-medio" class="text-white">R$ 0,00</span>
                         </div>
@@ -218,18 +233,20 @@
                 </div>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div class="lg:col-span-3 card p-6 flex flex-col">
+                <div class="lg:col-span-3 card p-6 flex flex-col transition-all duration-200 hover:bg-gray-800/30">
                     <h2 class="text-lg font-semibold mb-4">Consumo de Créditos por Período</h2>
                     <div class="relative flex-1 min-h-0">
-                        <canvas id="apiConsumptionChart"></canvas>
+                        <!-- 📊 Canvas com transição suave UX v2.2 -->
+                        <canvas id="apiConsumptionChart" class="transition-opacity duration-300"></canvas>
                     </div>
                 </div>
-                <div class="lg:col-span-2 card p-6">
+                <div class="lg:col-span-2 card p-6 transition-all duration-200 hover:bg-gray-800/30">
                     <h2 class="text-lg font-semibold mb-2">Distribuição por Tipo de Serviço</h2>
                     <p class="text-xs text-gray-400 mb-4">Mostra quantas vezes cada serviço foi utilizado (consultas
                         podem combinar múltiplos tipos)</p>
                     <div class="relative h-70">
-                        <canvas id="apiVolumeChart"></canvas>
+                        <!-- 📊 Canvas com transição suave UX v2.2 -->
+                        <canvas id="apiVolumeChart" class="transition-opacity duration-300"></canvas>
                     </div>
 
                     <!-- Estatísticas resumidas do gráfico -->
@@ -255,9 +272,9 @@
     <script src="/static/js/cost_loader.js"></script>
     <script src="/static/js/dashboard_real.js"></script>
 
-    <!-- Script de debug e inicialização -->
+    <!-- 🎯 Script de inicialização otimizada UX v2.2 -->
     <script>
-        console.log('🔍 Debug Dashboard - Scripts carregados');
+        console.log('🎨 Dashboard UX v2.2 - Scripts carregados com otimizações visuais');
 
         // Função para criar token de desenvolvimento se necessário
         async function ensureDevToken() {
@@ -284,6 +301,30 @@
             return token;
         }
 
+        // Função para testar o loader discreto (DEBUG)
+        window.testLoader = function() {
+            const loader = document.getElementById('dashboard-loader');
+            if (loader) {
+                console.log('🔄 Testando loader discreto...');
+                // Simular loading por 3 segundos
+                loader.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    loader.classList.remove('opacity-0', 'translate-y-2');
+                    loader.classList.add('opacity-100', 'translate-y-0');
+                });
+                
+                setTimeout(() => {
+                    loader.classList.remove('opacity-100', 'translate-y-0');
+                    loader.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => loader.classList.add('hidden'), 300);
+                }, 3000);
+                
+                console.log('✅ Teste do loader concluído (3s)');
+            } else {
+                console.error('❌ Loader não encontrado');
+            }
+        };
+
         // Inicializar com verificações
         (async () => {
             // Garantir que temos um token
@@ -303,7 +344,9 @@
                 }
 
                 if (window.realDashboard) {
-                    console.log('✅ Dashboard está rodando, carregando dados...');
+                    console.log('✅ Dashboard UX v2.2 está rodando com otimizações visuais');
+                    console.log('🧪 Para testar o loader, digite: testLoader()');
+                    console.log('🎨 Novo sistema: debouncing, smart charts, singleton pattern');
                     // Forçar uma atualização dos dados
                     window.realDashboard.loadRealDashboardData();
                 } else {

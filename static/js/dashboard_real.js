@@ -1,23 +1,59 @@
 /**
  * Dashboard Real JavaScript - Sistema SaaS Valida
  * 🎯 DADOS 100% REAIS DO BANCO DE DADOS (SEM MOCK)
+ * 🚀 OTIMIZADO: Cache inteligente + Smart refresh + Rate limiting + UX Suave
  * 
  * Integra com:
  * - /api/v2/dashboard/data (dados completos)
  * - consultation_types_service (custos reais)
  * - credit_service (saldo real)
  * - consultations/consultation_details (dados reais)
+ * 
+ * Otimizações v2.2 UX:
+ * ✅ Cache frontend com TTL de 30s
+ * ✅ Smart refresh de 60s (vs 30s anterior)
+ * ✅ Detecção de visibilidade da página
+ * ✅ Rate limiting (max 10 requests/min)
+ * ✅ Fallback inteligente para cache antigo
+ * ✅ Debouncing de atualizações UI
+ * ✅ Smart chart updates (só recria quando necessário)
+ * ✅ Animações suaves e loading states melhorados
+ * ✅ Singleton pattern para evitar múltiplas instâncias
  */
 
 class RealDashboard {
     constructor() {
-        this.apiBaseUrl = '/api/v2';  // 🎯 CORRIGIDO: Apontar para os endpoints v2
+        // 🔒 SINGLETON: Evitar múltiplas instâncias
+        if (RealDashboard.instance) {
+            console.warn('⚠️ Dashboard já existe, retornando instância existente');
+            return RealDashboard.instance;
+        }
+        RealDashboard.instance = this;
+        
+        this.apiBaseUrl = '/api/v2';
         this.currentUser = null;
         this.dashboardData = null;
         this.charts = {};
         this.currentPeriod = '30d';
         this.refreshInterval = null;
         this.isLoading = false;
+        this.isUpdatingUI = false; // 🎨 Controle de atualizações UI
+        
+        // 🚀 CACHE OTIMIZADO: Reduzir requests desnecessários
+        this.dataCache = new Map();
+        this.cacheTimestamps = new Map();
+        this.cacheTTL = 30000; // 30s cache no frontend
+        
+        // 📊 RATE LIMITING: Evitar spam de requests
+        this.requestHistory = [];
+        this.maxRequestsPerMinute = 10;
+        
+        // 🎨 UX MELHORADO: Debouncing e controle de estado
+        this.updateDebounceTimer = null;
+        this.pendingUpdate = null;
+        this.lastChartData = null; // Para comparar se precisa recriar gráficos
+        this.loadingStates = new Set(); // Múltiplos estados de loading
+        
         this.init();
     }
 
@@ -47,6 +83,12 @@ class RealDashboard {
         this.startAutoRefresh();
         
         console.log('✅ Dashboard REAL v2.0 inicializado com dados do banco');
+        
+        // Expor função para refresh manual (debug/teste)
+        window.refreshDashboard = () => {
+            console.log('🔄 Refresh manual do dashboard solicitado');
+            this.loadRealDashboardData();
+        };
     }
 
     getAuthToken() {
@@ -101,32 +143,68 @@ class RealDashboard {
     }
 
     async loadRealDashboardData(period = null) {
-        if (this.isLoading) return;
+        if (this.isLoading) {
+            console.log('⏳ Carregamento já em andamento, aguardando...');
+            return;
+        }
         
         try {
             this.isLoading = true;
+            this.loadingStates.add('data-fetch');
             const selectedPeriod = period || this.currentPeriod;
             
-            console.log(`📊 Carregando dados REAIS do dashboard (período: ${selectedPeriod})`);
-            this.showLoadingState();
+            // 🚀 VERIFICAR CACHE PRIMEIRO
+            const cachedData = this.getFromCache(selectedPeriod);
+            if (cachedData) {
+                console.log('📦 Usando dados do cache:', {
+                    periodo: selectedPeriod,
+                    age: this.getCacheAge(selectedPeriod)
+                });
+                this.dashboardData = cachedData;
+                this.scheduleUIUpdate(cachedData, 'cache');
+                this.loadingStates.delete('data-fetch');
+                this.isLoading = false;
+                return;
+            }
             
-            // ✅ CORRIGIDO: Usar a rota v2 correta, sem prefixo duplicado
+            // ⚡ RATE LIMITING: Verificar se pode fazer request
+            if (!this.canMakeRequest()) {
+                console.warn('⚠️ Rate limit atingido, usando dados do cache antigo se disponível');
+                const oldCache = this.dataCache.get(selectedPeriod);
+                if (oldCache) {
+                    this.dashboardData = oldCache;
+                    this.scheduleUIUpdate(oldCache, 'rate-limited-cache');
+                }
+                this.loadingStates.delete('data-fetch');
+                this.isLoading = false;
+                return;
+            }
+            
+            console.log(`📊 Carregando dados REAIS do dashboard (período: ${selectedPeriod})`);
+            this.showLoadingState('data-fetch');
+            
+            // ✅ FETCH COM OTIMIZAÇÕES
             const response = await this.fetchWithAuth(`${this.apiBaseUrl}/dashboard/data?period=${selectedPeriod}`);
             
             if (response.ok) {
                 const data = await response.json();
                 this.dashboardData = data;
                 
-                console.log('✅ Dados REAIS carregados:', {
+                // 💾 SALVAR NO CACHE
+                this.setCache(selectedPeriod, data);
+                
+                console.log('✅ Dados REAIS carregados e cached:', {
                     consultas: data.usage?.total_consultations || 0,
                     custo_total: data.usage?.total_cost || 'R$ 0,00',
                     creditos: data.credits?.available || 'R$ 0,00',
                     tipos_custo: Object.keys(data.costs || {}).length,
-                    graficos: Object.keys(data.charts || {}).length
+                    graficos: Object.keys(data.charts || {}).length,
+                    source: 'server_with_cache',
+                    version: 'v2.2_ux_optimized'
                 });
                 
-                this.updateDashboardWithRealData(data);
-                this.hideLoadingState();
+                // 🎨 AGENDAR ATUALIZAÇÃO SUAVE DA UI
+                this.scheduleUIUpdate(data, 'server');
                 
             } else if (response.status === 401) {
                 console.error('❌ Token inválido - redirecionando para login');
@@ -141,32 +219,82 @@ class RealDashboard {
             console.error('❌ Erro ao carregar dados reais:', error);
             this.showErrorState('Erro de conexão com o servidor');
         } finally {
+            this.loadingStates.delete('data-fetch');
             this.isLoading = false;
+            this.hideLoadingState('data-fetch');
         }
     }
 
-    updateDashboardWithRealData(data) {
-        console.log('📊 Atualizando interface com dados reais...');
+    scheduleUIUpdate(data, source = 'unknown') {
+        /**
+         * 🎨 DEBOUNCED UI UPDATE: Evita múltiplas atualizações rápidas
+         * Agrupa todas as mudanças em uma única atualização suave
+         */
+        if (this.updateDebounceTimer) {
+            clearTimeout(this.updateDebounceTimer);
+        }
         
-        // Atualizar créditos reais
-        this.updateCreditsDisplay(data.credits);
+        // Armazenar dados para atualização
+        this.pendingUpdate = { data, source, timestamp: Date.now() };
         
-        // Atualizar estatísticas de uso reais
-        this.updateUsageStats(data.usage);
+        // Debounce de 150ms para agrupar múltiplas atualizações
+        this.updateDebounceTimer = setTimeout(() => {
+            this.performUIUpdate();
+        }, 150);
+    }
+    
+    async performUIUpdate() {
+        /**
+         * 🎨 ATUALIZAÇÃO SUAVE DA UI: Executada apenas uma vez por batch
+         */
+        if (this.isUpdatingUI || !this.pendingUpdate) {
+            return;
+        }
         
-        // Atualizar custos dinâmicos
-        this.updateCostsDisplay(data.costs);
+        try {
+            this.isUpdatingUI = true;
+            const { data, source } = this.pendingUpdate;
+            
+            console.log(`🎨 Atualizando UI de forma suave (fonte: ${source})...`);
+            
+            // 🔄 BATCH DE ATUALIZAÇÕES: Todas de uma vez para evitar flickering
+            await this.batchUpdateUI(data);
+            
+            // 📊 SMART CHART UPDATE: Só recria se necessário
+            await this.smartUpdateCharts(data.charts);
+            
+            console.log('✅ UI atualizada de forma suave e otimizada');
+            
+        } catch (error) {
+            console.error('❌ Erro na atualização da UI:', error);
+        } finally {
+            this.isUpdatingUI = false;
+            this.pendingUpdate = null;
+        }
+    }
+    
+    async batchUpdateUI(data) {
+        /**
+         * 📦 BATCH UPDATE: Todas as atualizações de dados em lote
+         */
+        const startTime = performance.now();
         
-        // Criar/atualizar gráficos com dados reais
-        this.updateChartsWithRealData(data.charts);
-        
-        // Atualizar estatísticas adicionais dos gráficos
-        this.updateChartStatistics(data.usage, data.charts);
-        
-        // Atualizar informações do período
+        // Usar requestAnimationFrame para suavidade visual
+        await new Promise(resolve => {
+            requestAnimationFrame(() => {
+                // Atualizar todos os dados de uma vez
+                this.updateCreditsDisplay(data.credits);
+                this.updateUsageStats(data.usage);
+                this.updateCostsDisplay(data.costs);
+                this.updateChartStatistics(data.usage, data.charts);
         this.updatePeriodInfo(data.period, data.last_updated);
         
-        console.log('✅ Interface atualizada com dados 100% reais do banco');
+                resolve();
+            });
+        });
+        
+        const elapsed = performance.now() - startTime;
+        console.log(`⚡ Batch UI update executado em ${elapsed.toFixed(1)}ms`);
     }
 
     updateCreditsDisplay(credits) {
@@ -309,13 +437,75 @@ class RealDashboard {
         });
     }
 
-    updateChartsWithRealData(chartsData) {
+    async smartUpdateCharts(chartsData) {
+        /**
+         * 🧠 SMART CHART UPDATE: Só recria gráficos se os dados mudaram
+         * Evita flickering e múltiplas animações desnecessárias
+         */
         if (!chartsData) return;
         
         try {
-            // Destruir gráficos existentes
-            this.destroyExistingCharts();
+            // Comparar dados para decidir se precisa recriar
+            const chartDataChanged = this.hasChartDataChanged(chartsData);
             
+            if (!chartDataChanged) {
+                console.log('📊 Dados dos gráficos inalterados, mantendo gráficos existentes');
+                return;
+            }
+            
+            console.log('📊 Dados dos gráficos mudaram, atualizando de forma suave...');
+            
+            // Usar requestAnimationFrame para transição suave
+            await new Promise(resolve => {
+                requestAnimationFrame(async () => {
+                    // Fade out suave antes de recriar
+                    await this.fadeOutCharts();
+                    
+                    // Destruir e recriar com novos dados
+            this.destroyExistingCharts();
+                    this.createAllCharts(chartsData);
+                    
+                    // Fade in suave
+                    await this.fadeInCharts();
+                    
+                    // Salvar dados atuais para próxima comparação
+                    this.lastChartData = JSON.parse(JSON.stringify(chartsData));
+                    
+                    resolve();
+                });
+            });
+            
+            console.log('✅ Gráficos atualizados com transição suave');
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar gráficos:', error);
+            // Fallback: recriar normalmente em caso de erro
+            this.destroyExistingCharts();
+            this.createAllCharts(chartsData);
+        }
+    }
+    
+    hasChartDataChanged(newData) {
+        /**
+         * 🔍 COMPARAÇÃO INTELIGENTE: Verifica se dados dos gráficos mudaram
+         */
+        if (!this.lastChartData) return true;
+        
+        try {
+            // Comparação rápida via JSON (pode ser otimizada se necessário)
+            const oldDataStr = JSON.stringify(this.lastChartData);
+            const newDataStr = JSON.stringify(newData);
+            return oldDataStr !== newDataStr;
+        } catch (error) {
+            console.warn('⚠️ Erro ao comparar dados dos gráficos, forçando recriação');
+            return true;
+        }
+    }
+    
+    createAllCharts(chartsData) {
+        /**
+         * 📊 CRIAÇÃO DE TODOS OS GRÁFICOS: Método unificado
+         */
             // Criar gráfico de consumo
             if (chartsData.consumption) {
                 this.createConsumptionChart(chartsData.consumption);
@@ -329,13 +519,41 @@ class RealDashboard {
             // Criar gráfico de breakdown de custos
             if (chartsData.cost_breakdown) {
                 this.createCostBreakdownChart(chartsData.cost_breakdown);
-            }
-            
-            console.log('📊 Gráficos criados com dados reais');
-            
-        } catch (error) {
-            console.error('❌ Erro ao criar gráficos:', error);
         }
+    }
+    
+    async fadeOutCharts() {
+        /**
+         * 🎭 FADE OUT: Animação suave antes de recriar gráficos
+         */
+        const chartContainers = document.querySelectorAll('#apiConsumptionChart, #apiVolumeChart, #costBreakdownChart');
+        
+        return new Promise(resolve => {
+            chartContainers.forEach(container => {
+                if (container) {
+                    container.style.transition = 'opacity 0.2s ease-out';
+                    container.style.opacity = '0.3';
+                }
+            });
+            setTimeout(resolve, 200);
+        });
+    }
+    
+    async fadeInCharts() {
+        /**
+         * 🎭 FADE IN: Animação suave após criar gráficos
+         */
+        const chartContainers = document.querySelectorAll('#apiConsumptionChart, #apiVolumeChart, #costBreakdownChart');
+        
+        return new Promise(resolve => {
+            chartContainers.forEach(container => {
+                if (container) {
+                    container.style.transition = 'opacity 0.3s ease-in';
+                    container.style.opacity = '1';
+                }
+            });
+            setTimeout(resolve, 300);
+        });
     }
 
     createConsumptionChart(data) {
@@ -609,24 +827,56 @@ class RealDashboard {
         }
     }
 
-    showLoadingState() {
-        // Mostrar indicadores de carregamento
+    showLoadingState(source = 'general') {
+        /**
+         * 🔄 SMART LOADING STATE: Múltiplos estados de loading inteligentes
+         */
+        this.loadingStates.add(source);
+        
+        // Só mostrar loader se não estiver já visível
+        const loader = document.getElementById('dashboard-loader');
+        if (loader && loader.classList.contains('hidden')) {
+            loader.classList.remove('hidden');
+            // Usar requestAnimationFrame para animação suave
+            requestAnimationFrame(() => {
+                loader.classList.remove('opacity-0', 'translate-y-2');
+                loader.classList.add('opacity-100', 'translate-y-0');
+            });
+        }
+        
+        // Manter elementos [data-loading] se existirem (compatibilidade)
         const loadingElements = document.querySelectorAll('[data-loading]');
         loadingElements.forEach(el => el.classList.remove('hidden'));
         
-        // Adicionar classe de loading nos cartões principais
-        const cards = document.querySelectorAll('.card');
-        cards.forEach(card => card.classList.add('opacity-50'));
+        console.log(`🔄 Loading state ativado: ${source} (total: ${this.loadingStates.size})`);
     }
 
-    hideLoadingState() {
-        // Esconder indicadores de carregamento
+    hideLoadingState(source = 'general') {
+        /**
+         * ✅ SMART LOADING HIDE: Só esconde quando todos os loadings terminaram
+         */
+        this.loadingStates.delete(source);
+        
+        // Só esconder loader se não há mais estados de loading ativos
+        if (this.loadingStates.size === 0) {
+        const loader = document.getElementById('dashboard-loader');
+            if (loader && !loader.classList.contains('hidden')) {
+            loader.classList.remove('opacity-100', 'translate-y-0');
+            loader.classList.add('opacity-0', 'translate-y-2');
+            // Aguardar animação CSS terminar antes de esconder
+                setTimeout(() => {
+                    if (this.loadingStates.size === 0) { // Double check
+                        loader.classList.add('hidden');
+                    }
+                }, 300);
+        }
+        
+        // Manter elementos [data-loading] se existirem (compatibilidade)
         const loadingElements = document.querySelectorAll('[data-loading]');
         loadingElements.forEach(el => el.classList.add('hidden'));
+        }
         
-        // Remover classe de loading dos cartões
-        const cards = document.querySelectorAll('.card');
-        cards.forEach(card => card.classList.remove('opacity-50'));
+        console.log(`✅ Loading state removido: ${source} (restantes: ${this.loadingStates.size})`);
     }
 
     showErrorState(message) {
@@ -687,12 +937,99 @@ class RealDashboard {
         }
     }
 
+    // 🚀 MÉTODOS DE CACHE OTIMIZADO
+    getFromCache(key) {
+        /**
+         * 📦 CACHE INTELIGENTE: Retorna dados se ainda válidos
+         */
+        if (!this.dataCache.has(key)) {
+            return null;
+        }
+        
+        const timestamp = this.cacheTimestamps.get(key);
+        if (!timestamp) {
+            return null;
+        }
+        
+        const age = Date.now() - timestamp;
+        if (age > this.cacheTTL) {
+            // Cache expirado, limpar
+            this.dataCache.delete(key);
+            this.cacheTimestamps.delete(key);
+            return null;
+        }
+        
+        return this.dataCache.get(key);
+    }
+    
+    setCache(key, data) {
+        /**
+         * 💾 SALVAR NO CACHE: Com timestamp para TTL
+         */
+        this.dataCache.set(key, data);
+        this.cacheTimestamps.set(key, Date.now());
+        
+        // Limpar cache antigo para não consumir muita memória
+        if (this.dataCache.size > 10) {
+            const oldestKey = this.dataCache.keys().next().value;
+            this.dataCache.delete(oldestKey);
+            this.cacheTimestamps.delete(oldestKey);
+        }
+    }
+    
+    getCacheAge(key) {
+        /**
+         * 🕐 IDADE DO CACHE: Para debugging
+         */
+        const timestamp = this.cacheTimestamps.get(key);
+        if (!timestamp) return 'N/A';
+        
+        const age = Math.floor((Date.now() - timestamp) / 1000);
+        return `${age}s`;
+    }
+    
+    canMakeRequest() {
+        /**
+         * ⚡ RATE LIMITING: Máximo de requests por minuto
+         */
+        const now = Date.now();
+        const oneMinuteAgo = now - 60000;
+        
+        // Limpar requests antigos
+        this.requestHistory = this.requestHistory.filter(time => time > oneMinuteAgo);
+        
+        // Verificar se pode fazer nova request
+        if (this.requestHistory.length >= this.maxRequestsPerMinute) {
+            console.warn(`⚠️ Rate limit: ${this.requestHistory.length}/${this.maxRequestsPerMinute} requests no último minuto`);
+            return false;
+        }
+        
+        // Registrar nova request
+        this.requestHistory.push(now);
+        return true;
+    }
+
     startAutoRefresh() {
-        // Atualizar dados a cada 30 segundos
+        // 🚀 SMART REFRESH: 60s em vez de 30s + detecção de visibilidade
         this.refreshInterval = setInterval(() => {
-            console.log('🔄 Auto-refresh dos dados reais...');
+            // Só fazer refresh se a página estiver visível e não estiver carregando
+            if (this.isPageVisible() && !this.isLoading) {
+                console.log('🔄 Smart auto-refresh (página visível)...');
             this.loadRealDashboardData();
-        }, 30000);
+            } else {
+                console.log('⏸️ Auto-refresh pausado (página não visível ou carregando)');
+            }
+        }, 60000); // ✅ Mudança de 30s para 60s
+        
+        console.log('⏰ Auto-refresh configurado: 60s com smart detection');
+    }
+    
+    isPageVisible() {
+        /**
+         * 🔍 DETECÇÃO DE VISIBILIDADE: Evita refresh desnecessário
+         * quando usuário não está vendo a página
+         */
+        return !document.hidden && document.visibilityState === 'visible';
     }
 
     stopAutoRefresh() {
@@ -706,7 +1043,42 @@ class RealDashboard {
     destroy() {
         this.stopAutoRefresh();
         this.destroyExistingCharts();
-        console.log('🧹 Dashboard Real v2.0 destruído');
+        
+        // Limpar timers de debounce
+        if (this.updateDebounceTimer) {
+            clearTimeout(this.updateDebounceTimer);
+        }
+        
+        // Limpar estados
+        this.loadingStates.clear();
+        
+        // Remover instância singleton
+        RealDashboard.instance = null;
+        
+        console.log('🧹 Dashboard Real v2.2 UX otimizado destruído');
+    }
+}
+
+// 🔒 INICIALIZAÇÃO SINGLETON: Evita múltiplas instâncias
+function initializeDashboard() {
+    if (window.realDashboard) {
+        console.log('🔒 Dashboard já existe, não criando nova instância');
+        return window.realDashboard;
+    }
+    
+    if (typeof Chart !== 'undefined') {
+        console.log('🎯 Inicializando Dashboard Real v2.2 UX - Dados 100% Reais');
+        try {
+            window.realDashboard = new RealDashboard();
+            console.log('✅ Dashboard v2.2 UX inicializado com sucesso');
+            return window.realDashboard;
+        } catch (error) {
+            console.error('❌ Erro ao inicializar dashboard:', error);
+            return null;
+        }
+    } else {
+        console.error('❌ Chart.js não encontrado. Dashboard não pode ser iniciado.');
+        return null;
     }
 }
 
@@ -716,22 +1088,22 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('📌 Chart.js disponível?', typeof Chart !== 'undefined');
     console.log('📌 Window.location:', window.location.href);
     
-    // Verificar se Chart.js está carregado
-    if (typeof Chart !== 'undefined') {
-        console.log('🎯 Inicializando Dashboard Real v2.0 - Dados 100% Reais');
-        try {
-            window.realDashboard = new RealDashboard();
-            console.log('✅ Dashboard inicializado com sucesso');
-        } catch (error) {
-            console.error('❌ Erro ao inicializar dashboard:', error);
-        }
-    } else {
-        console.error('❌ Chart.js não encontrado. Dashboard não pode ser iniciado.');
-        // Tentar novamente após 1 segundo
-        setTimeout(() => {
-            if (typeof Chart !== 'undefined') {
-                console.log('🔄 Chart.js carregado com atraso, iniciando dashboard...');
-                window.realDashboard = new RealDashboard();
+    // Tentar inicializar imediatamente
+    const dashboard = initializeDashboard();
+    
+    // Se não conseguiu (Chart.js não carregado), tentar após delay
+    if (!dashboard) {
+        let retries = 0;
+        const maxRetries = 3;
+        const retryInterval = setInterval(() => {
+            const dashboard = initializeDashboard();
+            retries++;
+            
+            if (dashboard || retries >= maxRetries) {
+                clearInterval(retryInterval);
+                if (!dashboard) {
+                    console.error('❌ Não foi possível inicializar dashboard após múltiplas tentativas');
+                }
             }
         }, 1000);
     }

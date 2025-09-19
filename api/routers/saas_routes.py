@@ -3,7 +3,7 @@ Rotas da API SaaS para o Valida
 """
 import os
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from typing import List, Optional
 import structlog
 from datetime import datetime, timedelta
@@ -13,7 +13,7 @@ from api.models.saas_models import (
     DashboardStats, UsageStats, ConsultationRequest, ConsultationResponse,
     ErrorResponse, DashboardPeriod
 )
-from api.middleware.auth_middleware import require_auth, require_api_key, AuthUser, get_current_user
+from api.middleware.auth_middleware import require_auth, require_api_key, AuthUser, get_current_user, validate_jwt_or_api_key
 from api.services.user_service import user_service
 from api.services.api_key_service import api_key_service
 from api.services.dashboard_service import dashboard_service
@@ -22,6 +22,46 @@ from api.services.credit_service import credit_service
 logger = structlog.get_logger("saas_routes")
 
 router = APIRouter()
+
+def get_client_ip(request: Request) -> str:
+    """
+    Captura o IP real do cliente considerando proxies, load balancers e CDNs
+    
+    Ordem de prioridade:
+    1. X-Forwarded-For (primeiro IP da lista)
+    2. X-Real-IP 
+    3. CF-Connecting-IP (Cloudflare)
+    4. request.client.host (conexão direta)
+    """
+    # 1. X-Forwarded-For - mais comum em proxies/load balancers
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        # O primeiro IP é o cliente original, os demais são proxies
+        client_ip = forwarded_for.split(",")[0].strip()
+        if client_ip and client_ip != "unknown":
+            logger.debug(f"IP capturado via X-Forwarded-For: {client_ip}")
+            return client_ip
+    
+    # 2. X-Real-IP - usado por nginx e outros proxies
+    real_ip = request.headers.get("x-real-ip") 
+    if real_ip and real_ip != "unknown":
+        logger.debug(f"IP capturado via X-Real-IP: {real_ip}")
+        return real_ip
+    
+    # 3. CF-Connecting-IP - Cloudflare específico
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        logger.debug(f"IP capturado via CF-Connecting-IP: {cf_ip}")
+        return cf_ip
+    
+    # 4. request.client.host - conexão direta
+    if request.client and request.client.host:
+        logger.debug(f"IP capturado via request.client.host: {request.client.host}")
+        return request.client.host
+    
+    # 5. Fallback - IP desconhecido
+    logger.warning("Não foi possível determinar IP do cliente")
+    return "unknown"
 
 @router.post("/auth/register")
 async def register_user(user_data: UserCreate):
@@ -275,13 +315,18 @@ async def get_dashboard_stats(user: AuthUser = Depends(require_auth)):
 
 @router.post("/cnpj/consult", response_model=ConsultationResponse)
 async def consult_cnpj(
-    request: ConsultationRequest,
-    user: AuthUser = Depends(require_auth)  # Mudança: require_auth em vez de get_current_user
+    consultation_request: ConsultationRequest,
+    http_request: Request,  # Objeto Request para capturar IP
+    user: AuthUser = Depends(validate_jwt_or_api_key)  # Aceita tanto JWT (frontend) quanto API key (externa)
 ):
     """
     Consulta CNPJ com dados completos - protestos + receita federal
     
-    Parâmetros aceitos:
+    **Autenticação:**
+    - **Frontend (Webapp):** Use o token JWT da sessão (automatic via cookies)
+    - **API Externa:** Use header `Authorization: Bearer rcp_sua_api_key_aqui`
+    
+    **Parâmetros aceitos:**
     - protestos: bool - Consultar protestos (default: true) 
     - receita_federal: bool - Consultar dados da Receita Federal (default: false)
         - simples: bool - Dados Simples Nacional (default: false)
@@ -297,12 +342,80 @@ async def consult_cnpj(
         - extract_contact: bool - Contatos (default: true)
         - extract_activities: bool - CNAEs (default: true)
         - extract_partners: bool - Sócios (default: true)
+        
+    **Exemplos de uso:**
+    
+    Frontend (JavaScript):
+    ```javascript
+    const response = await fetch('/api/v1/cnpj/consult', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+            cnpj: "12345678000195",
+            protestos: true,
+            receita_federal: true
+        })
+    });
+    ```
+    
+    API Externa (cURL):
+    ```bash
+    curl -X POST "http://localhost:2377/api/v1/cnpj/consult" \\
+         -H "Content-Type: application/json" \\
+         -H "Authorization: Bearer rcp_sua_api_key_aqui" \\
+         -d '{"cnpj": "12345678000195", "protestos": true, "receita_federal": true}'
+    ```
+    
+    API Externa (Python):
+    ```python
+    import requests
+    
+    url = "http://localhost:2377/api/v1/cnpj/consult"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer rcp_sua_api_key_aqui"
+    }
+    data = {
+        "cnpj": "12345678000195",
+        "protestos": True,
+        "receita_federal": True,
+        "simples": True,
+        "registrations": True,
+        "geocoding": False,
+        "suframa": False,
+        "strategy": "CACHE_IF_FRESH",
+        "extract_basic": True,
+        "extract_address": True,
+        "extract_contact": True,
+        "extract_activities": True,
+        "extract_partners": True
+    }
+    
+    response = requests.post(url, json=data, headers=headers, timeout=45)
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"Consulta realizada com sucesso!")
+        print(f"CNPJ: {result['cnpj']}")
+        print(f"Protestos encontrados: {result['has_protests']}")
+        print(f"Dados da Receita Federal: {'Sim' if result['dados_receita'] else 'Não'}")
+    else:
+        print(f"Erro: {response.status_code}")
+        print(response.json())
+    ```
     """
     try:
+        # Capturar IP do cliente
+        client_ip = get_client_ip(http_request)
+        
         # Usuário já foi autenticado via Depends(require_auth)
         logger.info("usuario_autenticado", 
                    user_id=user.user_id,
-                   api_key_id=user.api_key)
+                   api_key_id=user.api_key,
+                   client_ip=client_ip)
         
         # VERIFICAÇÃO DE SEGURANÇA: Usuário DEVE ter pelo menos uma API key ativa
         from api.services.api_key_service import api_key_service
@@ -319,8 +432,8 @@ async def consult_cnpj(
         logger.info(f"Usuário {user.user_id} tem {len(active_keys)} API key(s) ativa(s)")
         
         # Converter registrations de bool para string antes da consulta
-        original_registrations = request.registrations
-        request.registrations = 'BR' if original_registrations else None
+        original_registrations = consultation_request.registrations
+        consultation_request.registrations = 'BR' if original_registrations else None
         
         # Usar novo serviço unificado
         from api.services.unified_consultation_service import UnifiedConsultationService
@@ -328,20 +441,21 @@ async def consult_cnpj(
         unified_service = UnifiedConsultationService()
         
         logger.info("iniciando_consulta_unificada", 
-                   cnpj=request.cnpj[:8] + "****",
+                   cnpj=consultation_request.cnpj[:8] + "****",
                    user_id=user.user_id,
+                   client_ip=client_ip,
                    parametros={
-                       "protestos": request.protestos,
-                       "receita_federal": request.receita_federal,
-                       "simples": request.simples,
+                       "protestos": consultation_request.protestos,
+                       "receita_federal": consultation_request.receita_federal,
+                       "simples": consultation_request.simples,
                        "registrations": bool(original_registrations),
-                       "geocoding": request.geocoding,
-                       "suframa": request.suframa,
-                       "strategy": request.strategy
+                       "geocoding": consultation_request.geocoding,
+                       "suframa": consultation_request.suframa,
+                       "strategy": consultation_request.strategy
                    })
         
         # Fazer a consulta completa
-        result = await unified_service.consultar_dados_completos(request, user.user_id)
+        result = await unified_service.consultar_dados_completos(consultation_request, user.user_id)
         
         # Registrar consulta no histórico
         from api.services.query_logger_service import query_logger_service
@@ -369,7 +483,7 @@ async def consult_cnpj(
             # Preparar tipos de consulta baseado no request
             consultation_types = []
             
-            if request.protestos:
+            if consultation_request.protestos:
                 protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
                 consultation_types.append({
                     "type_code": "protestos",
@@ -382,11 +496,11 @@ async def consult_cnpj(
                 })
             
             # Logging de consultas CNPJa (Receita Federal) - somente se receita_federal=true
-            if request.receita_federal:
+            if consultation_request.receita_federal:
                 # Registrar receita federal básica se qualquer extração básica estiver ativa
                 # (mesma condição do cálculo de custos)
-                if (request.extract_basic or request.extract_address or 
-                    request.extract_contact or request.extract_activities or request.extract_partners):
+                if (consultation_request.extract_basic or consultation_request.extract_address or 
+                    consultation_request.extract_contact or consultation_request.extract_activities or consultation_request.extract_partners):
                     receita_cost = await consultation_types_service.get_cost_by_code('receita_federal')
                     consultation_types.append({
                         "type_code": "receita_federal", 
@@ -398,7 +512,7 @@ async def consult_cnpj(
                         "error_message": None if result.success else result.error
                     })
                 
-                if request.simples:
+                if consultation_request.simples:
                     simples_cost = await consultation_types_service.get_cost_by_code('simples_nacional')
                     simples_data = result.dados_receita.get('simples') if result.dados_receita else None
                     consultation_types.append({
@@ -426,7 +540,7 @@ async def consult_cnpj(
                     })
                 
                 # Registrar geocodificação se solicitada
-                if request.geocoding:
+                if consultation_request.geocoding:
                     geocoding_cost = await consultation_types_service.get_cost_by_code('geocoding')
                     # Dados de geocodificação estariam no endereço
                     geocoding_data = result.dados_receita.get('endereco') if result.dados_receita else None
@@ -440,7 +554,7 @@ async def consult_cnpj(
                         "error_message": None if result.success else result.error
                     })
                 
-                if request.suframa:
+                if consultation_request.suframa:
                     suframa_cost = await consultation_types_service.get_cost_by_code('suframa')
                     # Suframa normalmente estaria em dados_receita também
                     suframa_data = result.dados_receita.get('suframa') if result.dados_receita else None
@@ -471,12 +585,13 @@ async def consult_cnpj(
             logged_consultation = await query_logger_service.log_consultation(
                 user_id=user_id,
                 api_key_id=api_key_uuid,
-                cnpj=request.cnpj,
+                cnpj=consultation_request.cnpj,
                 consultation_types=consultation_types,
                 response_time_ms=result.response_time_ms or 0,
                 status="success" if result.success else "error",
                 error_message=result.message if not result.success else None,
-                cache_used=result.cache_used
+                cache_used=result.cache_used,
+                client_ip=client_ip  # IP do cliente
             )
             
             if logged_consultation:
@@ -494,7 +609,7 @@ async def consult_cnpj(
                                 user_id=user_id,
                                 amount_cents=total_cost_cents,
                                 consultation_id=logged_consultation.get("id"),
-                                description=f"Consulta CNPJ {request.cnpj[:8]}****"
+                                description=f"Consulta CNPJ {consultation_request.cnpj[:8]}****"
                             )
                             logger.info("creditos_deduzidos_apos_consulta",
                                        user_id=user_id,
@@ -505,15 +620,15 @@ async def consult_cnpj(
                                        user_id=user_id,
                                        error=str(credit_error))
             else:
-                logger.warning("falha_registrar_consulta", user_id=user_id, cnpj=request.cnpj[:8] + "****")
+                logger.warning("falha_registrar_consulta", user_id=user_id, cnpj=consultation_request.cnpj[:8] + "****")
         except Exception as log_error:
             # Log do erro mas não falhar a consulta por causa do logging
             logger.error("erro_logging_consulta", 
                         error=str(log_error),
-                        cnpj=request.cnpj[:8] + "****")
+                        cnpj=consultation_request.cnpj[:8] + "****")
         
         logger.info("consulta_cnpj_unificada_finalizada",
-                   cnpj=request.cnpj[:8] + "****",
+                   cnpj=consultation_request.cnpj[:8] + "****",
                    user_id=user_id,
                    success=result.success,
                    response_time_ms=result.response_time_ms,
@@ -530,10 +645,10 @@ async def consult_cnpj(
         # Re-raise HTTPException para que seja propagada corretamente
         raise
     except Exception as e:
-        logger.error("erro_consulta_cnpj", cnpj=request.cnpj, error=str(e))
+        logger.error("erro_consulta_cnpj", cnpj=consultation_request.cnpj, error=str(e))
         return ConsultationResponse(
             success=False,
-            cnpj=request.cnpj,
+            cnpj=consultation_request.cnpj,
             error=str(e),
             timestamp=datetime.now(),
             user_id=user.user_id if user else None,
@@ -640,6 +755,7 @@ async def get_query_history(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     search: Optional[str] = None,
+    type: str = "all",
     user: AuthUser = Depends(require_auth)
 ):
     """
@@ -648,7 +764,7 @@ async def get_query_history(
     try:
         from api.services.history_service import history_service
         result = await history_service.get_user_query_history(
-            user.user_id, page, limit, status, date_from, date_to, search
+            user.user_id, page, limit, status, date_from, date_to, search, type
         )
         return result
     except Exception as e:

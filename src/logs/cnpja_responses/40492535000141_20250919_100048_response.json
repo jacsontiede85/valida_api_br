@@ -1,0 +1,109 @@
+{
+    "url": "https://api.cnpja.com/office/40492535000141",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "02d75a4afe9118154092722d6f625eb0",
+        "trace-id": "ff198c375942a1e34b5917da879c132b",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "815a6e129b9b504bd97d435dcfcac828",
+        "date": "Fri, 19 Sep 2025 13:00:47 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1170",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-19T10:00:48.479208",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "40492535000141",
+        "company": {
+            "id": 40492535,
+            "name": "SIMOES MEGA HAIR LTDA",
+            "equity": 20000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2021-01-21",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "87473461-6b13-4a97-9e7f-ae24ecad74cf",
+                        "name": "Adilvana Simoes Cabral",
+                        "type": "NATURAL",
+                        "taxId": "***940847**",
+                        "age": "31-40"
+                    }
+                }
+            ]
+        },
+        "alias": "Simoes Mega Hair",
+        "founded": "2021-01-21",
+        "head": true,
+        "statusDate": "2021-01-21",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3304557,
+            "street": "Avenida Cesario de Melo",
+            "number": "03600",
+            "details": "Bl 002 Sala 0321",
+            "district": "Campo Grande",
+            "city": "Rio de Janeiro",
+            "state": "RJ",
+            "zip": "23050102",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            }
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "21",
+                "number": "81541256"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "dilsimoes2039@gmail.com",
+                "domain": "gmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 9602501,
+            "text": "Cabeleireiros, manicure e pedicure"
+        },
+        "sideActivities": [
+            {
+                "id": 8599604,
+                "text": "Treinamento em desenvolvimento profissional e gerencial"
+            }
+        ],
+        "registrations": []
+    }
+}

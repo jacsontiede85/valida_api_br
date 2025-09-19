@@ -183,6 +183,118 @@ async def require_api_key(user: Optional[AuthUser] = Depends(get_current_user)) 
         raise HTTPException(status_code=401, detail="API key necessária")
     return user
 
+async def validate_jwt_or_api_key(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> AuthUser:
+    """
+    Valida tanto tokens JWT (sessão web) quanto API keys (integração externa)
+    Para uso em endpoints que precisam funcionar tanto no frontend quanto via API externa
+    """
+    if not credentials:
+        raise HTTPException(
+            status_code=401, 
+            detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+        )
+    
+    token = credentials.credentials
+    logger.info(f"🔍 Validando token híbrido: {token[:10]}...")
+    
+    # Primeiro, tentar como token JWT (para frontend)
+    jwt_payload = verify_jwt_token(token)
+    if jwt_payload:
+        logger.info(f"✅ Usuário autenticado via JWT: {jwt_payload.get('email')}")
+        
+        # Buscar API key ativa do usuário para logging
+        active_api_key = None
+        if supabase_client:
+            try:
+                from api.services.api_key_service import api_key_service
+                user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
+                active_keys = [k for k in user_api_keys if k.is_active]
+                if active_keys:
+                    active_api_key = active_keys[0].key  # Usar a primeira API key ativa
+                    logger.info(f"API key ativa encontrada para usuário: {active_api_key[:8]}****")
+            except Exception as e:
+                logger.warning(f"Erro ao buscar API key do usuário: {e}")
+        
+        return AuthUser(
+            user_id=jwt_payload.get("user_id"),
+            email=jwt_payload.get("email"),
+            api_key=active_api_key
+        )
+    
+    # Se não é JWT, tentar como API key (para integração externa)
+    if token.startswith("rcp_"):
+        logger.info(f"🔑 Tentando validar como API key: {token[:10]}...")
+        
+        if not supabase_client:
+            logger.warning("Supabase não configurado, usando modo mock para API key")
+            mock_auth = get_mock_auth()
+            result = mock_auth.get_user_by_api_key(token)
+            if result and result[0] and result[1]:
+                user_data, api_key_data = result
+                return AuthUser(
+                    user_id=user_data["id"],
+                    email=user_data["email"],
+                    api_key=token
+                )
+            else:
+                raise HTTPException(
+                    status_code=401, 
+                    detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+                )
+        
+        # Buscar usuário pela API key no Supabase
+        try:
+            # Calcular o hash da chave visível para buscar no banco
+            import hashlib
+            key_hash = hashlib.sha256(token.encode()).hexdigest()
+            logger.info(f"Buscando API key com hash: {key_hash[:16]}...")
+            
+            result = supabase_client.table("api_keys").select(
+                "id, user_id, name, is_active, users(id, email, name)"
+            ).eq("key_hash", key_hash).execute()
+            
+            logger.info(f"Resultado da busca: {len(result.data)} chaves encontradas")
+            
+            if result.data and len(result.data) > 0:
+                api_key_data = result.data[0]
+                if api_key_data["is_active"]:
+                    user_data = api_key_data["users"]
+                    logger.info(f"✅ API key válida para usuário: {user_data['email']}")
+                    return AuthUser(
+                        user_id=api_key_data["user_id"],
+                        email=user_data["email"],
+                        api_key=token
+                    )
+                else:
+                    logger.warning(f"❌ API key inativa: {token[:10]}...")
+                    raise HTTPException(
+                        status_code=401, 
+                        detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+                    )
+            else:
+                logger.warning(f"❌ API key não encontrada: {token[:10]}...")
+                raise HTTPException(
+                    status_code=401, 
+                    detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Erro ao verificar API key: {e}")
+            raise HTTPException(
+                status_code=401, 
+                detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+            )
+    
+    # Se não é JWT nem API key válida, erro
+    logger.warning(f"❌ Token não é JWT nem API key válida: {token[:20]}...")
+    raise HTTPException(
+        status_code=401, 
+        detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+    )
+
 def get_supabase_client() -> Optional[Client]:
     """
     Retorna o cliente Supabase configurado

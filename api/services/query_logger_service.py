@@ -4,6 +4,7 @@ Serviço para registrar consultas no histórico - Nova Estrutura v2.0
 import structlog
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import pytz
 from api.middleware.auth_middleware import get_supabase_client
 
 logger = structlog.get_logger("query_logger_service")
@@ -11,6 +12,20 @@ logger = structlog.get_logger("query_logger_service")
 class QueryLoggerService:
     def __init__(self):
         self.supabase = get_supabase_client()
+        # Timezone do Brasil
+        self.brazil_tz = pytz.timezone('America/Sao_Paulo')
+    
+    def _get_brazil_datetime(self) -> datetime:
+        """
+        Retorna datetime atual no timezone do Brasil
+        """
+        return datetime.now(self.brazil_tz)
+    
+    def _get_brazil_datetime_iso(self) -> str:
+        """
+        Retorna datetime atual no timezone do Brasil em formato ISO
+        """
+        return self._get_brazil_datetime().isoformat()
     
     async def log_consultation(
         self,
@@ -21,7 +36,8 @@ class QueryLoggerService:
         response_time_ms: Optional[int] = None,
         status: str = "success",
         error_message: Optional[str] = None,
-        cache_used: bool = False
+        cache_used: bool = False,
+        client_ip: Optional[str] = None  # IP do cliente
     ) -> Optional[Dict[str, Any]]:
         """
         Registra uma consulta completa no novo formato
@@ -52,8 +68,19 @@ class QueryLoggerService:
             Dict com dados da consulta registrada
         """
         try:
+            logger.info(
+                "tentando_registrar_consulta",
+                user_id=user_id,
+                cnpj=cnpj[:8] + "****",
+                supabase_configurado=bool(self.supabase),
+                consultation_types_count=len(consultation_types),
+                status=status
+            )
+            
             if not self.supabase:
                 logger.warning("Supabase não configurado - consulta não será registrada")
+                # Salvar em log local como fallback
+                await self._log_to_file(user_id, cnpj, consultation_types, response_time_ms, status, cache_used)
                 return None
             
             # Calcular custo total
@@ -69,37 +96,80 @@ class QueryLoggerService:
                 "status": status,
                 "error_message": error_message,
                 "cache_used": cache_used,
-                "created_at": datetime.now().isoformat()
+                "client_ip": client_ip,  # IP do cliente
+                "created_at": self._get_brazil_datetime_iso()
             }
+            
+            logger.info("inserindo_consulta_principal", data=consultation_data)
             
             consultation_response = self.supabase.table("consultations").insert(consultation_data).execute()
             
             if not consultation_response.data:
                 logger.error("falha_inserir_consulta_principal", user_id=user_id, cnpj=cnpj)
+                # Fallback para log local
+                await self._log_to_file(user_id, cnpj, consultation_types, response_time_ms, status, cache_used)
                 return None
                 
             consultation_id = consultation_response.data[0]["id"]
             
+            logger.info("consulta_principal_inserida", consultation_id=consultation_id)
+            
             # 2. Inserir detalhes por tipo de consulta
-            await self._log_consultation_details(consultation_id, consultation_types)
+            details_success = await self._log_consultation_details(consultation_id, consultation_types)
             
             # 3. Atualizar analytics diários
-            await self.update_daily_analytics(user_id, consultation_types, total_cost_cents)
+            analytics_success = await self.update_daily_analytics(user_id, consultation_types, total_cost_cents)
             
             logger.info(
                 "consulta_completa_registrada",
                 user_id=user_id,
-                cnpj=cnpj,
+                cnpj=cnpj[:8] + "****",
                 consultation_id=consultation_id,
                 total_cost=total_cost_cents,
-                types_count=len(consultation_types)
+                types_count=len(consultation_types),
+                details_success=details_success,
+                analytics_success=analytics_success
             )
             
             return consultation_response.data[0]
                 
         except Exception as e:
-            logger.error("erro_registrar_consulta_completa", user_id=user_id, cnpj=cnpj, error=str(e))
+            logger.error("erro_registrar_consulta_completa", user_id=user_id, cnpj=cnpj[:8] + "****", error=str(e))
+            # Fallback para log local em caso de erro
+            await self._log_to_file(user_id, cnpj, consultation_types, response_time_ms, status, cache_used)
             return None
+    
+    async def _log_to_file(self, user_id: str, cnpj: str, consultation_types: List[Dict], response_time_ms: int, status: str, cache_used: bool):
+        """
+        Fallback para salvar consulta em arquivo quando Supabase não está disponível
+        """
+        try:
+            import json
+            from pathlib import Path
+            
+            log_dir = Path("logs/query_history")
+            log_dir.mkdir(parents=True, exist_ok=True)
+            
+            log_entry = {
+                "timestamp": self._get_brazil_datetime_iso(),
+                "user_id": user_id,
+                "cnpj": cnpj,
+                "consultation_types": consultation_types,
+                "response_time_ms": response_time_ms,
+                "status": status,
+                "cache_used": cache_used,
+                "total_cost_cents": sum(ct.get("cost_cents", 0) for ct in consultation_types)
+            }
+            
+            log_file = log_dir / f"queries_{self._get_brazil_datetime().strftime('%Y%m%d')}.jsonl"
+            
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry) + "\n")
+            
+            logger.info("consulta_salva_em_arquivo", file=str(log_file), user_id=user_id)
+            
+        except Exception as e:
+            logger.error("erro_salvar_consulta_arquivo", error=str(e))
     
     async def _log_consultation_details(self, consultation_id: str, consultation_types: List[Dict[str, Any]]) -> bool:
         """
@@ -124,7 +194,7 @@ class QueryLoggerService:
                     "cache_used": ct.get("cache_used", False),
                     "response_time_ms": ct.get("response_time_ms"),
                     "error_message": ct.get("error_message"),
-                    "created_at": datetime.now().isoformat()
+                    "created_at": self._get_brazil_datetime_iso()
                 }
                 
                 details_to_insert.append(detail)
@@ -178,7 +248,7 @@ class QueryLoggerService:
             if not self.supabase:
                 return False
             
-            today = datetime.now().date().isoformat()
+            today = self._get_brazil_datetime().date().isoformat()
             
             # Contar consultas por tipo
             consultations_by_type = {}
@@ -224,7 +294,7 @@ class QueryLoggerService:
                     "credits_used_cents": current["credits_used_cents"] + total_cost_cents,
                     "consultations_by_type": current_by_type,
                     "costs_by_type": current_costs,
-                    "updated_at": datetime.now().isoformat()
+                    "updated_at": self._get_brazil_datetime_iso()
                 }
                 
                 response = self.supabase.table("daily_analytics").update(update_data).eq("id", current["id"]).execute()
@@ -240,7 +310,7 @@ class QueryLoggerService:
                     "credits_used_cents": total_cost_cents,
                     "consultations_by_type": consultations_by_type,
                     "costs_by_type": costs_by_type,
-                    "created_at": datetime.now().isoformat()
+                    "created_at": self._get_brazil_datetime_iso()
                 }
                 
                 response = self.supabase.table("daily_analytics").insert(analytics_data).execute()

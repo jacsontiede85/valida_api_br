@@ -1,0 +1,138 @@
+{
+    "url": "https://api.cnpja.com/office/04596858000111",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "45894901609aa1adf82b0b99a41ab616",
+        "trace-id": "382b40cdc44672f8d9639c4a45d4c2b1",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "80b22fc83c8d5cb21628d5a05fcaa3d6",
+        "date": "Fri, 19 Sep 2025 14:08:17 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1538",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-19T11:08:19.077546",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "04596858000111",
+        "company": {
+            "id": 4596858,
+            "name": "NESTINA SILVA PAIXAO E CIA LTDA",
+            "equity": 100000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2021-02-08",
+                    "role": {
+                        "id": 22,
+                        "text": "Sócio"
+                    },
+                    "person": {
+                        "id": "35fb4699-7b33-4e67-8177-863a6465c3cc",
+                        "name": "Genilson Francisco da Silva",
+                        "type": "NATURAL",
+                        "taxId": "***687585**",
+                        "age": "41-50"
+                    }
+                },
+                {
+                    "since": "2021-02-08",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "ba1476ce-33d1-487f-a8b5-7fd3ad43a2cc",
+                        "name": "Nestina Silva Paixao",
+                        "type": "NATURAL",
+                        "taxId": "***720595**",
+                        "age": "51-60"
+                    }
+                }
+            ]
+        },
+        "alias": "Keila Cosmeticos",
+        "founded": "2001-07-10",
+        "head": true,
+        "statusDate": "2004-12-04",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2910701,
+            "street": "Rua Castro Alves",
+            "number": "46",
+            "details": null,
+            "district": "Centro",
+            "city": "Euclides da Cunha",
+            "state": "BA",
+            "zip": "48500000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            }
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "75",
+                "number": "99482382"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "keilacosmeticos2001@hotmail.com",
+                "domain": "hotmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4772500,
+            "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+        },
+        "sideActivities": [
+            {
+                "id": 4782201,
+                "text": "Comércio varejista de calçados"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "BA",
+                "number": "056031456",
+                "enabled": true,
+                "statusDate": "2001-09-18",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}
