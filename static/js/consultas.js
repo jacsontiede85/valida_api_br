@@ -230,7 +230,6 @@ class ConsultasManager {
         // Coletar opções selecionadas
         const options = {
             cnpj: cnpj,
-            api_key: 'rcp_dev-key-2', // Manter para compatibilidade
             
             // Dados jurídicos  
             protestos: document.getElementById('protestos')?.checked || false,
@@ -267,11 +266,20 @@ class ConsultasManager {
         const cnpjLimpo = cnpj.replace(/[^\d]/g, '');
         const requestBody = this.buildConsultationRequest(cnpjLimpo);
         
+        // Obter token JWT do localStorage (autenticação real do usuário)
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+        
+        if (!token) {
+            alert('⚠️ Sessão Expirada\n\nVocê precisa estar autenticado para fazer consultas.\n\nVocê será redirecionado para a página de login.');
+            window.location.href = '/login';
+            throw new Error('Não autenticado');
+        }
+        
         const response = await fetch('/api/v1/cnpj/consult', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer rcp_dev-key-2'
+                'Authorization': `Bearer ${token}` // Usar token JWT do usuário autenticado
             },
             body: JSON.stringify(requestBody)
         });
@@ -279,7 +287,22 @@ class ConsultasManager {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.detail || data.error || `Erro ${response.status}: ${response.statusText}`);
+            // Tratamento especial para erro 403 (Forbidden)
+            if (response.status === 403) {
+                const errorMsg = data.detail || 'Você precisa de uma API key ativa para fazer consultas.';
+                // Mostrar alerta especial e redirecionar
+                alert(`⚠️ Acesso Negado\n\n${errorMsg}\n\nVocê será redirecionado para a página de API Keys.`);
+                window.location.href = '/api-keys';
+                throw new Error(errorMsg);
+            }
+            
+            // Tratamento especial para erros críticos da API oficial
+            const errorDetail = data.detail || data.error || '';
+            if (errorDetail.includes('🚨 ERRO CRÍTICO')) {
+                throw new Error(`Erro na API Oficial: ${errorDetail}\n\nTente novamente em alguns minutos. Se o problema persistir, entre em contato com o suporte.`);
+            }
+            
+            throw new Error(errorDetail || `Erro ${response.status}: ${response.statusText}`);
         }
         
         if (data.success === false) {

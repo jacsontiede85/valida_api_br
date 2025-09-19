@@ -1,0 +1,187 @@
+{
+    "url": "https://api.cnpja.com/office/13919474000183",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "13d320d4643f07c2e08c3d2d54e32656",
+        "trace-id": "84ba67063d6e37683f355f0d534f60a2",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "4e3da93f205f1f40896830484b56d1cb",
+        "date": "Thu, 18 Sep 2025 20:23:00 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "2904",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-18T17:23:00.932150",
+    "response_body": {
+        "updated": "2025-09-17T05:13:15.000Z",
+        "taxId": "13919474000183",
+        "company": {
+            "id": 13919474,
+            "name": "PORTO AUTOCENTER COMERCIAL LTDA",
+            "equity": 500000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2025-01-15",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "3ef1da1b-df9d-4494-90a2-563aa3b2c73d",
+                        "name": "Walteir da Silva Santos",
+                        "type": "NATURAL",
+                        "taxId": "***456225**",
+                        "age": "31-40"
+                    }
+                }
+            ]
+        },
+        "alias": "Porto Autocenter",
+        "founded": "2011-07-05",
+        "head": true,
+        "statusDate": "2011-07-05",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2925303,
+            "street": "Rua Luiz Teofilo Rodrigues",
+            "number": "64",
+            "details": null,
+            "district": "Parque Ecologico",
+            "city": "Porto Seguro",
+            "state": "BA",
+            "zip": "45810000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            }
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "73",
+                "number": "31420442"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "CORPORATE",
+                "address": "adm@portocentercomercial.com.br",
+                "domain": "portocentercomercial.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 4530703,
+            "text": "Comércio a varejo de peças e acessórios novos para veículos automotores"
+        },
+        "sideActivities": [
+            {
+                "id": 4530705,
+                "text": "Comércio a varejo de pneumáticos e câmaras-de-ar"
+            },
+            {
+                "id": 4541206,
+                "text": "Comércio a varejo de peças e acessórios novos para  motocicletas e motonetas"
+            },
+            {
+                "id": 4713004,
+                "text": "Lojas de departamentos ou magazines, exceto lojas francas (Duty free)"
+            },
+            {
+                "id": 4721103,
+                "text": "Comércio varejista de laticínios e frios"
+            },
+            {
+                "id": 4723700,
+                "text": "Comércio varejista de bebidas"
+            },
+            {
+                "id": 4732600,
+                "text": "Comércio varejista de lubrificantes"
+            },
+            {
+                "id": 4744001,
+                "text": "Comércio varejista de ferragens e ferramentas"
+            },
+            {
+                "id": 4744002,
+                "text": "Comércio varejista de madeira e artefatos"
+            },
+            {
+                "id": 4744003,
+                "text": "Comércio varejista de materiais hidráulicos"
+            },
+            {
+                "id": 4744005,
+                "text": "Comércio varejista de materiais de construção não especificados anteriormente"
+            },
+            {
+                "id": 4744099,
+                "text": "Comércio varejista de materiais de construção em geral"
+            },
+            {
+                "id": 4751201,
+                "text": "Comércio varejista especializado de equipamentos e suprimentos de informática"
+            },
+            {
+                "id": 4752100,
+                "text": "Comércio varejista especializado de equipamentos de telefonia e comunicação"
+            },
+            {
+                "id": 4753900,
+                "text": "Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo"
+            },
+            {
+                "id": 4754701,
+                "text": "Comércio varejista de móveis"
+            },
+            {
+                "id": 4755503,
+                "text": "Comercio varejista de artigos de cama, mesa e banho"
+            },
+            {
+                "id": 4761003,
+                "text": "Comércio varejista de artigos de papelaria"
+            },
+            {
+                "id": 4772500,
+                "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+            },
+            {
+                "id": 4789004,
+                "text": "Comércio varejista de animais vivos e de artigos e alimentos para animais de estimação"
+            },
+            {
+                "id": 4789007,
+                "text": "Comércio varejista de equipamentos para escritório"
+            },
+            {
+                "id": 4789099,
+                "text": "Comércio varejista de outros produtos não especificados anteriormente"
+            }
+        ]
+    }
+}

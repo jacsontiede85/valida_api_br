@@ -1,65 +1,76 @@
 <!DOCTYPE html>
-<html lang="pt-br"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Valida - Visão Geral</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<style>
+<html lang="pt-br">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Valida - Visão Geral</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #111827;
             color: #E5E7EB;
         }
+
         .sidebar {
             background-color: #1F2937;
         }
+
         .header {
             background-color: #1F2937;
             border-bottom: 1px solid #374151;
         }
+
         .card {
             background-color: #1F2937;
             border-radius: 0.5rem;
         }
+
         .btn-primary {
             background-color: #3B82F6;
             color: white;
         }
+
         .btn-secondary {
             background-color: #374151;
             color: #D1D5DB;
         }
+
         .active-link {
             background-color: #374151;
             color: white;
             border-radius: 0.375rem;
         }
+
         .inactive-link {
             color: #9CA3AF;
         }
     </style>
 </head>
+
 <body class="flex h-screen">
-    <script src="/static/js/dashboard.js"></script>
-<aside class="sidebar w-64 p-4 flex flex-col justify-between">
-<div>
-<div class="flex items-center mb-8">
-<img alt="Valida Logo" class="h-8 mr-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPiTytodUSa_qp8ErIXjl0HYcDeCG9qNnFRFMu2Cz3a70lhzaWNupQM787LTBKoya6Hwg62W3qRnPmvQQzXeAQaXuWZfXcb4SrOdfms8pIuqpb7uzakD8yVUxkrr3LuKCN9QMPc_uN5RLSQORm2FFOEGk0_wxLiUFXS6w-BH5OHDr1upOSICkK0moQtHR9wUmj7FaVGYQdnp6mCZYd_L9_vpWQgHr7dMsEkV7IFNCExMBYr8IQYoZJ4n1duMfJvd0II_MlpFC78m8"/>
-<span class="text-xl font-bold">Valida</span>
-</div>
-<nav class="space-y-2">
-                    <div class="text-xs text-gray-500 uppercase font-bold mb-2">Geral</div>
-                    <a class="flex items-center p-2 active-link" href="#">
-                        <span class="material-icons mr-3">dashboard</span> Visão Geral
-                    </a>
-                    <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/consultas">
-                        <span class="material-icons mr-3">search</span> Consultas
-                    </a>
+    <aside class="sidebar w-64 p-4 flex flex-col justify-between">
+        <div>
+            <div class="flex items-center mb-8">
+                <img alt="Valida Logo" class="h-8 mr-2"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPiTytodUSa_qp8ErIXjl0HYcDeCG9qNnFRFMu2Cz3a70lhzaWNupQM787LTBKoya6Hwg62W3qRnPmvQQzXeAQaXuWZfXcb4SrOdfms8pIuqpb7uzakD8yVUxkrr3LuKCN9QMPc_uN5RLSQORm2FFOEGk0_wxLiUFXS6w-BH5OHDr1upOSICkK0moQtHR9wUmj7FaVGYQdnp6mCZYd_L9_vpWQgHr7dMsEkV7IFNCExMBYr8IQYoZJ4n1duMfJvd0II_MlpFC78m8" />
+                <span class="text-xl font-bold">Valida</span>
+            </div>
+            <nav class="space-y-2">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-2">Geral</div>
+                <a class="flex items-center p-2 active-link" href="#">
+                    <span class="material-icons mr-3">dashboard</span> Visão Geral
+                </a>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/consultas">
+                    <span class="material-icons mr-3">search</span> Consultas
+                </a>
                 <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Integrações</div>
                 <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/history">
                     <span class="material-icons mr-3">history</span> Histórico
@@ -77,147 +88,231 @@
                 <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/perfil">
                     <span class="material-icons mr-3">person</span> Perfil
                 </a>
-</nav>
-</div>
-</aside>
-<div class="flex-1 flex flex-col">
-<header class="header h-16 flex items-center justify-between px-6">
-<div class="flex items-center">
-<a class="font-semibold mr-4" href="#">Consultas <span class="material-icons text-sm align-middle">expand_more</span></a>
-<a class="font-semibold mr-4" href="#">API <span class="material-icons text-sm align-middle">expand_more</span></a>
-<a class="font-semibold" href="#">Planos</a>
-</div>
-<div class="flex items-center space-x-4">
-<div class="relative">
-<span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-<input class="bg-gray-800 border border-gray-600 rounded-md py-2 pl-10 pr-4 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Pesquisar" type="text"/>
-<span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">CTRL+K</span>
-</div>
-<div class="flex items-center space-x-2 bg-blue-500/20 text-blue-400 px-3 py-1 rounded-md">
-<span data-stat="creditos-disponiveis">R$ 0,00</span>
-<span class="material-icons text-sm">toll</span>
-</div>
-</div>
-</header>
-<main class="flex-1 p-6 overflow-y-auto">
-<div class="flex justify-between items-center mb-6">
-<h1 class="text-2xl font-bold">Visão Geral</h1>
-<div class="flex items-center space-x-4">
-<button class="btn-secondary px-4 py-2 rounded-md flex items-center space-x-2" data-export-btn>
-<span class="material-icons">download</span>
-<span>Exportar</span>
-</button>
-<div class="flex items-center bg-gray-800 rounded-md">
-<button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700 rounded-l-md" data-period="today">Hoje</button>
-<button class="px-3 py-2 text-sm font-medium text-white bg-gray-900" data-period="30d">30d</button>
-<button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700" data-period="90d">90d</button>
-<button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700 rounded-r-md flex items-center space-x-1">
-<span>Personalizado</span>
-<span class="material-icons text-base">calendar_today</span>
-</button>
-</div>
-</div>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-<div class="card p-4">
-<h3 class="text-sm font-medium text-gray-400">Créditos Disponíveis</h3>
-<p class="text-3xl font-bold mt-2 text-green-400" data-stat="creditos-disponiveis">R$ 0,00</p>
-<div class="flex justify-between text-xs text-gray-500 mt-1">
-<span>Comprados: <span data-stat="creditos-comprados" class="text-blue-400">R$ 0,00</span></span>
-<span>Usados: <span data-stat="creditos-usados" class="text-red-400">R$ 0,00</span></span>
-</div>
-<p class="text-xs text-gray-500 mt-1">Renovação automática: <span data-auto-renewal-status class="text-green-400">Ativa</span></p>
-</div>
-<div class="card p-4">
-<h3 class="text-sm font-medium text-gray-400">Consumo no Período</h3>
-<p class="text-3xl font-bold mt-2 text-orange-400" data-stat="consumo-periodo">R$ 0,00</p>
-<div class="text-xs text-gray-500 mt-1">
-<div class="flex justify-between mb-1">
-<span>Protestos:</span>
-<span data-stat="consumo-protestos" class="text-yellow-400">R$ 0,00</span>
-</div>
-<div class="flex justify-between">
-<span>Receita Federal:</span>
-<span data-stat="consumo-receita" class="text-green-400">R$ 0,00</span>
-</div>
-</div>
-</div>
-<div class="card p-4">
-<h3 class="text-sm font-medium text-gray-400">Consultas Realizadas</h3>
-<p class="text-3xl font-bold mt-2 text-blue-400" data-stat="consultas-realizadas">0</p>
-<div class="text-xs text-gray-500 mt-1">
-<div class="flex justify-between mb-1">
-<span>Protestos:</span>
-<span data-stat="consultas-protestos" class="text-yellow-400">0</span>
-</div>
-<div class="flex justify-between">
-<span>Receita Federal:</span>
-<span data-stat="consultas-receita" class="text-green-400">0</span>
-</div>
-</div>
-</div>
-<div class="card p-4">
-<h3 class="text-sm font-medium text-gray-400">Custo Total</h3>
-<p class="text-3xl font-bold mt-2 text-purple-400" data-stat="custo-total">R$ 0,00</p>
-<div class="text-xs text-gray-500 mt-1">
-<div class="mb-1">Custo médio: <span data-stat="custo-medio" class="text-white">R$ 0,00</span></div>
-<div class="text-xs text-gray-600">Protestos R$0,15 • Receita R$0,05</div>
-</div>
-</div>
-</div>
-<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-<div class="lg:col-span-3 card p-6">
-<h2 class="text-lg font-semibold mb-4">Consumo de Créditos por Período</h2>
-<div class="relative h-64">
-<canvas id="apiConsumptionChart"></canvas>
-</div>
-<div class="mt-4 grid grid-cols-2 gap-4 text-sm">
-<div class="flex items-center justify-between p-2 bg-gray-800 rounded">
-<div class="flex items-center gap-2">
-<div class="w-3 h-3 bg-yellow-400 rounded"></div>
-<span>Protestos</span>
-</div>
-<span class="text-yellow-400 font-medium" data-stat="chart-protestos">R$ 0,00</span>
-</div>
-<div class="flex items-center justify-between p-2 bg-gray-800 rounded">
-<div class="flex items-center gap-2">
-<div class="w-3 h-3 bg-green-400 rounded"></div>
-<span>Receita Federal</span>
-</div>
-<span class="text-green-400 font-medium" data-stat="chart-receita">R$ 0,00</span>
-</div>
-</div>
-</div>
-<div class="lg:col-span-2 card p-6">
-<h2 class="text-lg font-semibold mb-4">Tipos de Consulta</h2>
-<div class="relative h-64">
-<canvas id="apiVolumeChart"></canvas>
-</div>
-<div class="mt-4 space-y-2 text-sm">
-<div class="flex justify-between items-center">
-<span class="flex items-center gap-2">
-<span class="material-icons text-yellow-400 text-sm">gavel</span>
-<span>Protestos</span>
-</span>
-<div class="text-right">
-<div class="text-white font-medium" data-stat="tipo-protestos-count">0</div>
-<div class="text-yellow-400 text-xs">R$0,15 cada</div>
-</div>
-</div>
-<div class="flex justify-between items-center">
-<span class="flex items-center gap-2">
-<span class="material-icons text-green-400 text-sm">business</span>
-<span>Receita Federal</span>
-</span>
-<div class="text-right">
-<div class="text-white font-medium" data-stat="tipo-receita-count">0</div>
-<div class="text-green-400 text-xs">R$0,05 cada</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</main>
-</div>
+            </nav>
+        </div>
+    </aside>
+    <div class="flex-1 flex flex-col">
+        <!-- <header class="header h-16 flex items-center justify-between px-6">
+            <div class="flex items-center">
+                <a class="font-semibold mr-4" href="#">Consultas <span
+                        class="material-icons text-sm align-middle">expand_more</span></a>
+                <a class="font-semibold mr-4" href="#">API <span
+                        class="material-icons text-sm align-middle">expand_more</span></a>
+                <a class="font-semibold" href="#">Planos</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                    <input
+                        class="bg-gray-800 border border-gray-600 rounded-md py-2 pl-10 pr-4 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Pesquisar" type="text" />
+                    <span
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">CTRL+K</span>
+                </div>
+                <div class="flex items-center space-x-2 bg-blue-500/20 text-blue-400 px-3 py-1 rounded-md">
+                    <span data-stat="creditos-header">R$ 0,00</span>
+                    <span class="material-icons text-sm">toll</span>
+                </div>
+            </div>
+        </header> -->
+        <main class="flex-1 p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Visão Geral</h1>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center bg-gray-800 rounded-md">
+                        <button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700 rounded-l-md"
+                            data-period="today">Hoje</button>
+                        <button class="px-3 py-2 text-sm font-medium text-white bg-gray-900"
+                            data-period="30d">30d</button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                            data-period="90d">90d</button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                            data-period="120d">120d</button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700"
+                            data-period="180d">180d</button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-400 hover:bg-gray-700 rounded-r-md"
+                            data-period="365d">365d</button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <div class="card p-4">
+                    <h3 class="text-sm font-medium text-gray-400">Créditos Disponíveis</h3>
+                    <p class="text-3xl font-bold mt-2 text-green-400" data-stat="creditos-disponiveis">R$ 0,00</p>
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Comprados: <span data-stat="creditos-comprados" class="text-blue-400">R$
+                                0,00</span></span>
+                        <span>Usados: <span data-stat="creditos-usados" class="text-red-400">R$ 0,00</span></span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Renovação automática: <span data-auto-renewal-status
+                            class="text-green-400">Ativa</span></p>
+                </div>
+                <div class="card p-4">
+                    <h3 class="text-sm font-medium text-gray-400">Consumo no Período</h3>
+                    <p class="text-3xl font-bold mt-2 text-orange-400" data-stat="consumo-periodo-total">R$ 0,00</p>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <div class="flex justify-between mb-1">
+                            <span>Protestos:</span>
+                            <span data-stat="protestos_cost" class="text-yellow-400">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Receita Federal:</span>
+                            <span data-stat="receita_federal_cost" class="text-green-400">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Simples Nacional:</span>
+                            <span data-stat="simples_nacional_cost" class="text-orange-400">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Cadastro Contrib.:</span>
+                            <span data-stat="cadastro_contribuintes_cost" class="text-purple-400">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Geocodificação:</span>
+                            <span data-stat="geocodificacao_cost" class="text-blue-400">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Suframa:</span>
+                            <span data-stat="suframa_cost" class="text-pink-400">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-4">
+                    <h3 class="text-sm font-medium text-gray-400">Consultas Realizadas</h3>
+                    <p class="text-3xl font-bold mt-2 text-blue-400" data-stat="total_consultations">0</p>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <div class="flex justify-between mb-1">
+                            <span>Protestos:</span>
+                            <span data-stat="protestos_count" class="text-yellow-400">0</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Receita Federal:</span>
+                            <span data-stat="receita_federal_count" class="text-green-400">0</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Simples Nacional:</span>
+                            <span data-stat="simples_nacional_count" class="text-orange-400">0</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Cadastro Contrib.:</span>
+                            <span data-stat="cadastro_contribuintes_count" class="text-purple-400">0</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>Geocodificação:</span>
+                            <span data-stat="geocodificacao_count" class="text-blue-400">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Suframa:</span>
+                            <span data-stat="suframa_count" class="text-pink-400">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-4">
+                    <h3 class="text-sm font-medium text-gray-400">Custo Total</h3>
+                    <p class="text-3xl font-bold mt-2 text-purple-400" data-stat="total_cost">R$ 0,00</p>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <div class="mb-1">Custo médio: <span data-stat="custo-medio" class="text-white">R$ 0,00</span>
+                        </div>
+                        <div class="text-xs text-gray-600" data-cost-summary>Carregando custos...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div class="lg:col-span-3 card p-6 flex flex-col">
+                    <h2 class="text-lg font-semibold mb-4">Consumo de Créditos por Período</h2>
+                    <div class="relative flex-1 min-h-0">
+                        <canvas id="apiConsumptionChart"></canvas>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 card p-6">
+                    <h2 class="text-lg font-semibold mb-2">Distribuição por Tipo de Serviço</h2>
+                    <p class="text-xs text-gray-400 mb-4">Mostra quantas vezes cada serviço foi utilizado (consultas
+                        podem combinar múltiplos tipos)</p>
+                    <div class="relative h-70">
+                        <canvas id="apiVolumeChart"></canvas>
+                    </div>
 
-</body></html>
+                    <!-- Estatísticas resumidas do gráfico -->
+                    <div class="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-600/50">
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="material-icons text-blue-400 text-sm">analytics</span>
+                                <span class="text-gray-300">Estatísticas de Uso</span>
+                            </div>
+                            <span id="total-usos-tipos" class="text-white font-medium">- usos totais</span>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-400" id="uso-medio-info">
+                            Média de tipos por consulta: <span class="text-white font-medium" id="media-tipos">-</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts carregados no final para garantir que o DOM esteja pronto -->
+    <script src="/static/js/cost_loader.js"></script>
+    <script src="/static/js/dashboard_real.js"></script>
+
+    <!-- Script de debug e inicialização -->
+    <script>
+        console.log('🔍 Debug Dashboard - Scripts carregados');
+
+        // Função para criar token de desenvolvimento se necessário
+        async function ensureDevToken() {
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+
+            if (!token) {
+                console.log('⚠️ Sem token, criando token de desenvolvimento...');
+                try {
+                    const response = await fetch('/api/v1/auth/dev-token', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        localStorage.setItem('auth_token', data.token);
+                        console.log('✅ Token de desenvolvimento criado:', data.user_id);
+                        return data.token;
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao criar token de desenvolvimento:', error);
+                }
+            }
+            return token;
+        }
+
+        // Inicializar com verificações
+        (async () => {
+            // Garantir que temos um token
+            const token = await ensureDevToken();
+            console.log('🔐 Token disponível?', !!token);
+
+            // Verificar Chart.js
+            console.log('📊 Chart.js carregado?', typeof Chart !== 'undefined');
+
+            // Aguardar um pouco e verificar o dashboard
+            setTimeout(() => {
+                console.log('🎯 Dashboard inicializado?', !!window.realDashboard);
+
+                if (!window.realDashboard && typeof Chart !== 'undefined') {
+                    console.log('🔄 Inicializando dashboard manualmente...');
+                    window.realDashboard = new RealDashboard();
+                }
+
+                if (window.realDashboard) {
+                    console.log('✅ Dashboard está rodando, carregando dados...');
+                    // Forçar uma atualização dos dados
+                    window.realDashboard.loadRealDashboardData();
+                } else {
+                    console.error('❌ Dashboard não pôde ser inicializado');
+                }
+            }, 1500);
+        })();
+    </script>
+
+</body>
+
+</html>

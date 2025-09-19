@@ -94,10 +94,24 @@ async def get_current_user(
     jwt_payload = verify_jwt_token(token)
     if jwt_payload:
         logger.info(f"✅ Usuário autenticado via JWT: {jwt_payload.get('email')}")
+        
+        # Buscar API key ativa do usuário para logging
+        active_api_key = None
+        if supabase_client:
+            try:
+                from api.services.api_key_service import api_key_service
+                user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
+                active_keys = [k for k in user_api_keys if k.is_active]
+                if active_keys:
+                    active_api_key = active_keys[0].key  # Usar a primeira API key ativa
+                    logger.info(f"API key ativa encontrada para usuário: {active_api_key[:8]}****")
+            except Exception as e:
+                logger.warning(f"Erro ao buscar API key do usuário: {e}")
+        
         return AuthUser(
             user_id=jwt_payload.get("user_id"),
             email=jwt_payload.get("email"),
-            api_key=None
+            api_key=active_api_key
         )
     
     # Verificar se é uma API key

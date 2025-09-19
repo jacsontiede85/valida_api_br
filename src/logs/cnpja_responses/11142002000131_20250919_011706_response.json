@@ -1,0 +1,144 @@
+{
+    "url": "https://api.cnpja.com/office/11142002000131",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "67a9a1b8aa9226b74a8548cd2edab55c",
+        "trace-id": "a1e4e6ad248d9cfadec5a6b73a9b3781",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "42f981da505cf45a3891516f434ceea6",
+        "date": "Fri, 19 Sep 2025 04:17:06 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1911",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-19T01:17:06.809330",
+    "response_body": {
+        "updated": "2025-09-18T19:44:34.000Z",
+        "taxId": "11142002000131",
+        "company": {
+            "id": 11142002,
+            "name": "VENTIN COMERCIAL DE MEDICAMENTOS LTDA",
+            "equity": 10000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 5,
+                "acronym": "DEMAIS",
+                "text": "Demais"
+            },
+            "members": [
+                {
+                    "since": "2016-03-15",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "270316f7-275e-4b77-a6dc-370b644857cd",
+                        "name": "Alvaro Ventin Garrido Junior",
+                        "type": "NATURAL",
+                        "taxId": "***854505**",
+                        "age": "51-60"
+                    }
+                }
+            ]
+        },
+        "alias": "Drogarias Ultra Popular",
+        "founded": "2009-09-10",
+        "head": true,
+        "statusDate": "2009-09-10",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2927408,
+            "street": "Avenida Vale do Tororo",
+            "number": "000676",
+            "details": "Loja 33",
+            "district": "Tororo",
+            "city": "Salvador",
+            "state": "BA",
+            "zip": "40050290",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            }
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "71",
+                "number": "35610962"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "alvaroventin@hotmail.com",
+                "domain": "hotmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4771701,
+            "text": "Comércio varejista de produtos farmacêuticos, sem manipulação de fórmulas"
+        },
+        "sideActivities": [
+            {
+                "id": 4729699,
+                "text": "Comércio varejista de produtos alimentícios em geral ou especializado em produtos alimentícios não especificados anteriormente"
+            },
+            {
+                "id": 4772500,
+                "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+            },
+            {
+                "id": 4773300,
+                "text": "Comércio varejista de artigos médicos e ortopédicos"
+            },
+            {
+                "id": 7319002,
+                "text": "Promoção de vendas"
+            },
+            {
+                "id": 7490104,
+                "text": "Atividades de intermediação e agenciamento de serviços e negócios em geral, exceto imobiliários"
+            },
+            {
+                "id": 8650099,
+                "text": "Atividades de profissionais da área de saúde não especificadas anteriormente"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "BA",
+                "number": "088851307",
+                "enabled": true,
+                "statusDate": "2018-06-12",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

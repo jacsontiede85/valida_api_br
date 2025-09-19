@@ -46,24 +46,7 @@ class HistoryManager {
 
     async loadQueryHistory() {
         try {
-            // Obter token de autenticação
-            const token = this.getAuthToken();
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-
-            const response = await fetch('/api/v1/query-history', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/query-history');
             this.queryHistory = data.data || [];
             console.log('✅ Histórico carregado:', this.queryHistory.length, 'registros');
         } catch (error) {
@@ -291,23 +274,7 @@ class HistoryManager {
     async exportData() {
         console.log('📤 Exportando dados...');
         try {
-            const token = this.getAuthToken();
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-
-            const response = await fetch('/api/v1/query-history/export', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/query-history/export');
             
             // Criar e baixar arquivo CSV
             const csvContent = this.convertToCSV(data.data);
@@ -393,13 +360,6 @@ class HistoryManager {
         // Implementar notificação de sucesso
     }
 
-    getAuthToken() {
-        // Verificar localStorage para token
-        return localStorage.getItem('auth_token') || 
-               localStorage.getItem('api_key') || 
-               localStorage.getItem('dev_token') ||
-               null;
-    }
 
     convertToCSV(data) {
         if (!data || data.length === 0) return '';

@@ -229,9 +229,6 @@ class PerfilManager {
 
             const response = await AuthUtils.authenticatedFetch('/api/v1/auth/profile', {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(formData)
             });
 
@@ -299,11 +296,8 @@ class PerfilManager {
         try {
             this.showLoading('Alterando senha...');
 
-            const response = await fetch('/api/v1/auth/change-password', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/change-password', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     current_password: currentPassword,
                     new_password: newPassword
@@ -329,7 +323,7 @@ class PerfilManager {
         try {
             this.showLoading('Configurando 2FA...');
 
-            const response = await fetch('/api/v1/auth/2fa/enable', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/2fa/enable', {
                 method: 'POST'
             });
 
@@ -359,7 +353,7 @@ class PerfilManager {
         try {
             this.showLoading('Desativando 2FA...');
 
-            const response = await fetch('/api/v1/auth/2fa/disable', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/2fa/disable', {
                 method: 'POST'
             });
 
@@ -385,11 +379,8 @@ class PerfilManager {
         const enabled = checkbox.checked;
 
         try {
-            const response = await fetch('/api/v1/auth/notifications', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/notifications', {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     [setting]: enabled
                 })
@@ -430,7 +421,7 @@ class PerfilManager {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            const response = await fetch('/api/v1/auth/avatar', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/avatar', {
                 method: 'POST',
                 body: formData
             });
@@ -469,7 +460,7 @@ class PerfilManager {
         try {
             this.showLoading('Excluindo conta...');
 
-            const response = await fetch('/api/v1/auth/account', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/account', {
                 method: 'DELETE'
             });
 

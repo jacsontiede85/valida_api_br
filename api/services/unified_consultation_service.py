@@ -17,6 +17,7 @@ from api.models.saas_models import ConsultationRequest, ConsultationResponse
 from api.services.scraping_service import ScrapingService
 from src.utils.cnpja_api import CNPJaAPI, CNPJaAPIError, CNPJaInvalidCNPJError, CNPJaNotFoundError
 from api.services.credit_service import credit_service, InsufficientCreditsError
+from api.services.consultation_types_service import consultation_types_service
 
 logger = structlog.get_logger(__name__)
 
@@ -106,10 +107,11 @@ class UnifiedConsultationService:
                 protestos_result = await scraping_service.consultar_cnpj(request.cnpj)
                 protestos_data = self._format_protestos_data(protestos_result)
                 
-                # Registrar tipo consultado
+                # Registrar tipo consultado com custo dinâmico
+                protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
                 consultation_types.append({
                     "type_code": "protestos",
-                    "cost_cents": 15,
+                    "cost_cents": protestos_cost or 15,
                     "success": True,
                     "response_time_ms": int((time.time() - consulta_start_time) * 1000),
                     "cache_used": False,
@@ -124,10 +126,11 @@ class UnifiedConsultationService:
                 error_msg = f"Erro na consulta de protestos: {str(e)}"
                 error_messages.append(error_msg)
                 
-                # Registrar tipo com erro
+                # Registrar tipo com erro - usar custo dinâmico
+                protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
                 consultation_types.append({
                     "type_code": "protestos", 
-                    "cost_cents": 15,
+                    "cost_cents": protestos_cost or 15,
                     "success": False,
                     "response_time_ms": int((time.time() - consulta_start_time) * 1000),
                     "error_message": error_msg
@@ -370,34 +373,41 @@ class UnifiedConsultationService:
     async def _calculate_consultation_cost(self, request: ConsultationRequest) -> int:
         """
         Calcula o custo total da consulta baseado nos tipos solicitados
+        Usa dados dinâmicos da tabela consultation_types
         """
         total_cost = 0
         
-        # Protestos: 15 centavos
+        # Protestos: buscar custo dinamicamente
         if request.protestos:
-            total_cost += 15
+            protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
+            total_cost += protestos_cost or 15  # fallback de segurança
         
         # Custos CNPJa (Receita Federal) - somente se receita_federal=true
         if request.receita_federal:
-            # CNPJa - Receita Federal básica: 5 centavos
+            # CNPJa - Receita Federal básica: buscar custo dinâmico
             if (request.extract_basic or request.extract_address or 
                 request.extract_contact or request.extract_activities or request.extract_partners):
-                total_cost += 5
+                receita_cost = await consultation_types_service.get_cost_by_code('receita_federal')
+                total_cost += receita_cost or 5  # fallback
             
-            # CNPJa - Simples Nacional: 5 centavos 
+            # CNPJa - Simples Nacional: buscar custo dinâmico
             if request.simples:
-                total_cost += 5
+                simples_cost = await consultation_types_service.get_cost_by_code('simples_nacional')
+                total_cost += simples_cost or 5  # fallback
                 
-            # CNPJa - Cadastro de contribuintes: 5 centavos
+            # CNPJa - Cadastro de contribuintes: buscar custo dinâmico (mapeamento registrations -> cadastro_contribuintes)
             if request.registrations:
-                total_cost += 5
+                registrations_cost = await consultation_types_service.get_cost_by_code('registrations')
+                total_cost += registrations_cost or 5  # fallback
                 
-            # CNPJa - Geocodificação: 5 centavos
+            # CNPJa - Geocodificação: buscar custo dinâmico (mapeamento geocoding -> geocodificacao)
             if request.geocoding:
-                total_cost += 5
+                geocoding_cost = await consultation_types_service.get_cost_by_code('geocoding')
+                total_cost += geocoding_cost or 5  # fallback
                 
-            # CNPJa - Suframa: 5 centavos
+            # CNPJa - Suframa: buscar custo dinâmico
             if request.suframa:
-                total_cost += 5
+                suframa_cost = await consultation_types_service.get_cost_by_code('suframa')
+                total_cost += suframa_cost or 5  # fallback
         
         return total_cost

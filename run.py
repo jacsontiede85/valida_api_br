@@ -293,6 +293,7 @@ def configure_app_unified(app):
     @app.get("/api/v2/dashboard/data")
     async def get_dashboard_data(
         request: Request,
+        period: str = "30d",  # ✅ CORRIGIDO: Aceitar parâmetro de período
         current_user: AuthUser = Depends(require_auth) if auth_available else None
     ):
         """Dados do dashboard v2.0 - usando serviços reais"""
@@ -310,9 +311,9 @@ def configure_app_unified(app):
                     raise HTTPException(401, "Usuário não autenticado")
                 user_id = context["user"]["id"]
             
-            # ✅ DADOS REAIS do banco Supabase
-            dashboard_data = await dashboard_service.get_dashboard_stats(user_id)
-            logger.info(f"📊 Dashboard carregado para usuário {user_id}")
+            # ✅ CORRIGIDO: Passar o período para o serviço
+            dashboard_data = await dashboard_service.get_dashboard_data(user_id, period)
+            logger.info(f"📊 Dashboard carregado para usuário {user_id} para o período {period}")
             return dashboard_data
             
         except Exception as e:
@@ -379,6 +380,22 @@ def configure_app_unified(app):
         except Exception as e:
             logger.error(f"Erro ao calcular custos: {e}")
             raise HTTPException(500, "Erro interno do servidor")
+    
+    @app.get("/api/v2/consultation/types/health")
+    async def consultation_types_health_check():
+        """Health check do serviço de tipos de consulta"""
+        if not services_available:
+            raise HTTPException(500, "Serviços não disponíveis")
+        
+        try:
+            from api.services.consultation_types_service import consultation_types_service
+            health_status = await consultation_types_service.health_check()
+            return health_status
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e)
+            }
     
     @app.get("/api/v2/consultation/types")
     async def get_consultation_types():

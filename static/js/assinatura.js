@@ -232,11 +232,8 @@ class AssinaturaManager {
         try {
             this.showLoading(`Processando ${action}...`);
 
-            const response = await fetch('/api/v1/subscription/change', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/subscription/change', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     plan_id: planId,
                     action: action
@@ -273,7 +270,7 @@ class AssinaturaManager {
         try {
             this.showLoading('Cancelando assinatura...');
 
-            const response = await fetch('/api/v1/subscription/cancel', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/subscription/cancel', {
                 method: 'POST'
             });
 
@@ -301,7 +298,7 @@ class AssinaturaManager {
         try {
             this.showLoading('Reativando assinatura...');
 
-            const response = await fetch('/api/v1/subscription/reactivate', {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/subscription/reactivate', {
                 method: 'POST'
             });
 

@@ -1,34 +1,90 @@
 """
 Rotas da API SaaS para o Valida
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from api.models.saas_models import (
     UserCreate, UserResponse, APIKeyCreate, APIKeyResponse, APIKeyList,
     DashboardStats, UsageStats, ConsultationRequest, ConsultationResponse,
-    ErrorResponse
+    ErrorResponse, DashboardPeriod
 )
 from api.middleware.auth_middleware import require_auth, require_api_key, AuthUser, get_current_user
 from api.services.user_service import user_service
 from api.services.api_key_service import api_key_service
 from api.services.dashboard_service import dashboard_service
+from api.services.credit_service import credit_service
 
 logger = structlog.get_logger("saas_routes")
 
 router = APIRouter()
 
-@router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/auth/register")
 async def register_user(user_data: UserCreate):
     """
-    Registra um novo usuário no sistema
+    Registra um novo usuário no sistema e cria uma API key inicial
     """
     try:
+        # Criar usuário
         user = await user_service.create_user(user_data)
         logger.info("usuario_registrado", user_id=user.id, email=user.email)
-        return user
+        
+        # Criar API key padrão para o novo usuário
+        api_key_response = None
+        try:
+            from api.models.saas_models import APIKeyCreate
+            api_key_data = APIKeyCreate(
+                name="Chave Principal",
+                description="Chave de API criada automaticamente no registro"
+            )
+            api_key_response = await api_key_service.create_api_key(user.id, api_key_data)
+            logger.info("api_key_criada_no_registro", user_id=user.id)
+        except Exception as api_err:
+            logger.error(f"Erro ao criar API key no registro: {api_err}")
+            # Continua mesmo se falhar a criação da API key
+        
+        # Gerar token JWT
+        import jwt
+        from datetime import datetime, timedelta
+        
+        SECRET_KEY = os.getenv("SUPABASE_JWT_SECRET", "super-secret-jwt-key-development")
+        
+        # Criar payload do token
+        payload = {
+            "sub": user.id,
+            "user_id": user.id,
+            "email": user.email,
+            "name": user.full_name,
+            "iat": datetime.utcnow(),
+            "exp": datetime.utcnow() + timedelta(days=7),
+            "type": "access"
+        }
+        
+        # Gerar token
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+        
+        # Preparar resposta com API key se foi criada
+        response_data = {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.full_name
+            },
+            "message": "Conta criada com sucesso! Você ganhou 7 dias de trial."
+        }
+        
+        # Adicionar API key à resposta se foi criada
+        if api_key_response:
+            response_data["api_key"] = api_key_response.key
+        
+        return response_data
+        
     except Exception as e:
         logger.error("erro_registro_usuario", error=str(e))
         raise HTTPException(
@@ -94,18 +150,35 @@ async def list_api_keys(user: AuthUser = Depends(require_auth)):
 
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(
-    period: str = "30d",
+    period: DashboardPeriod = Query(default=DashboardPeriod.THIRTY_DAYS, description="Período para análise (compatibilidade v1)"),
     user: AuthUser = Depends(require_auth)
 ):
     """
-    Obtém estatísticas do dashboard para o usuário
+    🔄 MIGRADO: Obtém estatísticas REAIS do dashboard (dados do banco de dados)
     """
     try:
-        stats = await dashboard_service.get_dashboard_stats(user.user_id, period)
-        logger.info("dashboard_stats_buscadas", user_id=user.user_id, period=period)
-        return stats
+        # ✅ MIGRADO para usar dados reais do banco
+        logger.info("dashboard_stats_v1_migrado_para_real", user_id=user.user_id, period=period)
+        data = await dashboard_service.get_dashboard_data(user.user_id, period)
+        
+        # Converter formato para compatibilidade com endpoints v1
+        legacy_format = {
+            "credits_available": data.get("credits", {}).get("available_raw", 0),
+            "period_consumption": data.get("usage", {}).get("total_consultations", 0),
+            "total_queries": data.get("usage", {}).get("total_consultations", 0),
+            "total_cost": data.get("usage", {}).get("total_cost_raw", 0),
+            "success_rate": data.get("success_rate", 0),
+            "period": period,
+            "consumption_chart": data.get("charts", {}).get("consumption", {}),
+            "volume_by_api": data.get("charts", {}).get("volume", {}),
+            "last_updated": data.get("last_updated")
+        }
+        
+        logger.info("dashboard_stats_v1_retornado_com_dados_reais", user_id=user.user_id, period=period)
+        return legacy_format
+        
     except Exception as e:
-        logger.error("erro_buscar_dashboard_stats", user_id=user.user_id, error=str(e))
+        logger.error("erro_buscar_dashboard_stats_migrado", user_id=user.user_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao buscar estatísticas do dashboard: {str(e)}"
@@ -203,7 +276,7 @@ async def get_dashboard_stats(user: AuthUser = Depends(require_auth)):
 @router.post("/cnpj/consult", response_model=ConsultationResponse)
 async def consult_cnpj(
     request: ConsultationRequest,
-    user: Optional[AuthUser] = Depends(get_current_user)
+    user: AuthUser = Depends(require_auth)  # Mudança: require_auth em vez de get_current_user
 ):
     """
     Consulta CNPJ com dados completos - protestos + receita federal
@@ -226,28 +299,24 @@ async def consult_cnpj(
         - extract_partners: bool - Sócios (default: true)
     """
     try:
-        # Verificar autenticação - aceitar tanto header quanto corpo da requisição
-        logger.info("iniciando_autenticacao", 
-                   user_from_header=bool(user),
-                   api_key_in_body=bool(request.api_key))
+        # Usuário já foi autenticado via Depends(require_auth)
+        logger.info("usuario_autenticado", 
+                   user_id=user.user_id,
+                   api_key_id=user.api_key)
         
-        if not user and request.api_key:
-            # Se não há usuário do header, tentar usar a API key do corpo
-            from fastapi.security import HTTPAuthorizationCredentials
-            credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=request.api_key)
-            logger.info("tentando_autenticar_com_api_key_corpo", 
-                       api_key_prefix=request.api_key[:20] + "...")
-            try:
-                user = await get_current_user(credentials)
-                logger.info("autenticacao_api_key_sucesso", 
-                           user_id=user.user_id if user else 'None')
-            except HTTPException as e:
-                logger.warning("api_key_invalida", error=e.detail)
-                raise HTTPException(status_code=401, detail="API key inválida")
+        # VERIFICAÇÃO DE SEGURANÇA: Usuário DEVE ter pelo menos uma API key ativa
+        from api.services.api_key_service import api_key_service
+        user_api_keys = await api_key_service.get_user_api_keys(user.user_id)
+        active_keys = [k for k in user_api_keys if k.is_active]
         
-        if not user:
-            logger.warning("nenhum_usuario_autenticado")
-            raise HTTPException(status_code=401, detail="API key necessária")
+        if not active_keys:
+            logger.warning(f"Usuário {user.user_id} tentou fazer consulta sem API key ativa")
+            raise HTTPException(
+                status_code=403, 
+                detail="Você precisa de uma API key ativa para fazer consultas. Crie ou ative uma API key em 'Chave de API'."
+            )
+        
+        logger.info(f"Usuário {user.user_id} tem {len(active_keys)} API key(s) ativa(s)")
         
         # Converter registrations de bool para string antes da consulta
         original_registrations = request.registrations
@@ -276,6 +345,7 @@ async def consult_cnpj(
         
         # Registrar consulta no histórico
         from api.services.query_logger_service import query_logger_service
+        from api.services.consultation_types_service import consultation_types_service
         
         # Buscar o ID real da API key se necessário
         api_key_uuid = None
@@ -300,61 +370,101 @@ async def consult_cnpj(
             consultation_types = []
             
             if request.protestos:
+                protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
                 consultation_types.append({
                     "type_code": "protestos",
-                    "cost_cents": 15,  # R$ 0,15 por consulta de protestos
-                    "success": result.success and bool(result.protestos_data),
-                    "response_data": result.protestos_data if result.success else None,
+                    "cost_cents": protestos_cost or 15,  # Custo dinâmico com fallback
+                    "success": result.success and bool(result.protestos),
+                    "response_data": result.protestos if result.success else None,
                     "cache_used": result.cache_used,
                     "response_time_ms": result.response_time_ms or 0,
-                    "error_message": None if result.success else result.message
+                    "error_message": None if result.success else result.error
                 })
             
             # Logging de consultas CNPJa (Receita Federal) - somente se receita_federal=true
             if request.receita_federal:
-                if original_registrations:
+                # Registrar receita federal básica se qualquer extração básica estiver ativa
+                # (mesma condição do cálculo de custos)
+                if (request.extract_basic or request.extract_address or 
+                    request.extract_contact or request.extract_activities or request.extract_partners):
+                    receita_cost = await consultation_types_service.get_cost_by_code('receita_federal')
                     consultation_types.append({
                         "type_code": "receita_federal", 
-                        "cost_cents": 5,  # R$ 0,05 por consulta da Receita Federal
-                        "success": result.success and bool(result.receita_data),
-                        "response_data": result.receita_data if result.success else None,
+                        "cost_cents": receita_cost or 5,  # Custo dinâmico com fallback
+                        "success": result.success and bool(result.dados_receita),
+                        "response_data": result.dados_receita if result.success else None,
                         "cache_used": result.cache_used,
                         "response_time_ms": result.response_time_ms or 0,
-                        "error_message": None if result.success else result.message
+                        "error_message": None if result.success else result.error
                     })
                 
                 if request.simples:
+                    simples_cost = await consultation_types_service.get_cost_by_code('simples_nacional')
+                    simples_data = result.dados_receita.get('simples') if result.dados_receita else None
                     consultation_types.append({
                         "type_code": "simples_nacional",
-                        "cost_cents": 5,  # R$ 0,05 por consulta do Simples Nacional
-                        "success": result.success and bool(result.simples_data),
-                        "response_data": result.simples_data if result.success else None,
+                        "cost_cents": simples_cost or 5,  # Custo dinâmico com fallback
+                        "success": result.success and bool(simples_data),
+                        "response_data": simples_data if result.success else None,
                         "cache_used": result.cache_used,
                         "response_time_ms": result.response_time_ms or 0,
-                        "error_message": None if result.success else result.message
+                        "error_message": None if result.success else result.error
+                    })
+                
+                # Registrar cadastro de contribuintes (registrations) se solicitado
+                if original_registrations:
+                    registrations_cost = await consultation_types_service.get_cost_by_code('registrations')
+                    registrations_data = result.dados_receita.get('registros_estaduais') if result.dados_receita else None
+                    consultation_types.append({
+                        "type_code": "cadastro_contribuintes",  # Código mapeado no BD
+                        "cost_cents": registrations_cost or 5,  # Custo dinâmico com fallback
+                        "success": result.success and bool(registrations_data),
+                        "response_data": registrations_data if result.success else None,
+                        "cache_used": result.cache_used,
+                        "response_time_ms": result.response_time_ms or 0,
+                        "error_message": None if result.success else result.error
+                    })
+                
+                # Registrar geocodificação se solicitada
+                if request.geocoding:
+                    geocoding_cost = await consultation_types_service.get_cost_by_code('geocoding')
+                    # Dados de geocodificação estariam no endereço
+                    geocoding_data = result.dados_receita.get('endereco') if result.dados_receita else None
+                    consultation_types.append({
+                        "type_code": "geocodificacao",  # Código mapeado no BD
+                        "cost_cents": geocoding_cost or 5,  # Custo dinâmico com fallback
+                        "success": result.success and bool(geocoding_data and geocoding_data.get('latitude')),
+                        "response_data": geocoding_data if result.success else None,
+                        "cache_used": result.cache_used,
+                        "response_time_ms": result.response_time_ms or 0,
+                        "error_message": None if result.success else result.error
                     })
                 
                 if request.suframa:
+                    suframa_cost = await consultation_types_service.get_cost_by_code('suframa')
+                    # Suframa normalmente estaria em dados_receita também
+                    suframa_data = result.dados_receita.get('suframa') if result.dados_receita else None
                     consultation_types.append({
                         "type_code": "suframa",
-                        "cost_cents": 5,  # R$ 0,05 por consulta SUFRAMA
-                        "success": result.success and bool(result.suframa_data),
-                        "response_data": result.suframa_data if result.success else None,
+                        "cost_cents": suframa_cost or 5,  # Custo dinâmico com fallback
+                        "success": result.success and bool(suframa_data),
+                        "response_data": suframa_data if result.success else None,
                         "cache_used": result.cache_used,
                         "response_time_ms": result.response_time_ms or 0,
-                        "error_message": None if result.success else result.message
+                        "error_message": None if result.success else result.error
                     })
             
             # Se não especificou nenhum tipo, assumir protestos como padrão
             if not consultation_types:
+                fallback_protestos_cost = await consultation_types_service.get_cost_by_code('protestos')
                 consultation_types.append({
                     "type_code": "protestos",
-                    "cost_cents": 15,
+                    "cost_cents": fallback_protestos_cost or 15,  # Custo dinâmico com fallback
                     "success": result.success,
-                    "response_data": result.protestos_data if result.success else None,
+                    "response_data": result.protestos if result.success else None,
                     "cache_used": result.cache_used,
                     "response_time_ms": result.response_time_ms or 0,
-                    "error_message": None if result.success else result.message
+                    "error_message": None if result.success else result.error
                 })
             
             # Usar novo sistema de logging
@@ -374,6 +484,26 @@ async def consult_cnpj(
                            consultation_id=logged_consultation.get("id"),
                            user_id=user_id,
                            types_count=len(consultation_types))
+                
+                # ✅ CORRIGIDO: Deduzir créditos após consulta bem-sucedida
+                if result.success and consultation_types:
+                    total_cost_cents = sum(ct.get("cost_cents", 0) for ct in consultation_types)
+                    if total_cost_cents > 0:
+                        try:
+                            await credit_service.deduct_credits(
+                                user_id=user_id,
+                                amount_cents=total_cost_cents,
+                                consultation_id=logged_consultation.get("id"),
+                                description=f"Consulta CNPJ {request.cnpj[:8]}****"
+                            )
+                            logger.info("creditos_deduzidos_apos_consulta",
+                                       user_id=user_id,
+                                       amount_cents=total_cost_cents,
+                                       consultation_id=logged_consultation.get("id"))
+                        except Exception as credit_error:
+                            logger.error("erro_deduzir_creditos_apos_consulta",
+                                       user_id=user_id,
+                                       error=str(credit_error))
             else:
                 logger.warning("falha_registrar_consulta", user_id=user_id, cnpj=request.cnpj[:8] + "****")
         except Exception as log_error:
@@ -528,11 +658,124 @@ async def get_query_history(
             detail="Erro interno do servidor"
         )
 
+# ========== DASHBOARD V2 - DADOS REAIS (SEM MOCK) ==========
+
+@router.get("/v2/dashboard/data")
+async def get_real_dashboard_data(
+    period: DashboardPeriod = Query(default=DashboardPeriod.THIRTY_DAYS, description="Período para análise dos dados"),
+    user: AuthUser = Depends(require_auth)
+):
+    """
+    🎯 Dashboard V2 - Dados 100% reais do banco de dados (sem mock)
+    
+    Endpoints integrados:
+    - consultation_types_service (custos dinâmicos)
+    - credit_service (saldo real)
+    - consultations/consultation_details (dados reais)
+    
+    Parâmetros:
+    - period: today, 7d, 30d, 90d, 120d, 180d, 365d
+    """
+    try:
+        logger.info("buscando_dashboard_v2_dados_reais", 
+                   user_id=user.user_id, 
+                   period=period)
+        
+        data = await dashboard_service.get_dashboard_data(user.user_id, period)
+        
+        logger.info("dashboard_v2_dados_reais_retornados", 
+                   user_id=user.user_id, 
+                   consultas=data.get("usage", {}).get("total_consultations", 0),
+                   custo_total=data.get("usage", {}).get("total_cost_raw", 0))
+        
+        return data
+        
+    except Exception as e:
+        logger.error("erro_dashboard_v2_dados_reais", 
+                    user_id=user.user_id, 
+                    period=period, 
+                    error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao buscar dados reais do dashboard: {str(e)}"
+        )
+
+@router.get("/v2/dashboard/stats")
+async def get_real_dashboard_stats(
+    period: DashboardPeriod = Query(default=DashboardPeriod.THIRTY_DAYS, description="Período para análise das estatísticas"),
+    user: AuthUser = Depends(require_auth)
+):
+    """
+    📊 Dashboard V2 - Estatísticas detalhadas com dados reais
+    """
+    try:
+        # Buscar dados completos e extrair apenas estatísticas
+        full_data = await dashboard_service.get_dashboard_data(user.user_id, period)
+        
+        return {
+            "consultas_por_tipo": full_data.get("usage", {}).get("usage_by_type", {}),
+            "custos_por_tipo": {k: v for k, v in full_data.get("usage", {}).items() if k.endswith("_cost")},
+            "taxa_sucesso": full_data.get("success_rate", 0),
+            "periodo": period,
+            "total_consultas": full_data.get("usage", {}).get("total_consultations", 0),
+            "custo_total": full_data.get("usage", {}).get("total_cost", "R$ 0,00")
+        }
+        
+    except Exception as e:
+        logger.error("erro_dashboard_v2_stats", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao buscar estatísticas do dashboard"
+        )
+
+@router.get("/v2/dashboard/credits")
+async def get_real_dashboard_credits(user: AuthUser = Depends(require_auth)):
+    """
+    💰 Dashboard V2 - Créditos em tempo real (integração com credit_service)
+    """
+    try:
+        # Buscar apenas dados de créditos
+        credits_data = await dashboard_service._get_credits(user.user_id)
+        
+        return {
+            "credits": credits_data,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("erro_dashboard_v2_credits", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao buscar créditos do usuário"
+        )
+
+@router.get("/v2/dashboard/costs")
+async def get_real_consultation_costs(user: AuthUser = Depends(require_auth)):
+    """
+    💸 Dashboard V2 - Custos reais dos tipos de consulta
+    """
+    try:
+        costs_data = await dashboard_service._get_consultation_costs()
+        
+        return {
+            "costs": costs_data,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error("erro_dashboard_v2_costs", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao buscar custos de consulta"
+        )
+
+# ========== FIM DASHBOARD V2 ==========
+
 @router.get("/analytics")
 async def get_analytics(
-    period: str = "30d",
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    period: DashboardPeriod = Query(default=DashboardPeriod.THIRTY_DAYS, description="Período para análise"),
+    date_from: Optional[str] = Query(default=None, description="Data de início (formato YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(default=None, description="Data de fim (formato YYYY-MM-DD)"),
     user: AuthUser = Depends(require_auth)
 ):
     """
@@ -950,8 +1193,23 @@ async def login_user(email: str, password: str):
                 detail="E-mail ou senha incorretos"
             )
         
-        # Gerar token JWT (simplificado para demo)
-        token = f"jwt_token_{user.id}_{datetime.now().timestamp()}"
+        # Gerar token JWT REAL
+        import jwt
+        import os
+        from datetime import timedelta
+        
+        JWT_SECRET = os.getenv("JWT_SECRET", "valida-jwt-secret-2024")
+        JWT_ALGORITHM = "HS256"
+        
+        payload = {
+            "user_id": str(user.id),
+            "email": user.email,
+            "exp": datetime.utcnow() + timedelta(hours=24),
+            "iat": datetime.utcnow(),
+            "type": "access"
+        }
+        
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         
         logger.info("usuario_autenticado", user_id=user.id, email=user.email)
         
@@ -959,7 +1217,7 @@ async def login_user(email: str, password: str):
             "success": True,
             "token": token,
             "user": {
-                "id": user.id,
+                "id": str(user.id),
                 "email": user.email,
                 "name": user.name
             }

@@ -21,6 +21,16 @@ class SubscriptionStatus(str, Enum):
     PAST_DUE = "past_due"
     TRIALING = "trialing"
 
+class DashboardPeriod(str, Enum):
+    """Períodos válidos para o dashboard"""
+    TODAY = "today"
+    SEVEN_DAYS = "7d"
+    THIRTY_DAYS = "30d"
+    NINETY_DAYS = "90d"
+    ONE_TWENTY_DAYS = "120d"
+    ONE_EIGHTY_DAYS = "180d"
+    THREE_SIXTY_FIVE_DAYS = "365d"
+
 class UserCreate(BaseModel):
     """Modelo para criação de usuário"""
     email: EmailStr

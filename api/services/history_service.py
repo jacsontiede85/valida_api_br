@@ -3,8 +3,9 @@ Serviço de gerenciamento de histórico de consultas
 """
 import structlog
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from api.middleware.auth_middleware import get_supabase_client
+from api.models.saas_models import DashboardPeriod
 
 logger = structlog.get_logger("history_service")
 
@@ -150,8 +151,35 @@ class HistoryService:
             logger.error("erro_buscar_analytics", user_id=user_id, error=str(e))
             return self._generate_mock_analytics(period)
     
+    def _calculate_period_dates(self, period: str) -> tuple[date, date]:
+        """
+        Calcula datas de início e fim do período
+        """
+        end_date = date.today()
+        
+        if period == "today":
+            start_date = end_date
+        elif period == "7d":
+            start_date = end_date - timedelta(days=7)
+        elif period == "30d":
+            start_date = end_date - timedelta(days=30)
+        elif period == "90d":
+            start_date = end_date - timedelta(days=90)
+        elif period == "120d":
+            start_date = end_date - timedelta(days=120)
+        elif period == "180d":
+            start_date = end_date - timedelta(days=180)
+        elif period == "365d":
+            start_date = end_date - timedelta(days=365)
+        else:  # 30d (padrão)
+            start_date = end_date - timedelta(days=30)
+        
+        return start_date, end_date
+
     def _generate_mock_analytics(self, period: str) -> Dict[str, Any]:
         """Gera analytics mock"""
+        start_date, end_date = self._calculate_period_dates(period)
+        
         return {
             "period": period,
             "total_queries": 47,
@@ -159,8 +187,8 @@ class HistoryService:
             "failed_queries": 5,
             "success_rate": 89.4,
             "daily_stats": {},
-            "start_date": (datetime.now() - timedelta(days=30)).isoformat(),
-            "end_date": datetime.now().isoformat()
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat()
         }
     
     async def export_user_history(
@@ -226,7 +254,17 @@ class HistoryService:
         """
         try:
             if not self.supabase:
-                return self._generate_mock_consultations_v2(page, limit)
+                # Retornar dados vazios quando Supabase não estiver configurado
+                return {
+                    "data": [],
+                    "pagination": {
+                        "page": page,
+                        "limit": limit,
+                        "total": 0,
+                        "pages": 0
+                    },
+                    "message": "Sistema de histórico não configurado"
+                }
             
             # Query principal usando nova tabela consultations
             query = self.supabase.table("consultations").select(
@@ -296,7 +334,17 @@ class HistoryService:
             
         except Exception as e:
             logger.error("erro_buscar_consultations_v2", user_id=user_id, error=str(e))
-            return self._generate_mock_consultations_v2(page, limit)
+            # Retornar dados vazios em caso de erro
+            return {
+                "data": [],
+                "pagination": {
+                    "page": page,
+                    "limit": limit,
+                    "total": 0,
+                    "pages": 0
+                },
+                "message": f"Erro ao buscar histórico: {str(e)}"
+            }
     
     async def get_monthly_usage_by_type(self, user_id: str) -> Dict[str, Any]:
         """
@@ -348,54 +396,16 @@ class HistoryService:
             
         except Exception as e:
             logger.error("erro_buscar_monthly_usage", user_id=user_id, error=str(e))
-            return self._generate_mock_monthly_usage()
-    
-    def _generate_mock_consultations_v2(self, page: int, limit: int) -> Dict[str, Any]:
-        """Gera dados mock para consultas v2.0"""
-        mock_data = []
-        for i in range(limit):
-            consultation = {
-                "id": f"consultation-{i + ((page - 1) * limit)}",
-                "cnpj": f"12.345.678/000{1}-{90 - i}",
-                "created_at": (datetime.now() - timedelta(hours=i)).isoformat(),
-                "status": "success" if i % 4 != 0 else "partial",
-                "total_cost_cents": 20,  # R$ 0,20 (protestos + receita)
-                "formatted_cost": "R$ 0,20",
-                "response_time_ms": 1500 + (i * 100),
-                "cache_used": i % 3 == 0,
-                "types": [
-                    {
-                        "name": "Protestos",
-                        "code": "protestos",
-                        "success": True,
-                        "cost_cents": 15,
-                        "formatted_cost": "R$ 0,15"
-                    },
-                    {
-                        "name": "Receita Federal",
-                        "code": "receita_federal",
-                        "success": i % 4 != 0,
-                        "cost_cents": 5,
-                        "formatted_cost": "R$ 0,05"
-                    }
-                ]
+            # Retornar dados vazios em caso de erro
+            return {
+                "total_consultations": 0,
+                "protestos": {"count": 0, "cost": 0},
+                "receita_federal": {"count": 0, "cost": 0},
+                "others": {"count": 0, "cost": 0},
+                "total": {"count": 0, "cost": 0},
+                "message": f"Erro ao buscar estatísticas mensais: {str(e)}"
             }
-            mock_data.append(consultation)
-        
-        return {
-            "data": mock_data,
-            "pagination": {"page": page, "limit": limit, "total": 100, "pages": 5}
-        }
     
-    def _generate_mock_monthly_usage(self) -> Dict[str, Any]:
-        """Gera dados mock para uso mensal"""
-        return {
-            "total_consultations": 47,
-            "protestos": {"count": 25, "cost": 375},  # 25 * 15 centavos
-            "receita_federal": {"count": 22, "cost": 110},  # 22 * 5 centavos
-            "others": {"count": 0, "cost": 0},
-            "total": {"count": 47, "cost": 485}  # R$ 4,85
-        }
 
 
 # Instância global do serviço

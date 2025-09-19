@@ -30,15 +30,20 @@ class APIKeysManager {
     }
 
     getAuthToken() {
-        // Primeiro tentar localStorage
-        let token = localStorage.getItem('auth_token') || localStorage.getItem('api_key');
+        // Obter token JWT do localStorage (autenticação real do usuário)
+        const authToken = localStorage.getItem('auth_token');
+        const sessionToken = localStorage.getItem('session_token');
         
-        // Se não encontrar, usar token de desenvolvimento
-        if (!token) {
-            token = 'rcp_dev-key-2';
+        // Priorizar JWT tokens válidos
+        const token = authToken || sessionToken;
+        
+        if (token && token.includes('.') && token.split('.').length === 3) {
+            return token;
         }
         
-        return token;
+        // Se não há token válido, não usar fallback de desenvolvimento
+        console.warn('❌ Nenhum token JWT válido encontrado para API Keys');
+        return null;
     }
 
     setAuthHeader(token) {

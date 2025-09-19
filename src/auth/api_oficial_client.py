@@ -293,19 +293,42 @@ class ApiOficialClient:
             if response.status_code == 200:
                 data = response.json()
                 
-                # Validar estrutura da resposta antes de processar
+                # Validar estrutura da resposta - NUNCA mascarar erros como "sem protestos"
                 if not isinstance(data, dict):
-                    logger.error("resposta_api_oficial_nao_e_dict", 
+                    error_msg = f"🚨 ERRO CRÍTICO: API oficial retornou formato inválido ({type(data).__name__}). Possível instabilidade na API. Consulta não pode ser processada com segurança."
+                    
+                    logger.error("resposta_api_oficial_formato_invalido", 
                                cnpj=cnpj[:8] + "****",
                                data_type=type(data).__name__,
-                               data_preview=str(data)[:200])
-                    raise Exception(f"Resposta da API oficial não é um dicionário: {type(data).__name__}")
+                               data_preview=str(data)[:200],
+                               status_code=response.status_code)
+                    
+                    # Enviar alerta crítico para monitoramento
+                    try:
+                        from api.services.alert_service import alert_api_oficial_error
+                        import asyncio
+                        asyncio.create_task(alert_api_oficial_error(
+                            cnpj=cnpj,
+                            error_message=error_msg,
+                            context={
+                                "data_type": type(data).__name__,
+                                "data_preview": str(data)[:200],
+                                "status_code": response.status_code,
+                                "endpoint": f"https://api.resolve.cenprot.org.br/para-voce/api/protests/v2/research/cenprot/{cnpj}"
+                            }
+                        ))
+                    except Exception as alert_error:
+                        logger.error("erro_enviar_alerta", error=str(alert_error))
+                    
+                    raise Exception(error_msg)
                 
                 if "protests" not in data:
                     logger.error("campo_protests_ausente_resposta_api", 
                                cnpj=cnpj[:8] + "****",
-                               campos_disponiveis=list(data.keys()) if isinstance(data, dict) else "N/A")
-                    raise Exception("Campo 'protests' ausente na resposta da API oficial")
+                               campos_disponiveis=list(data.keys()) if isinstance(data, dict) else "N/A",
+                               status_code=response.status_code)
+                    raise Exception("🚨 ERRO CRÍTICO: Resposta da API oficial não contém campo 'protests'. "
+                                  "Estrutura da API pode ter mudado ou há instabilidade no serviço.")
                 
                 # Converter para modelo da API oficial
                 api_response = ApiOficialMapper.from_api_dict_to_response(data)
@@ -335,19 +358,23 @@ class ApiOficialClient:
                     if response.status_code == 200:
                         data = response.json()
                         
-                        # Validar estrutura da resposta antes de processar
+                        # Validar estrutura da resposta - NUNCA mascarar erros como "sem protestos"
                         if not isinstance(data, dict):
-                            logger.error("resposta_api_oficial_nao_e_dict_apos_renovacao", 
+                            logger.error("resposta_api_oficial_formato_invalido_apos_renovacao", 
                                        cnpj=cnpj[:8] + "****",
                                        data_type=type(data).__name__,
-                                       data_preview=str(data)[:200])
-                            raise Exception(f"Resposta da API oficial não é um dicionário após renovação: {type(data).__name__}")
+                                       data_preview=str(data)[:200],
+                                       status_code=response.status_code)
+                            raise Exception(f"🚨 ERRO CRÍTICO: API oficial retornou formato inválido após renovação de token ({type(data).__name__}). "
+                                          f"Possível instabilidade na API. Consulta não pode ser processada com segurança.")
                         
                         if "protests" not in data:
                             logger.error("campo_protests_ausente_resposta_api_apos_renovacao", 
                                        cnpj=cnpj[:8] + "****",
-                                       campos_disponiveis=list(data.keys()) if isinstance(data, dict) else "N/A")
-                            raise Exception("Campo 'protests' ausente na resposta da API oficial após renovação")
+                                       campos_disponiveis=list(data.keys()) if isinstance(data, dict) else "N/A",
+                                       status_code=response.status_code)
+                            raise Exception("🚨 ERRO CRÍTICO: Resposta da API oficial não contém campo 'protests' após renovação. "
+                                          "Estrutura da API pode ter mudado ou há instabilidade no serviço.")
                         
                         api_response = ApiOficialMapper.from_api_dict_to_response(data)
                         result = ApiOficialMapper.from_api_response_to_consulta_result(cnpj, api_response)
