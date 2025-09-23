@@ -1,17 +1,18 @@
 """
 Serviço para registrar consultas no histórico - Nova Estrutura v2.0
+MIGRADO: Supabase → MariaDB
 """
 import structlog
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import pytz
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql, generate_uuid
 
 logger = structlog.get_logger("query_logger_service")
 
 class QueryLoggerService:
     def __init__(self):
-        self.supabase = get_supabase_client()
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
         # Timezone do Brasil
         self.brazil_tz = pytz.timezone('America/Sao_Paulo')
     
@@ -37,7 +38,8 @@ class QueryLoggerService:
         status: str = "success",
         error_message: Optional[str] = None,
         cache_used: bool = False,
-        client_ip: Optional[str] = None  # IP do cliente
+        client_ip: Optional[str] = None,  # IP do cliente
+        response_data: Optional[Dict[str, Any]] = None  # JSON completo da resposta da API
     ) -> Optional[Dict[str, Any]]:
         """
         Registra uma consulta completa no novo formato
@@ -63,62 +65,77 @@ class QueryLoggerService:
             status: Status geral da consulta
             error_message: Mensagem de erro se houver
             cache_used: Se usou cache geral
+            client_ip: IP do cliente
+            response_data: JSON completo retornado pela rota /api/v1/cnpj/consult
             
         Returns:
             Dict com dados da consulta registrada
         """
         try:
             logger.info(
-                "tentando_registrar_consulta",
+                "tentando_registrar_consulta_mariadb",
                 user_id=user_id,
                 cnpj=cnpj[:8] + "****",
-                supabase_configurado=bool(self.supabase),
                 consultation_types_count=len(consultation_types),
                 status=status
             )
             
-            if not self.supabase:
-                logger.warning("Supabase não configurado - consulta não será registrada")
-                # Salvar em log local como fallback
-                await self._log_to_file(user_id, cnpj, consultation_types, response_time_ms, status, cache_used)
-                return None
-            
             # Calcular custo total
             total_cost_cents = sum(ct.get("cost_cents", 0) for ct in consultation_types)
             
-            # 1. Inserir consulta principal
-            consultation_data = {
-                "user_id": user_id,
-                "api_key_id": self._validate_api_key_id(api_key_id),
-                "cnpj": cnpj,
-                "total_cost_cents": total_cost_cents,
-                "response_time_ms": response_time_ms,
-                "status": status,
-                "error_message": error_message,
-                "cache_used": cache_used,
-                "client_ip": client_ip,  # IP do cliente
-                "created_at": self._get_brazil_datetime_iso()
-            }
+            # 1. Inserir consulta principal no MariaDB
+            consultation_id = generate_uuid()
             
-            logger.info("inserindo_consulta_principal", data=consultation_data)
+            # Converter response_data para JSON string se fornecido
+            import json
+            response_data_json = None
+            if response_data:
+                try:
+                    response_data_json = json.dumps(response_data, ensure_ascii=False, default=str)
+                except Exception as json_error:
+                    logger.warning("erro_serializar_response_data", 
+                                 user_id=user_id, 
+                                 error=str(json_error))
+                    response_data_json = None
             
-            consultation_response = self.supabase.table("consultations").insert(consultation_data).execute()
+            consultation_insert_sql = """
+                INSERT INTO consultations 
+                (id, user_id, api_key_id, cnpj, total_cost_cents, response_time_ms, 
+                 status, error_message, cache_used, client_ip, response_data, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """
             
-            if not consultation_response.data:
-                logger.error("falha_inserir_consulta_principal", user_id=user_id, cnpj=cnpj)
+            consultation_params = (
+                consultation_id,
+                user_id,
+                self._validate_api_key_id(api_key_id),
+                cnpj,
+                total_cost_cents,
+                response_time_ms,
+                status,
+                error_message,
+                cache_used,
+                client_ip,
+                response_data_json  # Novo campo response_data
+            )
+            
+            logger.info("inserindo_consulta_principal_mariadb", consultation_id=consultation_id)
+            
+            result = await execute_sql(consultation_insert_sql, consultation_params, "none")
+            
+            if result["error"]:
+                logger.error("falha_inserir_consulta_principal_mariadb", 
+                           user_id=user_id, cnpj=cnpj, error=result["error"])
                 # Fallback para log local
                 await self._log_to_file(user_id, cnpj, consultation_types, response_time_ms, status, cache_used)
                 return None
-                
-            consultation_id = consultation_response.data[0]["id"]
             
             logger.info("consulta_principal_inserida", consultation_id=consultation_id)
             
             # 2. Inserir detalhes por tipo de consulta
             details_success = await self._log_consultation_details(consultation_id, consultation_types)
             
-            # 3. Atualizar analytics diários
-            analytics_success = await self.update_daily_analytics(user_id, consultation_types, total_cost_cents)
+            # ✅ REMOVIDO: update_daily_analytics - tabela daily_analytics descontinuada por ser redundante
             
             logger.info(
                 "consulta_completa_registrada",
@@ -127,11 +144,23 @@ class QueryLoggerService:
                 consultation_id=consultation_id,
                 total_cost=total_cost_cents,
                 types_count=len(consultation_types),
-                details_success=details_success,
-                analytics_success=analytics_success
+                details_success=details_success
+                # ✅ REMOVIDO: analytics_success - daily_analytics descontinuada
             )
             
-            return consultation_response.data[0]
+            # Retornar dados da consulta criada
+            return {
+                "id": consultation_id,
+                "user_id": user_id,
+                "cnpj": cnpj,
+                "total_cost_cents": total_cost_cents,
+                "response_time_ms": response_time_ms,
+                "status": status,
+                "cache_used": cache_used,
+                "details_success": details_success,
+                # ✅ REMOVIDO: analytics_success - daily_analytics descontinuada
+                "created_at": self._get_brazil_datetime_iso()
+            }
                 
         except Exception as e:
             logger.error("erro_registrar_consulta_completa", user_id=user_id, cnpj=cnpj[:8] + "****", error=str(e))
@@ -174,9 +203,10 @@ class QueryLoggerService:
     async def _log_consultation_details(self, consultation_id: str, consultation_types: List[Dict[str, Any]]) -> bool:
         """
         Registra detalhes de cada tipo de consulta
+        MIGRADO: MariaDB
         """
         try:
-            details_to_insert = []
+            details_inserted = 0
             
             for ct in consultation_types:
                 # Obter ID do tipo de consulta
@@ -185,39 +215,65 @@ class QueryLoggerService:
                     logger.warning("tipo_consulta_nao_encontrado", type_code=ct["type_code"])
                     continue
                 
-                detail = {
-                    "consultation_id": consultation_id,
-                    "consultation_type_id": type_id,
-                    "success": ct.get("success", True),
-                    "cost_cents": ct.get("cost_cents", 0),
-                    "response_data": ct.get("response_data"),
-                    "cache_used": ct.get("cache_used", False),
-                    "response_time_ms": ct.get("response_time_ms"),
-                    "error_message": ct.get("error_message"),
-                    "created_at": self._get_brazil_datetime_iso()
-                }
+                # Inserir detalhe individual
+                detail_id = generate_uuid()
+                detail_insert_sql = """
+                    INSERT INTO consultation_details 
+                    (id, consultation_id, consultation_type_id, cost_cents, status,
+                     response_data, error_message, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                """
                 
-                details_to_insert.append(detail)
+                # Serializar JSON para string
+                import json
+                response_data = ct.get("response_data")
+                response_data_json = json.dumps(response_data) if response_data else None
+                
+                detail_params = (
+                    detail_id,
+                    consultation_id,
+                    type_id,
+                    ct.get("cost_cents", 0),
+                    "success" if ct.get("success", True) else "error",
+                    response_data_json,  # JSON serializado como string
+                    ct.get("error_message")
+                )
+                
+                result = await execute_sql(detail_insert_sql, detail_params, "none")
+                
+                if result["error"]:
+                    logger.error("erro_inserir_detalhe_mariadb", 
+                               consultation_id=consultation_id, 
+                               type_code=ct["type_code"],
+                               error=result["error"])
+                else:
+                    details_inserted += 1
             
-            if details_to_insert:
-                response = self.supabase.table("consultation_details").insert(details_to_insert).execute()
-                return bool(response.data)
+            logger.info("detalhes_inseridos_mariadb", 
+                       consultation_id=consultation_id,
+                       total_tipos=len(consultation_types),
+                       inseridos=details_inserted)
             
-            return True
+            return details_inserted > 0
             
         except Exception as e:
-            logger.error("erro_registrar_detalhes", consultation_id=consultation_id, error=str(e))
+            logger.error("erro_registrar_detalhes_mariadb", consultation_id=consultation_id, error=str(e))
             return False
     
     async def _get_consultation_type_id(self, type_code: str) -> Optional[str]:
         """
         Obtém ID do tipo de consulta pelo código
+        MIGRADO: MariaDB
         """
         try:
-            response = self.supabase.table("consultation_types").select("id").eq("code", type_code).execute()
-            return response.data[0]["id"] if response.data else None
+            result = await execute_sql(
+                "SELECT id FROM consultation_types WHERE code = %s AND is_active = TRUE LIMIT 1",
+                (type_code,),
+                "one"
+            )
+            return result["data"]["id"] if result["data"] else None
         except Exception as e:
-            logger.error("erro_obter_tipo_id", type_code=type_code, error=str(e))
+            logger.error("erro_obter_tipo_id_mariadb", type_code=type_code, error=str(e))
             return None
     
     def _validate_api_key_id(self, api_key_id: Optional[str]) -> Optional[str]:
@@ -235,91 +291,8 @@ class QueryLoggerService:
             logger.warning("api_key_id_invalido", api_key_id=api_key_id)
             return None
     
-    async def update_daily_analytics(
-        self,
-        user_id: str,
-        consultation_types: List[Dict[str, Any]],
-        total_cost_cents: int
-    ) -> bool:
-        """
-        Atualiza analytics diários com nova estrutura
-        """
-        try:
-            if not self.supabase:
-                return False
-            
-            today = self._get_brazil_datetime().date().isoformat()
-            
-            # Contar consultas por tipo
-            consultations_by_type = {}
-            costs_by_type = {}
-            successful_count = 0
-            failed_count = 0
-            
-            for ct in consultation_types:
-                type_code = ct["type_code"]
-                cost = ct.get("cost_cents", 0)
-                success = ct.get("success", True)
-                
-                consultations_by_type[type_code] = consultations_by_type.get(type_code, 0) + 1
-                costs_by_type[type_code] = costs_by_type.get(type_code, 0) + cost
-                
-                if success:
-                    successful_count += 1
-                else:
-                    failed_count += 1
-            
-            # Verificar se já existe analytics para hoje
-            existing = self.supabase.table("daily_analytics").select("*").eq("user_id", user_id).eq("date", today).execute()
-            
-            if existing.data:
-                # Atualizar existente
-                current = existing.data[0]
-                
-                # Mesclar consultations_by_type
-                current_by_type = current.get("consultations_by_type", {})
-                for type_code, count in consultations_by_type.items():
-                    current_by_type[type_code] = current_by_type.get(type_code, 0) + count
-                
-                # Mesclar costs_by_type
-                current_costs = current.get("costs_by_type", {})
-                for type_code, cost in costs_by_type.items():
-                    current_costs[type_code] = current_costs.get(type_code, 0) + cost
-                
-                update_data = {
-                    "total_consultations": current["total_consultations"] + len(consultation_types),
-                    "successful_consultations": current["successful_consultations"] + successful_count,
-                    "failed_consultations": current["failed_consultations"] + failed_count,
-                    "total_cost_cents": current["total_cost_cents"] + total_cost_cents,
-                    "credits_used_cents": current["credits_used_cents"] + total_cost_cents,
-                    "consultations_by_type": current_by_type,
-                    "costs_by_type": current_costs,
-                    "updated_at": self._get_brazil_datetime_iso()
-                }
-                
-                response = self.supabase.table("daily_analytics").update(update_data).eq("id", current["id"]).execute()
-            else:
-                # Criar novo
-                analytics_data = {
-                    "user_id": user_id,
-                    "date": today,
-                    "total_consultations": len(consultation_types),
-                    "successful_consultations": successful_count,
-                    "failed_consultations": failed_count,
-                    "total_cost_cents": total_cost_cents,
-                    "credits_used_cents": total_cost_cents,
-                    "consultations_by_type": consultations_by_type,
-                    "costs_by_type": costs_by_type,
-                    "created_at": self._get_brazil_datetime_iso()
-                }
-                
-                response = self.supabase.table("daily_analytics").insert(analytics_data).execute()
-            
-            return bool(response.data)
-            
-        except Exception as e:
-            logger.error("erro_atualizar_analytics_diarios", user_id=user_id, error=str(e))
-            return False
+    # ✅ REMOVIDO: update_daily_analytics - tabela daily_analytics descontinuada por ser redundante
+    # Analytics podem ser calculados on-demand via consultations quando necessário
     
     # Método de compatibilidade com código antigo
     async def log_query(

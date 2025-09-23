@@ -1,0 +1,134 @@
+{
+    "url": "https://api.cnpja.com/office/07191774000196",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "aafb50ec7b216399928949967ea40677",
+        "trace-id": "28718c96cc96932d7650f92564b5f5bc",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "07b44539983208818500b2580fd2d0dd",
+        "date": "Tue, 23 Sep 2025 14:31:04 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1554",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-23T11:31:05.626284",
+    "response_body": {
+        "updated": "2025-09-09T15:01:18.000Z",
+        "taxId": "07191774000196",
+        "company": {
+            "id": 7191774,
+            "name": "CLESIO MARQUES BAHIA",
+            "equity": 600000,
+            "nature": {
+                "id": 2135,
+                "text": "Empresário (Individual)"
+            },
+            "size": {
+                "id": 3,
+                "acronym": "EPP",
+                "text": "Empresa de Pequeno Porte"
+            },
+            "members": [],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": false,
+                "since": null
+            }
+        },
+        "alias": "Supermercado Pague Menos",
+        "founded": "2005-01-05",
+        "head": true,
+        "statusDate": "2005-01-05",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2924678,
+            "street": "Rua Rui Barbosa",
+            "number": "40",
+            "details": "Casa",
+            "district": "Centro",
+            "city": "Piraí do Norte",
+            "state": "BA",
+            "zip": "45436000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -13.7610666,
+            "longitude": -39.3729596
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "73",
+                "number": "82069348"
+            },
+            {
+                "type": "MOBILE",
+                "area": "73",
+                "number": "81331579"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "natacha112009@hotmail.com",
+                "domain": "hotmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4712100,
+            "text": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - minimercados, mercearias e armazéns"
+        },
+        "sideActivities": [
+            {
+                "id": 4711302,
+                "text": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - supermercados"
+            },
+            {
+                "id": 4761003,
+                "text": "Comércio varejista de artigos de papelaria"
+            },
+            {
+                "id": 7820500,
+                "text": "Locação de mão-de-obra temporária"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "BA",
+                "number": "065810634",
+                "enabled": true,
+                "statusDate": "2023-06-28",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

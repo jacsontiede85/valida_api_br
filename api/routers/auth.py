@@ -1,5 +1,5 @@
 """
-Router de autenticação para integração com Supabase
+Router de autenticação migrado para MariaDB
 """
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from pydantic import BaseModel, EmailStr
@@ -9,27 +9,26 @@ import secrets
 import jwt
 from datetime import datetime, timedelta
 import os
-from supabase import create_client, Client
 import structlog
+from passlib.context import CryptContext
+
+# Importar componentes MariaDB
+from api.database.connection import UserRepository, generate_uuid
+from api.services.api_key_service import api_key_service
+from api.models.saas_models import APIKeyCreate
 
 # Configurar logger
 logger = structlog.get_logger("auth")
-
-# Configurar Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 # Configuração JWT
 JWT_SECRET = os.getenv("JWT_SECRET", "valida-jwt-secret-2024")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    logger.warning("Supabase não configurado - usando modo mock")
-    supabase = None
-else:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    logger.info("Supabase configurado para autenticação")
+# Configurar Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+logger.info("Router de autenticação configurado para MariaDB")
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -63,14 +62,12 @@ def generate_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def hash_password(password: str) -> str:
-    """Hash de senha usando SHA256 com salt"""
-    # Em produção, usar bcrypt!
-    salt = "valida_salt_2024"
-    return hashlib.sha256(f"{password}{salt}".encode()).hexdigest()
+    """Hash da senha com bcrypt"""
+    return pwd_context.hash(password)
 
-def verify_password(password: str, password_hash: str) -> bool:
-    """Verifica se a senha corresponde ao hash"""
-    return hash_password(password) == password_hash
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verifica senha com bcrypt"""
+    return pwd_context.verify(password, hashed_password)
 
 def generate_api_key() -> tuple[str, str]:
     """Gera uma API key e seu hash"""
@@ -80,70 +77,54 @@ def generate_api_key() -> tuple[str, str]:
     return visible_key, key_hash
 
 async def create_user_in_db(email: str, password_hash: str, name: str = None):
-    """Cria usuário no banco de dados"""
-    if not supabase:
-        # Modo mock
-        return {
-            "id": "mock-user-id",
-            "email": email,
-            "name": name or email.split('@')[0]
-        }
-    
+    """Cria usuário no banco de dados MariaDB"""
     try:
         # Verificar se usuário já existe
-        existing = supabase.table('users').select("*").eq('email', email).execute()
-        if existing.data:
+        existing_user = await UserRepository.get_by_email(email)
+        if existing_user:
             raise HTTPException(status_code=400, detail="E-mail já cadastrado")
         
         # Criar novo usuário
         user_data = {
+            "id": generate_uuid(),
             "email": email,
             "password_hash": password_hash,
             "name": name or email.split('@')[0],
-            "created_at": datetime.now().isoformat()
+            "is_active": True,
+            "created_at": datetime.now()
         }
         
-        result = supabase.table('users').insert(user_data).execute()
+        # Inserir usuário no MariaDB
+        user = await UserRepository.create(user_data)
         
-        if result.data:
-            user = result.data[0]
-            
-            # Criar API key inicial para o usuário
-            visible_key, key_hash = generate_api_key()
-            
-            api_key_data = {
-                "user_id": user["id"],
-                "name": "Chave Principal",
-                "key_hash": key_hash,
-                "is_active": True,
-                "created_at": datetime.now().isoformat()
-            }
-            
-            supabase.table('api_keys').insert(api_key_data).execute()
-            
-            # Criar assinatura trial inicial (temporariamente desabilitado)
-            # TODO: Corrigir estrutura da tabela subscriptions
+        if user:
+            # Criar API key inicial usando o serviço migrado
             try:
-                subscription_data = {
-                    "user_id": user["id"],
-                    "plan_id": "trial",
-                    "status": "active",
-                    "created_at": datetime.now().isoformat(),
-                    "current_period_end": (datetime.now() + timedelta(days=7)).isoformat()
+                api_key_data = APIKeyCreate(
+                    name="Chave Principal",
+                    description="Chave de API criada automaticamente no registro"
+                )
+                api_key_response = await api_key_service.create_api_key(user["id"], api_key_data)
+                
+                logger.info(f"API key criada para usuário {user['id']}")
+                
+                return {
+                    "id": user["id"],
+                    "email": user["email"], 
+                    "name": user["name"],
+                    "api_key": api_key_response.key if api_key_response else None
                 }
                 
-                supabase.table('subscriptions').insert(subscription_data).execute()
             except Exception as e:
-                logger.warning(f"Não foi possível criar assinatura trial: {e}")
-                # Continua mesmo sem assinatura - pode criar depois
-            
-            return {
-                "id": user["id"],
-                "email": user["email"],
-                "name": user["name"],
-                "api_key": visible_key
-            }
-            
+                logger.warning(f"Erro ao criar API key: {e}")
+                # Retorna usuário mesmo sem API key
+                return {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "name": user["name"],
+                    "api_key": None
+                }
+        
         raise HTTPException(status_code=500, detail="Erro ao criar usuário")
         
     except HTTPException:
@@ -153,28 +134,19 @@ async def create_user_in_db(email: str, password_hash: str, name: str = None):
         raise HTTPException(status_code=500, detail="Erro interno ao criar usuário")
 
 async def authenticate_user(email: str, password: str):
-    """Autentica usuário com email e senha"""
-    if not supabase:
-        # Modo mock para desenvolvimento
-        if email == "dev@valida.api.br" and password == "dev123":
-            return {
-                "id": "dev-user-id",
-                "email": email,
-                "name": "Desenvolvedor",
-                "api_key": "rcp_dev-key-2"
-            }
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    
+    """Autentica usuário com email e senha usando MariaDB"""
     try:
-        # Buscar usuário pelo email primeiro
-        result = supabase.table('users').select("*").eq('email', email).execute()
+        # Buscar usuário por email no MariaDB
+        user = await UserRepository.get_by_email(email)
         
-        if not result.data:
+        if not user:
             raise HTTPException(status_code=401, detail="E-mail não cadastrado")
+            
+        # Verificar se está ativo
+        if not user.get('is_active', True):
+            raise HTTPException(status_code=401, detail="Usuário desativado")
         
-        user = result.data[0]
-        
-        # Verificar senha
+        # Verificar senha com bcrypt
         if not user.get('password_hash'):
             raise HTTPException(status_code=401, detail="Usuário sem senha configurada")
             
@@ -182,18 +154,17 @@ async def authenticate_user(email: str, password: str):
             raise HTTPException(status_code=401, detail="Senha incorreta")
         
         # Atualizar último login
-        supabase.table('users').update({
-            "last_login": datetime.now().isoformat()
-        }).eq('id', user["id"]).execute()
+        await UserRepository.update(user["id"], {
+            "last_login": datetime.now()
+        })
         
-        # Buscar API key ativa do usuário
-        api_key_result = supabase.table('api_keys').select("key_hash").eq('user_id', user["id"]).eq('is_active', True).limit(1).execute()
+        # Buscar API keys ativas do usuário usando o serviço migrado
+        api_keys = await api_key_service.get_user_api_keys(user["id"])
         
         api_key = None
-        if api_key_result.data:
-            # Por segurança, não retornamos a chave real, apenas o hash
-            # O usuário deve gerar uma nova se perdeu a original
-            api_key = f"rcp_{api_key_result.data[0]['key_hash'][:16]}..."
+        if api_keys:
+            # Por segurança, não retornamos a chave real, apenas indicamos que existe
+            api_key = "rcp_[chave_existente_verifique_dashboard]"
         
         return {
             "id": user["id"],

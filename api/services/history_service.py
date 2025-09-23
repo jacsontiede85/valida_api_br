@@ -1,10 +1,11 @@
 """
 Serviço de gerenciamento de histórico de consultas
+MIGRADO: Supabase → MariaDB
 """
 import structlog
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, date
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql
 from api.models.saas_models import DashboardPeriod
 
 logger = structlog.get_logger("history_service")
@@ -12,7 +13,8 @@ logger = structlog.get_logger("history_service")
 
 class HistoryService:
     def __init__(self):
-        self.supabase = get_supabase_client()
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
+        pass
     
     async def get_user_query_history(
         self, 
@@ -30,69 +32,93 @@ class HistoryService:
         Versão corrigida com estrutura de dados adequada para o frontend
         """
         try:
-            if not self.supabase:
-                # Tentar carregar dados dos arquivos de log primeiro
-                file_data = await self._load_from_log_files(page, limit, search, status, date_from, date_to)
-                if file_data and file_data["data"]:
-                    return file_data
-                
-                # Fallback para dados mock quando Supabase não estiver configurado
-                mock_data = self._generate_mock_history_data(page, limit)
-                return mock_data
+            # Usar MariaDB com JOINs para obter dados completos
+            base_sql = """
+                SELECT 
+                    c.id, c.cnpj, c.created_at, c.status, c.response_time_ms, 
+                    c.total_cost_cents, c.user_id, c.cache_used, c.error_message, c.client_ip,
+                    c.response_data,
+                    cd.id as detail_id, cd.cost_cents as detail_cost_cents, cd.status as detail_status,
+                    ct.name as type_name, ct.code as type_code, ct.cost_cents as type_cost_cents
+                FROM consultations c
+                LEFT JOIN consultation_details cd ON c.id = cd.consultation_id
+                LEFT JOIN consultation_types ct ON cd.consultation_type_id = ct.id
+                WHERE c.user_id = %s
+            """
             
-            # Tentar buscar da nova tabela consultations primeiro
-            query = self.supabase.table("consultations").select(
-                "id, cnpj, created_at, status, response_time_ms, total_cost_cents, "
-                "user_id, cache_used, error_message, client_ip, "
-                "consultation_details(id, success, cost_cents, consultation_types(name, code, cost_cents))"
-            ).eq("user_id", user_id)
+            params = [user_id]
             
             # Aplicar filtros
             if status != "all":
-                query = query.eq("status", status)
+                base_sql += " AND c.status = %s"
+                params.append(status)
             
             if date_from:
-                # Converter data para formato ISO com timezone
-                date_from_iso = f"{date_from}T00:00:00.000Z"
-                query = query.gte("created_at", date_from_iso)
+                base_sql += " AND DATE(c.created_at) >= %s"
+                params.append(date_from)
             
             if date_to:
-                # Converter data para formato ISO com timezone (fim do dia)
-                date_to_iso = f"{date_to}T23:59:59.999Z"
-                query = query.lte("created_at", date_to_iso)
+                base_sql += " AND DATE(c.created_at) <= %s"
+                params.append(date_to)
             
             if search:
-                query = query.ilike("cnpj", f"%{search}%")
+                base_sql += " AND c.cnpj LIKE %s"
+                params.append(f"%{search}%")
+            
+            # Ordenar por data de criação
+            base_sql += " ORDER BY c.created_at DESC"
             
             # Aplicar paginação
             offset = (page - 1) * limit
-            query = query.range(offset, offset + limit - 1).order("created_at", desc=True)
+            base_sql += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
             
-            response = query.execute()
+            # Executar query
+            result = await execute_sql(base_sql, tuple(params), "all")
             
-            # Se não encontrou dados na nova tabela, buscar na antiga com fallback
-            if not response.data:
-                query_old = self.supabase.table("query_history").select("*").eq("user_id", user_id)
+            if result["error"]:
+                logger.error("erro_buscar_historico_mariadb", error=result["error"])
+                # Fallback para dados mock
+                return self._generate_mock_history_data(page, limit)
+            
+            # Agrupar dados por consulta (devido ao LEFT JOIN)
+            consultations_map = {}
+            
+            for row in result["data"]:
+                consultation_id = row["id"]
                 
-                if status != "all":
-                    query_old = query_old.eq("status", status)
-                if date_from:
-                    query_old = query_old.gte("created_at", date_from)
-                if date_to:
-                    query_old = query_old.lte("created_at", date_to)
-                if search:
-                    query_old = query_old.ilike("cnpj", f"%{search}%")
+                if consultation_id not in consultations_map:
+                    consultations_map[consultation_id] = {
+                        "id": row["id"],
+                        "cnpj": row["cnpj"],
+                        "created_at": row["created_at"],
+                        "status": row["status"],
+                        "response_time_ms": row["response_time_ms"],
+                        "total_cost_cents": row["total_cost_cents"],
+                        "user_id": row["user_id"],
+                        "cache_used": row["cache_used"],
+                        "error_message": row["error_message"],
+                        "client_ip": row["client_ip"],
+                        "response_data": row["response_data"],  # ✅ ADICIONADO: JSON completo da resposta
+                        "consultation_details": []
+                    }
                 
-                query_old = query_old.range(offset, offset + limit - 1).order("created_at", desc=True)
-                response = query_old.execute()
-                
-                # Converter dados antigos para nova estrutura
-                if response.data:
-                    response.data = self._convert_old_to_new_format(response.data)
+                # Adicionar detalhes se existirem
+                if row["detail_id"]:
+                    consultations_map[consultation_id]["consultation_details"].append({
+                        "id": row["detail_id"],
+                        "cost_cents": row["detail_cost_cents"],
+                        "success": row["detail_status"] == "success",
+                        "consultation_types": {
+                            "name": row["type_name"],
+                            "code": row["type_code"],
+                            "cost_cents": row["type_cost_cents"]
+                        }
+                    })
             
             # Processar e formatar dados para o frontend
             formatted_data = []
-            for item in response.data:
+            for item in consultations_map.values():
                 # Calcular custo total se não estiver definido
                 total_cost_cents = item.get("total_cost_cents", 0)
                 if not total_cost_cents and item.get("consultation_details"):
@@ -124,7 +150,8 @@ class HistoryService:
                     "user_id": item["user_id"],
                     "cache_used": item.get("cache_used", False),
                     "error_message": item.get("error_message"),
-                    "client_ip": item.get("client_ip"),  # 🔧 CAMPO CLIENT_IP ADICIONADO
+                    "client_ip": item.get("client_ip"),
+                    "response_data": item.get("response_data"),  # ✅ ADICIONADO: JSON completo da resposta
                     # Campos formatados para exibição
                     "formatted_cost": f"R$ {total_cost_cents / 100:.2f}",
                     "formatted_time": self._format_duration(item.get("response_time_ms", 0)),
@@ -134,34 +161,28 @@ class HistoryService:
                 
                 formatted_data.append(formatted_item)
             
-            # Buscar total de registros para paginação
-            count_query = self.supabase.table("consultations").select("id", count="exact").eq("user_id", user_id)
+            # Buscar total de registros para paginação usando MariaDB
+            count_sql = "SELECT COUNT(DISTINCT c.id) as total FROM consultations c WHERE c.user_id = %s"
+            count_params = [user_id]
+            
             if status != "all":
-                count_query = count_query.eq("status", status)
+                count_sql += " AND c.status = %s"
+                count_params.append(status)
+            
             if date_from:
-                count_query = count_query.gte("created_at", date_from)
+                count_sql += " AND DATE(c.created_at) >= %s"
+                count_params.append(date_from)
+            
             if date_to:
-                count_query = count_query.lte("created_at", date_to)
+                count_sql += " AND DATE(c.created_at) <= %s"
+                count_params.append(date_to)
+            
             if search:
-                count_query = count_query.ilike("cnpj", f"%{search}%")
+                count_sql += " AND c.cnpj LIKE %s"
+                count_params.append(f"%{search}%")
             
-            count_response = count_query.execute()
-            
-            # Fallback para tabela antiga se necessário
-            if not count_response.count or count_response.count == 0:
-                count_query_old = self.supabase.table("query_history").select("id", count="exact").eq("user_id", user_id)
-                if status != "all":
-                    count_query_old = count_query_old.eq("status", status)
-                if date_from:
-                    count_query_old = count_query_old.gte("created_at", date_from)
-                if date_to:
-                    count_query_old = count_query_old.lte("created_at", date_to)
-                if search:
-                    count_query_old = count_query_old.ilike("cnpj", f"%{search}%")
-                
-                count_response = count_query_old.execute()
-            
-            total = count_response.count if count_response.count else 0
+            count_result = await execute_sql(count_sql, tuple(count_params), "one")
+            total = count_result["data"]["total"] if count_result["data"] else 0
             
             return {
                 "data": formatted_data,
@@ -187,17 +208,56 @@ class HistoryService:
     ) -> Dict[str, Any]:
         """
         Obtém analytics de uso do usuário
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                # Retornar analytics mock
+            # Calcular período se não fornecido
+            start_date, end_date = self._calculate_period_dates(period)
+            
+            if not date_from:
+                date_from = start_date.strftime('%Y-%m-%d')
+            if not date_to:
+                date_to = end_date.strftime('%Y-%m-%d')
+            
+            # Query para analytics usando MariaDB
+            analytics_sql = """
+                SELECT 
+                    COUNT(*) as total_queries,
+                    SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_queries,
+                    SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) as failed_queries,
+                    AVG(response_time_ms) as avg_response_time,
+                    SUM(total_cost_cents) as total_cost_cents
+                FROM consultations 
+                WHERE user_id = %s 
+                AND DATE(created_at) BETWEEN %s AND %s
+            """
+            
+            result = await execute_sql(analytics_sql, (user_id, date_from, date_to), "one")
+            
+            if result["error"] or not result["data"]:
                 return self._generate_mock_analytics(period)
             
-            # Implementação completa seria aqui
-            return self._generate_mock_analytics(period)
+            data = result["data"]
+            total_queries = data["total_queries"] or 0
+            successful_queries = data["successful_queries"] or 0
+            failed_queries = data["failed_queries"] or 0
+            
+            success_rate = (successful_queries / total_queries * 100) if total_queries > 0 else 0
+            
+            return {
+                "period": period,
+                "total_queries": total_queries,
+                "successful_queries": successful_queries,
+                "failed_queries": failed_queries,
+                "success_rate": round(success_rate, 1),
+                "avg_response_time": data["avg_response_time"] or 0,
+                "total_cost": (data["total_cost_cents"] or 0) / 100,
+                "start_date": date_from,
+                "end_date": date_to
+            }
             
         except Exception as e:
-            logger.error("erro_buscar_analytics", user_id=user_id, error=str(e))
+            logger.error("erro_buscar_analytics_mariadb", user_id=user_id, error=str(e))
             return self._generate_mock_analytics(period)
     
     def _calculate_period_dates(self, period: str) -> tuple[date, date]:
@@ -489,41 +549,59 @@ class HistoryService:
     ) -> Dict[str, Any]:
         """
         Exporta o histórico de consultas do usuário
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                # Retornar dados mock para exportação
-                mock_data = self._generate_mock_history(1, 1000)  # Buscar todos os dados
-                return {
-                    "format": format,
-                    "data": mock_data["data"],
-                    "filename": f"historico_consultas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}",
-                    "total_records": len(mock_data["data"])
-                }
+            # Buscar todos os dados (sem paginação) usando MariaDB
+            export_sql = """
+                SELECT 
+                    c.id, c.cnpj, c.created_at, c.status, c.response_time_ms,
+                    c.total_cost_cents, c.cache_used, c.error_message, c.client_ip,
+                    GROUP_CONCAT(ct.name SEPARATOR ', ') as consultation_types,
+                    GROUP_CONCAT(cd.cost_cents SEPARATOR ', ') as type_costs
+                FROM consultations c
+                LEFT JOIN consultation_details cd ON c.id = cd.consultation_id
+                LEFT JOIN consultation_types ct ON cd.consultation_type_id = ct.id
+                WHERE c.user_id = %s
+            """
             
-            # Buscar todos os dados (sem paginação)
-            query = self.supabase.table("query_history").select("*").eq("user_id", user_id)
+            params = [user_id]
             
             if status != "all":
-                query = query.eq("status", status)
-            if date_from:
-                query = query.gte("created_at", date_from)
-            if date_to:
-                query = query.lte("created_at", date_to)
-            if search:
-                query = query.ilike("cnpj", f"%{search}%")
+                export_sql += " AND c.status = %s"
+                params.append(status)
             
-            response = query.order("created_at", desc=True).execute()
+            if date_from:
+                export_sql += " AND DATE(c.created_at) >= %s"
+                params.append(date_from)
+            
+            if date_to:
+                export_sql += " AND DATE(c.created_at) <= %s"
+                params.append(date_to)
+            
+            if search:
+                export_sql += " AND c.cnpj LIKE %s"
+                params.append(f"%{search}%")
+            
+            export_sql += " GROUP BY c.id ORDER BY c.created_at DESC"
+            
+            result = await execute_sql(export_sql, tuple(params), "all")
+            
+            if result["error"]:
+                logger.error("erro_exportar_historico_mariadb", error=result["error"])
+                raise Exception(f"Erro ao exportar histórico: {result['error']}")
+            
+            export_data = result["data"] or []
             
             return {
                 "format": format,
-                "data": response.data,
+                "data": export_data,
                 "filename": f"historico_consultas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}",
-                "total_records": len(response.data)
+                "total_records": len(export_data)
             }
             
         except Exception as e:
-            logger.error("erro_exportar_historico", user_id=user_id, error=str(e))
+            logger.error("erro_exportar_historico_mariadb", user_id=user_id, error=str(e))
             raise e
     
 
@@ -538,77 +616,94 @@ class HistoryService:
     ) -> Dict[str, Any]:
         """
         Obtém histórico de consultas v2.0 com custos detalhados por tipo
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                # Retornar dados vazios quando Supabase não estiver configurado
-                return {
-                    "data": [],
-                    "pagination": {
-                        "page": page,
-                        "limit": limit,
-                        "total": 0,
-                        "pages": 0
-                    },
-                    "message": "Sistema de histórico não configurado"
-                }
+            # Query principal usando MariaDB com JOINs
+            consultations_sql = """
+                SELECT 
+                    c.id, c.cnpj, c.created_at, c.status, c.total_cost_cents,
+                    c.response_time_ms, c.cache_used, c.client_ip,
+                    cd.id as detail_id, cd.cost_cents as detail_cost_cents, 
+                    cd.status as detail_status,
+                    ct.name as type_name, ct.code as type_code
+                FROM consultations c
+                LEFT JOIN consultation_details cd ON c.id = cd.consultation_id
+                LEFT JOIN consultation_types ct ON cd.consultation_type_id = ct.id
+                WHERE c.user_id = %s
+            """
             
-            # Query principal usando nova tabela consultations
-            query = self.supabase.table("consultations").select(
-                "*, consultation_details(*, consultation_types(*))"
-            ).eq("user_id", user_id)
+            params = [user_id]
             
             # Aplicar filtros
             if status_filter != "all":
-                query = query.eq("status", status_filter)
+                consultations_sql += " AND c.status = %s"
+                params.append(status_filter)
             
             if search:
-                query = query.ilike("cnpj", f"%{search}%")
+                consultations_sql += " AND c.cnpj LIKE %s"
+                params.append(f"%{search}%")
+            
+            consultations_sql += " ORDER BY c.created_at DESC"
             
             # Aplicar paginação
             offset = (page - 1) * limit
-            query = query.range(offset, offset + limit - 1).order("created_at", desc=True)
+            consultations_sql += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
             
-            response = query.execute()
+            result = await execute_sql(consultations_sql, tuple(params), "all")
             
-            # Formatar dados para frontend
-            consultations = []
-            for item in response.data:
-                consultation = {
-                    "id": item["id"],
-                    "cnpj": item["cnpj"],
-                    "created_at": item["created_at"],
-                    "status": item["status"],
-                    "total_cost_cents": item["total_cost_cents"],
-                    "formatted_cost": f"R$ {item['total_cost_cents'] / 100:.2f}",
-                    "response_time_ms": item["response_time_ms"],
-                    "cache_used": item["cache_used"],
-                    "client_ip": item.get("client_ip"),  # 🔧 CAMPO CLIENT_IP ADICIONADO
-                    "types": []
-                }
+            if result["error"]:
+                logger.error("erro_buscar_consultations_v2_mariadb", error=result["error"])
+                raise Exception(result["error"])
+            
+            # Agrupar dados por consulta
+            consultations_map = {}
+            raw_data = result["data"] or []
+            
+            for row in raw_data:
+                consultation_id = row["id"]
                 
-                # Adicionar detalhes por tipo
-                for detail in item.get("consultation_details", []):
-                    type_info = detail.get("consultation_types", {})
-                    consultation["types"].append({
-                        "name": type_info.get("name"),
-                        "code": type_info.get("code"),
-                        "success": detail["success"],
-                        "cost_cents": detail["cost_cents"],
-                        "formatted_cost": f"R$ {detail['cost_cents'] / 100:.2f}"
+                if consultation_id not in consultations_map:
+                    consultations_map[consultation_id] = {
+                        "id": row["id"],
+                        "cnpj": row["cnpj"],
+                        "created_at": row["created_at"],
+                        "status": row["status"],
+                        "total_cost_cents": row["total_cost_cents"],
+                        "formatted_cost": f"R$ {row['total_cost_cents'] / 100:.2f}",
+                        "response_time_ms": row["response_time_ms"],
+                        "cache_used": row["cache_used"],
+                        "client_ip": row["client_ip"],
+                        "types": []
+                    }
+                
+                # Adicionar detalhes se existirem
+                if row["detail_id"]:
+                    consultations_map[consultation_id]["types"].append({
+                        "name": row["type_name"],
+                        "code": row["type_code"],
+                        "success": row["detail_status"] == "success",
+                        "cost_cents": row["detail_cost_cents"],
+                        "formatted_cost": f"R$ {row['detail_cost_cents'] / 100:.2f}"
                     })
-                
-                consultations.append(consultation)
+            
+            consultations = list(consultations_map.values())
             
             # Contar total para paginação
-            count_query = self.supabase.table("consultations").select("id", count="exact").eq("user_id", user_id)
-            if status_filter != "all":
-                count_query = count_query.eq("status", status_filter)
-            if search:
-                count_query = count_query.ilike("cnpj", f"%{search}%")
+            count_sql = "SELECT COUNT(DISTINCT c.id) as total FROM consultations c WHERE c.user_id = %s"
+            count_params = [user_id]
             
-            count_response = count_query.execute()
-            total = count_response.count if count_response.count else 0
+            if status_filter != "all":
+                count_sql += " AND c.status = %s"
+                count_params.append(status_filter)
+            
+            if search:
+                count_sql += " AND c.cnpj LIKE %s"
+                count_params.append(f"%{search}%")
+            
+            count_result = await execute_sql(count_sql, tuple(count_params), "one")
+            total = count_result["data"]["total"] if count_result["data"] else 0
             
             return {
                 "data": consultations,
@@ -621,7 +716,7 @@ class HistoryService:
             }
             
         except Exception as e:
-            logger.error("erro_buscar_consultations_v2", user_id=user_id, error=str(e))
+            logger.error("erro_buscar_consultations_v2_mariadb", user_id=user_id, error=str(e))
             # Retornar dados vazios em caso de erro
             return {
                 "data": [],
@@ -637,42 +732,60 @@ class HistoryService:
     async def get_monthly_usage_by_type(self, user_id: str) -> Dict[str, Any]:
         """
         Obtém estatísticas mensais de uso por tipo de consulta
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                return self._generate_mock_monthly_usage()
-            
-            # Buscar dados do mês atual
+            # Buscar dados do mês atual usando MariaDB
             current_month = datetime.now().strftime("%Y-%m")
             
-            # Query para analytics diários do mês atual
-            response = self.supabase.table("daily_analytics").select(
-                "*"
-            ).eq("user_id", user_id).ilike("date", f"{current_month}%").execute()
+            monthly_usage_sql = """
+                SELECT 
+                    ct.code as type_code,
+                    ct.name as type_name,
+                    COUNT(c.id) as consultation_count,
+                    SUM(cd.cost_cents) as total_cost_cents
+                FROM consultations c
+                JOIN consultation_details cd ON c.id = cd.consultation_id
+                JOIN consultation_types ct ON cd.consultation_type_id = ct.id
+                WHERE c.user_id = %s 
+                AND DATE_FORMAT(c.created_at, '%Y-%m') = %s
+                GROUP BY ct.id, ct.code, ct.name
+            """
             
-            # Agregar dados
+            result = await execute_sql(monthly_usage_sql, (user_id, current_month), "all")
+            
+            if result["error"]:
+                logger.error("erro_buscar_monthly_usage_mariadb", error=result["error"])
+                return self._generate_mock_monthly_usage()
+            
+            # Processar dados
+            types_stats = {
+                "protestos": {"count": 0, "cost": 0},
+                "receita_federal": {"count": 0, "cost": 0},
+                "others": {"count": 0, "cost": 0}
+            }
             total_consultations = 0
             total_cost = 0
-            types_stats = {"protestos": {"count": 0, "cost": 0}, "receita_federal": {"count": 0, "cost": 0}, "others": {"count": 0, "cost": 0}}
             
-            for day in response.data:
-                total_consultations += day["total_consultations"]
-                total_cost += day["total_cost_cents"]
+            raw_data = result["data"] or []
+            
+            for row in raw_data:
+                type_code = row["type_code"]
+                count = row["consultation_count"] or 0
+                cost = row["total_cost_cents"] or 0
                 
-                # Processar tipos JSONB
-                consultations_by_type = day.get("consultations_by_type", {})
-                costs_by_type = day.get("costs_by_type", {})
+                total_consultations += count
+                total_cost += cost
                 
-                for type_code, count in consultations_by_type.items():
-                    if type_code == "protestos":
-                        types_stats["protestos"]["count"] += count
-                        types_stats["protestos"]["cost"] += costs_by_type.get(type_code, 0)
-                    elif type_code in ["receita_federal", "simples_nacional"]:
-                        types_stats["receita_federal"]["count"] += count
-                        types_stats["receita_federal"]["cost"] += costs_by_type.get(type_code, 0)
-                    else:
-                        types_stats["others"]["count"] += count
-                        types_stats["others"]["cost"] += costs_by_type.get(type_code, 0)
+                if type_code == "protestos":
+                    types_stats["protestos"]["count"] += count
+                    types_stats["protestos"]["cost"] += cost
+                elif type_code in ["receita_federal", "simples_nacional", "cnae", "socios", "endereco"]:
+                    types_stats["receita_federal"]["count"] += count
+                    types_stats["receita_federal"]["cost"] += cost
+                else:
+                    types_stats["others"]["count"] += count
+                    types_stats["others"]["cost"] += cost
             
             return {
                 "total_consultations": total_consultations,
@@ -683,7 +796,7 @@ class HistoryService:
             }
             
         except Exception as e:
-            logger.error("erro_buscar_monthly_usage", user_id=user_id, error=str(e))
+            logger.error("erro_buscar_monthly_usage_mariadb", user_id=user_id, error=str(e))
             # Retornar dados vazios em caso de erro
             return {
                 "total_consultations": 0,
@@ -693,6 +806,16 @@ class HistoryService:
                 "total": {"count": 0, "cost": 0},
                 "message": f"Erro ao buscar estatísticas mensais: {str(e)}"
             }
+    
+    def _generate_mock_monthly_usage(self) -> Dict[str, Any]:
+        """Gera dados mock de uso mensal"""
+        return {
+            "total_consultations": 47,
+            "protestos": {"count": 25, "cost": 375},
+            "receita_federal": {"count": 22, "cost": 110},
+            "others": {"count": 0, "cost": 0},
+            "total": {"count": 47, "cost": 485}
+        }
     
 
 

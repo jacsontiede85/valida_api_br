@@ -1,22 +1,23 @@
 """
 Serviço de gerenciamento de API keys para o SaaS
+MIGRADO: Supabase → MariaDB
 """
 import secrets
 import hashlib
 from typing import Optional, List
 from datetime import datetime
 import structlog
-from supabase import Client
 from api.models.saas_models import (
     APIKeyCreate, APIKeyResponse, APIKeyList
 )
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql, generate_uuid
 
 logger = structlog.get_logger("api_key_service")
 
 class APIKeyService:
     def __init__(self):
-        self.supabase = get_supabase_client()
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
+        pass
     
     def generate_api_key(self) -> tuple[str, str]:
         """
@@ -39,39 +40,50 @@ class APIKeyService:
         """
         Cria uma nova API key para o usuário
         """
-        if not self.supabase:
-            # Sem Supabase configurado
-            raise Exception("Sistema de API keys não configurado")
-        
         try:
             visible_key, key_hash = self.generate_api_key()
             
             # Verificar se já existe uma chave com o mesmo nome
-            existing = self.supabase.table("api_keys").select("id").eq(
-                "user_id", user_id
-            ).eq("name", key_data.name).execute()
+            existing_result = await execute_sql(
+                "SELECT id FROM api_keys WHERE user_id = %s AND name = %s",
+                (user_id, key_data.name),
+                "one"
+            )
             
-            if existing.data:
+            if existing_result["data"]:
                 raise Exception("Já existe uma API key com este nome")
             
-            # Criar a API key
-            key_data_dict = {
-                "user_id": user_id,
-                "name": key_data.name,
-                "key": visible_key,  # Salvar a chave original
-                "key_hash": key_hash,
-                "is_active": True,
-                "created_at": datetime.now().isoformat()
-            }
+            # Criar registro da API key
+            api_key_id = generate_uuid()
+            description = key_data.description if key_data.description and key_data.description.strip() else None
             
-            # Adicionar description apenas se não for None ou string vazia
-            if key_data.description and key_data.description.strip():
-                key_data_dict["description"] = key_data.description
+            # Inserir nova API key
+            insert_result = await execute_sql("""
+                INSERT INTO api_keys 
+                (id, user_id, name, key_visible, key_hash, description, is_active, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                api_key_id,
+                user_id,
+                key_data.name,
+                visible_key,  # Salvar chave visível inicialmente
+                key_hash,
+                description,
+                True
+            ), "none")
             
-            result = self.supabase.table("api_keys").insert(key_data_dict).execute()
+            if insert_result["error"]:
+                raise Exception(insert_result["error"])
             
-            if result.data:
-                api_key_data = result.data[0]
+            # Buscar registro criado
+            created_result = await execute_sql(
+                "SELECT * FROM api_keys WHERE id = %s",
+                (api_key_id,),
+                "one"
+            )
+            
+            if created_result["data"]:
+                api_key_data = created_result["data"]
                 return APIKeyResponse(
                     id=api_key_data["id"],
                     name=api_key_data["name"],
@@ -79,12 +91,12 @@ class APIKeyService:
                     key=visible_key,  # Só retornado na criação
                     key_hash=api_key_data["key_hash"],
                     user_id=api_key_data["user_id"],
-                    created_at=datetime.fromisoformat(api_key_data["created_at"]),
-                    last_used=datetime.fromisoformat(api_key_data["last_used"]) if api_key_data.get("last_used") else None,
+                    created_at=api_key_data["created_at"],
+                    last_used=api_key_data.get("last_used_at"),
                     is_active=api_key_data["is_active"]
                 )
             else:
-                raise Exception("Falha ao criar API key")
+                raise Exception("Falha ao buscar API key criada")
                 
         except Exception as e:
             logger.error(f"Erro ao criar API key: {e}")
@@ -94,28 +106,28 @@ class APIKeyService:
         """
         Lista todas as API keys do usuário
         """
-        if not self.supabase:
-            logger.warning("Supabase não configurado, retornando lista vazia")
-            return []
-        
         try:
-            result = self.supabase.table("api_keys").select(
-                "id, name, key, key_hash, user_id, created_at, last_used_at, is_active, description"
-            ).eq("user_id", user_id).order("created_at", desc=True).execute()
+            result = await execute_sql("""
+                SELECT id, name, description, key_visible, key_hash, user_id, created_at, last_used_at, is_active
+                FROM api_keys 
+                WHERE user_id = %s 
+                ORDER BY created_at DESC
+            """, (user_id,), "all")
             
             api_keys = []
-            for key_data in result.data:
-                api_keys.append(APIKeyList(
-                    id=key_data["id"],
-                    name=key_data["name"],
-                    description=key_data.get("description", ""),
-                    key=key_data.get("key"),  # Chave original
-                    key_hash=key_data["key_hash"],
-                    user_id=key_data["user_id"],
-                    created_at=datetime.fromisoformat(key_data["created_at"].replace('Z', '+00:00')),
-                    last_used=datetime.fromisoformat(key_data["last_used_at"].replace('Z', '+00:00')) if key_data.get("last_used_at") else None,
-                    is_active=key_data["is_active"]
-                ))
+            if result["data"]:
+                for key_data in result["data"]:
+                    api_keys.append(APIKeyList(
+                        id=key_data["id"],
+                        name=key_data["name"],
+                        description=key_data.get("description", ""),
+                        key=key_data.get("key_visible"),  # Retornar chave visível se disponível
+                        key_hash=key_data["key_hash"],
+                        user_id=key_data["user_id"],
+                        created_at=key_data["created_at"],
+                        last_used=key_data.get("last_used_at"),
+                        is_active=key_data["is_active"]
+                    ))
             
             return api_keys
             
@@ -123,66 +135,105 @@ class APIKeyService:
             logger.error(f"Erro ao buscar API keys do usuário {user_id}: {e}")
             return []
     
+    async def clear_visible_key_after_view(self, api_key_id: str, user_id: str) -> bool:
+        """
+        Remove a chave visível após primeira visualização (segurança)
+        """
+        try:
+            result = await execute_sql("""
+                UPDATE api_keys 
+                SET key_visible = NULL 
+                WHERE id = %s AND user_id = %s AND key_visible IS NOT NULL
+            """, (api_key_id, user_id), "none")
+            
+            if result["error"]:
+                logger.error(f"Erro ao limpar chave visível {api_key_id}: {result['error']}")
+                return False
+                
+            # Retorna True se uma linha foi afetada (chave foi limpa)
+            return result["count"] > 0
+            
+        except Exception as e:
+            logger.error(f"Erro ao limpar chave visível {api_key_id}: {e}")
+            return False
+    
     async def revoke_api_key(self, user_id: str, key_id: str) -> bool:
         """
         Revoga uma API key
+        MIGRADO: MariaDB
         """
-        if not self.supabase:
-            logger.warning("Supabase não configurado, revogação mock")
-            return True
-        
         try:
-            logger.info(f"Tentando revogar API key {key_id} para usuário {user_id}")
+            logger.info("tentando_revogar_api_key", 
+                       user_id=user_id, 
+                       key_id=key_id)
             
             # Primeiro verificar se a chave existe e pertence ao usuário
-            check_result = self.supabase.table("api_keys").select("id, user_id, is_active").eq("id", key_id).execute()
+            check_result = await execute_sql(
+                "SELECT id, user_id, is_active FROM api_keys WHERE id = %s",
+                (key_id,),
+                "one"
+            )
             
-            if not check_result.data:
-                logger.warning(f"API key {key_id} não encontrada")
+            if check_result["error"]:
+                logger.error("erro_verificar_api_key_mariadb", 
+                           error=check_result["error"])
+                return False
+            
+            if not check_result["data"]:
+                logger.warning("api_key_nao_encontrada", key_id=key_id)
                 return False
                 
-            key_data = check_result.data[0]
+            key_data = check_result["data"]
             if key_data["user_id"] != user_id:
-                logger.warning(f"API key {key_id} não pertence ao usuário {user_id}")
+                logger.warning("api_key_nao_pertence_usuario", 
+                             key_id=key_id, 
+                             user_id=user_id,
+                             owner_id=key_data["user_id"])
                 return False
                 
             if not key_data["is_active"]:
-                logger.warning(f"API key {key_id} já está inativa")
+                logger.warning("api_key_ja_inativa", key_id=key_id)
                 return False
             
             # Revogar a chave
-            result = self.supabase.table("api_keys").update({
-                "is_active": False
-            }).eq("id", key_id).eq("user_id", user_id).execute()
+            revoke_result = await execute_sql("""
+                UPDATE api_keys 
+                SET is_active = FALSE 
+                WHERE id = %s AND user_id = %s
+            """, (key_id, user_id), "none")
             
-            logger.info(f"Resultado da revogação: {result.data}")
-            return bool(result.data)
+            if revoke_result["error"]:
+                logger.error("erro_revogar_api_key", 
+                           user_id=user_id,
+                           key_id=key_id,
+                           error=revoke_result["error"])
+                return False
+            
+            logger.info("api_key_revogada_com_sucesso", 
+                       user_id=user_id,
+                       key_id=key_id)
+            return True
             
         except Exception as e:
-            logger.error(f"Erro ao revogar API key {key_id}: {e}")
+            logger.error("erro_revogar_api_key", 
+                       user_id=user_id,
+                       key_id=key_id,
+                       error=str(e))
             return False
     
     async def get_api_key_by_hash(self, key_hash: str) -> Optional[dict]:
         """
         Busca uma API key pelo hash
+        MIGRADO: MariaDB
         """
-        if not self.supabase:
-            # Modo de desenvolvimento
-            if key_hash.startswith("dev_hash_"):
-                return {
-                    "id": "dev-key-123",
-                    "user_id": "dev-user-123",
-                    "name": "Chave Desenvolvimento",
-                    "is_active": True
-                }
-            return None
-        
         try:
-            result = self.supabase.table("api_keys").select(
-                "id, user_id, name, is_active"
-            ).eq("key_hash", key_hash).eq("is_active", True).execute()
+            result = await execute_sql("""
+                SELECT id, user_id, name, key_visible, is_active 
+                FROM api_keys 
+                WHERE key_hash = %s AND is_active = TRUE
+            """, (key_hash,), "one")
             
-            return result.data[0] if result.data else None
+            return result["data"] if result["data"] else None
             
         except Exception as e:
             logger.error(f"Erro ao buscar API key por hash: {e}")
@@ -191,16 +242,16 @@ class APIKeyService:
     async def update_last_used(self, key_id: str) -> bool:
         """
         Atualiza o timestamp de último uso da API key
+        MIGRADO: MariaDB
         """
-        if not self.supabase:
-            return True
-        
         try:
-            result = self.supabase.table("api_keys").update({
-                "last_used": datetime.now().isoformat()
-            }).eq("id", key_id).execute()
+            result = await execute_sql("""
+                UPDATE api_keys 
+                SET last_used_at = NOW() 
+                WHERE id = %s
+            """, (key_id,), "none")
             
-            return bool(result.data)
+            return not result["error"]
             
         except Exception as e:
             logger.error(f"Erro ao atualizar último uso da API key {key_id}: {e}")
@@ -209,40 +260,54 @@ class APIKeyService:
     async def get_keys_usage_v2(self, user_id: str) -> List[dict]:
         """
         Obtém uso detalhado das API keys v2.0
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
+            # Buscar API keys do usuário
+            keys_result = await execute_sql("""
+                SELECT id, name, key_visible, is_active, created_at, last_used_at
+                FROM api_keys 
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+            """, (user_id,), "all")
+            
+            if keys_result["error"]:
+                logger.error("erro_buscar_api_keys_mariadb", 
+                           user_id=user_id, 
+                           error=keys_result["error"])
                 return self._generate_mock_keys_usage()
             
-            # Buscar API keys do usuário
-            keys_result = self.supabase.table("api_keys").select(
-                "id, name, key, is_active, created_at, last_used_at"
-            ).eq("user_id", user_id).execute()
-            
             keys_usage = []
-            for key_data in keys_result.data:
-                # Buscar uso diário da chave (consultas de hoje)
-                today = datetime.now().strftime("%Y-%m-%d")
-                
+            today = datetime.now().strftime("%Y-%m-%d")
+            
+            for key_data in keys_result["data"]:
                 # Buscar consultas da chave hoje
-                consultations_result = self.supabase.table("consultations").select(
-                    "id, total_cost_cents, created_at, status"
-                ).eq("api_key_id", key_data["id"]).gte(
-                    "created_at", f"{today}T00:00:00"
-                ).lte("created_at", f"{today}T23:59:59").execute()
+                consultations_result = await execute_sql("""
+                    SELECT id, total_cost_cents, created_at, status
+                    FROM consultations 
+                    WHERE api_key_id = %s 
+                    AND DATE(created_at) = %s
+                """, (key_data["id"], today), "all")
                 
                 # Calcular estatísticas
-                daily_queries = len(consultations_result.data)
-                daily_cost = sum(c["total_cost_cents"] for c in consultations_result.data)
-                successful_queries = len([c for c in consultations_result.data if c["status"] == "success"])
+                consultations_data = consultations_result["data"] if not consultations_result["error"] else []
+                
+                daily_queries = len(consultations_data)
+                daily_cost = sum(c.get("total_cost_cents", 0) for c in consultations_data)
+                successful_queries = len([c for c in consultations_data if c.get("status") == "success"])
+                
+                # Formatar chave para exibição
+                key_display = "rcp_****"  # Padrão se não houver chave visível
+                if key_data["key_visible"]:
+                    key_display = key_data["key_visible"][:20] + "..."
                 
                 key_usage = {
                     "id": key_data["id"],
                     "name": key_data["name"],
-                    "key": key_data["key"][:20] + "..." if key_data["key"] else "N/A",
-                    "is_active": key_data["is_active"],
-                    "created_at": key_data["created_at"],
-                    "last_used_at": key_data.get("last_used_at"),
+                    "key": key_display,
+                    "is_active": bool(key_data["is_active"]),
+                    "created_at": key_data["created_at"].isoformat() if key_data["created_at"] else None,
+                    "last_used_at": key_data["last_used_at"].isoformat() if key_data["last_used_at"] else None,
                     "daily_queries": daily_queries,
                     "daily_cost": daily_cost,
                     "daily_cost_formatted": f"R$ {daily_cost / 100:.2f}",
@@ -251,10 +316,16 @@ class APIKeyService:
                 
                 keys_usage.append(key_usage)
             
+            logger.info("api_keys_usage_obtida_mariadb", 
+                       user_id=user_id,
+                       total_keys=len(keys_usage))
+            
             return keys_usage
             
         except Exception as e:
-            logger.error(f"Erro ao buscar uso das API keys: {e}")
+            logger.error("erro_obter_uso_api_keys_mariadb", 
+                       user_id=user_id, 
+                       error=str(e))
             return self._generate_mock_keys_usage()
     
     def _generate_mock_keys_usage(self) -> List[dict]:

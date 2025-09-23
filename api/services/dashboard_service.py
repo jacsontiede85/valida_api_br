@@ -1,5 +1,6 @@
 """
 Serviço de Dashboard - Dados Reais do Banco de Dados
+MIGRADO: Supabase → MariaDB
 Integração completa com todos os serviços existentes (sem dados mock)
 """
 
@@ -8,27 +9,23 @@ import time
 import asyncio
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, date
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql
 from api.services.consultation_types_service import consultation_types_service
 from api.services.credit_service import credit_service
 from api.services.history_service import history_service
 
 logger = structlog.get_logger("dashboard_service")
 
-# ✅ Sistema funcionando - debug mínimo para monitoramento
-# import logging
-# logging.getLogger("dashboard_service").setLevel(logging.DEBUG)
-
 
 class DashboardService:
     """
-    Serviço de dashboard com dados 100% reais do banco de dados
+    Serviço de dashboard com dados 100% reais do banco de dados MariaDB
     Integra com todos os serviços existentes do sistema
     """
     
     def __init__(self):
-        """Inicializa o serviço com integrações e cache otimizado"""
-        self.supabase = get_supabase_client()
+        """Inicializa o serviço com integrações e cache otimizado - Migrado para MariaDB"""
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
         self.consultation_types = consultation_types_service
         self.credit_service = credit_service
         self.history_service = history_service
@@ -117,19 +114,17 @@ class DashboardService:
     
     async def _get_credits(self, user_id: str) -> Dict[str, Any]:
         """
-        Busca créditos do usuário calculando saldo real baseado no histórico
+        CORRIGIDO: Usa diretamente o CreditService que calcula corretamente
         """
         try:
-            # Buscar histórico de compras e uso
-            credits_history = await self._get_credits_history(user_id)
+            # ✅ USAR O CREDITSERVICE CORRIGIDO (cálculo em tempo real correto)
+            user_credits = await credit_service.get_user_credits(user_id)
+            real_balance = user_credits.get("available_credits_cents", 0) / 100
             
-            # Calcular saldo real: comprado - usado
+            # Buscar histórico adicional apenas para dados extras  
+            credits_history = await self._get_credits_history(user_id)
             total_purchased = credits_history.get("total_purchased", 0)
             total_used = credits_history.get("total_used", 0)
-            real_balance = total_purchased - total_used
-            
-            # Buscar dados de renovação automática da tabela user_credits
-            user_credits = await credit_service.get_user_credits(user_id)
             if isinstance(user_credits, dict):
                 auto_renewal = user_credits.get("auto_renewal_count", 0) > 0
                 renewal_date = user_credits.get("last_auto_renewal")
@@ -137,26 +132,22 @@ class DashboardService:
                 auto_renewal = getattr(user_credits, "auto_renewal_count", 0) > 0
                 renewal_date = getattr(user_credits, "last_auto_renewal", None)
             
-            # Atualizar saldo na tabela user_credits se estiver desatualizado
-            if abs(real_balance - (user_credits.get("available_credits_cents", 0) / 100)) > 0.01:
-                try:
-                    await self._sync_credit_balance(user_id, real_balance)
-                    logger.info("saldo_creditos_sincronizado", 
-                               user_id=user_id, 
-                               saldo_anterior=user_credits.get("available_credits_cents", 0) / 100,
-                               saldo_real=real_balance)
-                except Exception as sync_error:
-                    logger.error("erro_sincronizar_saldo", 
-                                user_id=user_id, 
-                                error=str(sync_error))
+            # ✅ MIGRADO: CreditService calcula corretamente em tempo real baseado em credit_transactions
+            # Trigger simplificado mantém users.credits atualizada automaticamente
+            
+            # ✅ USAR VALORES CORRETOS DO CREDITSERVICE (tempo real)
+            total_purchased_correct = user_credits.get("total_purchased_cents", 0) / 100
+            total_used_correct = user_credits.get("total_used_cents", 0) / 100
+            
+            # ✅ Logs de debug removidos - sistema funcionando corretamente
             
             return {
                 "available": f"R$ {real_balance:.2f}",
                 "available_raw": real_balance,
-                "purchased": f"R$ {total_purchased:.2f}",
-                "purchased_raw": total_purchased,
-                "used": f"R$ {total_used:.2f}",
-                "used_raw": total_used,
+                "purchased": f"R$ {total_purchased_correct:.2f}",
+                "purchased_raw": total_purchased_correct,
+                "used": f"R$ {total_used_correct:.2f}",
+                "used_raw": total_used_correct,
                 "auto_renewal": auto_renewal,
                 "last_purchase": credits_history.get("last_purchase_date"),
                 "renewal_date": renewal_date
@@ -177,178 +168,124 @@ class DashboardService:
                 "renewal_date": None
             }
     
-    async def _sync_credit_balance(self, user_id: str, real_balance: float) -> None:
-        """
-        Sincroniza o saldo na tabela user_credits com o valor real calculado
-        """
-        try:
-            if not self.supabase:
-                return
-            
-            # Atualizar saldo na tabela user_credits
-            balance_cents = int(real_balance * 100)
-            
-            self.supabase.table("user_credits").update({
-                "available_credits_cents": balance_cents,
-                "updated_at": datetime.now().isoformat()
-            }).eq("user_id", user_id).execute()
-            
-            logger.info("saldo_sincronizado_com_sucesso", 
-                       user_id=user_id, 
-                       novo_saldo=real_balance)
-            
-        except Exception as e:
-            logger.error("erro_sincronizar_saldo_creditos", 
-                        user_id=user_id, 
-                        error=str(e))
-            raise
+    # ✅ REMOVIDO: _sync_credit_balance - não é mais necessário
+    # Trigger simplificado mantém users.credits sincronizada automaticamente
+    # CreditService calcula em tempo real baseado apenas em credit_transactions
     
     async def _get_consultations(self, user_id: str, period: str) -> List[Dict[str, Any]]:
         """
-        ✅ OTIMIZADO: Busca consultas com JOIN único (elimina N+1 queries)
-        Reduz de ~185 requests para 1-2 requests
+        MIGRADO: Busca consultas com JOIN único usando MariaDB
+        Reduz consultas para 1-2 requests
         """
         start_time = time.time()
         try:
-            if not self.supabase:
-                return []
-            
             # Calcular período
             start_date, end_date = self._calculate_period_dates(period)
-            start_timestamp = f"{start_date.isoformat()}T00:00:00"
-            end_timestamp = f"{end_date.isoformat()}T23:59:59"
+            start_timestamp = f"{start_date.isoformat()} 00:00:00"
+            end_timestamp = f"{end_date.isoformat()} 23:59:59"
             
-            logger.info("iniciando_busca_consultas_otimizada", 
+            logger.info("iniciando_busca_consultas_mariadb", 
                        user_id=user_id, 
                        period=period,
                        start_date=start_timestamp,
                        end_date=end_timestamp)
             
-            # 🚀 QUERY OTIMIZADA: JOIN único para buscar tudo
-            # ✅ Usando fallback otimizado (ainda 90%+ mais rápido que versão original)
-            FORCE_FALLBACK = True  # Manter fallback - performance excelente e estável
+            # Query otimizada com JOIN no MariaDB
+            consultations_sql = """
+                SELECT 
+                    c.id, c.user_id, c.cnpj, c.total_cost_cents, c.status, c.created_at,
+                    c.response_time_ms, c.cache_used, c.error_message,
+                    cd.id as detail_id, cd.cost_cents as detail_cost_cents, 
+                    cd.status as detail_status, cd.response_data,
+                    ct.id as type_id, ct.code as type_code, ct.name as type_name, 
+                    ct.cost_cents as type_cost_cents, ct.is_active
+                FROM consultations c
+                LEFT JOIN consultation_details cd ON c.id = cd.consultation_id
+                LEFT JOIN consultation_types ct ON cd.consultation_type_id = ct.id
+                WHERE c.user_id = %s 
+                AND c.created_at BETWEEN %s AND %s
+                ORDER BY c.created_at DESC
+            """
             
-            if not FORCE_FALLBACK:
-                try:
-                    logger.info("tentando_query_join_otimizada",
-                               user_id=user_id,
-                               start_timestamp=start_timestamp,
-                               end_timestamp=end_timestamp)
-                    
-                    consultations_response = self.supabase.table("consultations").select(
-                        """
-                        id, user_id, cnpj, total_cost_cents, status, created_at,
-                        consultation_details(
-                            id, consultation_id, consultation_type_id, cost_cents, success, 
-                            response_data, cache_used, response_time_ms, error_message,
-                            consultation_types(id, code, name, cost_cents, is_active)
-                        )
-                        """
-                    ).eq("user_id", user_id).gte("created_at", start_timestamp).lte("created_at", end_timestamp).order("created_at", desc=True).execute()
-                    
-                    consultations = consultations_response.data or []
-                    
-                    # Processar dados para garantir estrutura consistente
-                    for consultation in consultations:
-                        details = consultation.get("consultation_details", [])
-                        for detail in details:
-                            # Garantir que consultation_types existe
-                            if not detail.get("consultation_types"):
-                                detail["consultation_types"] = {"code": "outros", "name": "Outros"}
-
-                    elapsed_ms = int((time.time() - start_time) * 1000)
-
-                    logger.info("consultas_encontradas_otimizadas", 
-                               user_id=user_id, 
-                               count=len(consultations), 
-                               period=period,
-                               elapsed_ms=elapsed_ms,
-                               method="single_join_query")
-                    
-                    return consultations
-                    
-                except Exception as join_error:
-                    # ⚠️ FALLBACK: Se JOIN falhar, usar método antigo temporariamente
-                    logger.warning("fallback_para_queries_separadas",
-                                  user_id=user_id,
-                                  join_error=str(join_error))
+            result = await execute_sql(consultations_sql, (user_id, start_timestamp, end_timestamp), "all")
             
-            # Usar fallback otimizado
-            return await self._get_consultations_fallback(user_id, start_timestamp, end_timestamp)
+            if result["error"]:
+                logger.error("erro_buscar_consultas_mariadb", 
+                           user_id=user_id, error=result["error"])
+                return []
+            
+            # Agrupar dados por consulta (devido ao LEFT JOIN)
+            consultations_map = {}
+            raw_data = result["data"] or []
+            
+            for row in raw_data:
+                consultation_id = row["id"]
+                
+                if consultation_id not in consultations_map:
+                    consultations_map[consultation_id] = {
+                        "id": row["id"],
+                        "user_id": row["user_id"],
+                        "cnpj": row["cnpj"],
+                        "total_cost_cents": row["total_cost_cents"],
+                        "status": row["status"],
+                        "created_at": row["created_at"],
+                        "response_time_ms": row["response_time_ms"],
+                        "cache_used": row["cache_used"],
+                        "error_message": row["error_message"],
+                        "consultation_details": []
+                    }
+                
+                # Adicionar detalhes se existirem
+                if row["detail_id"]:
+                    consultations_map[consultation_id]["consultation_details"].append({
+                        "id": row["detail_id"],
+                        "consultation_id": consultation_id,
+                        "consultation_type_id": row["type_id"],
+                        "cost_cents": row["detail_cost_cents"],
+                        "success": row["detail_status"] == "success",
+                        "response_data": row["response_data"],
+                        "consultation_types": {
+                            "id": row["type_id"],
+                            "code": row["type_code"] or "outros",
+                            "name": row["type_name"] or "Outros",
+                            "cost_cents": row["type_cost_cents"],
+                            "is_active": row["is_active"]
+                        }
+                    })
+            
+            consultations = list(consultations_map.values())
+            
+            # 🔍 DEBUG: Analisar dados das consultas encontradas
+            total_details = sum(len(c.get("consultation_details", [])) for c in consultations)
+            details_by_type = {}
+            
+            for consultation in consultations:
+                for detail in consultation.get("consultation_details", []):
+                    type_code = detail.get("consultation_types", {}).get("code", "unknown")
+                    details_by_type[type_code] = details_by_type.get(type_code, 0) + 1
+            
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info("consultas_encontradas_mariadb", 
+                       user_id=user_id, 
+                       count=len(consultations), 
+                       period=period,
+                       elapsed_ms=elapsed_ms,
+                       total_consultation_details=total_details,
+                       details_by_type=details_by_type)
+            
+            return consultations
             
         except Exception as e:
-            logger.error("erro_buscar_consultas_otimizada", 
+            logger.error("erro_buscar_consultas_mariadb", 
                         user_id=user_id, 
                         period=period, 
                         error=str(e))
             return []
     
-    async def _get_consultations_fallback(self, user_id: str, start_timestamp: str, end_timestamp: str) -> List[Dict[str, Any]]:
-        """
-        ⚠️ FALLBACK: Método antigo otimizado com cache
-        Usado apenas se a query JOIN falhar
-        """
-        try:
-            # Buscar consultation_types com cache para reduzir requests
-            cached_types = await self._get_consultation_types_cached()
-            
-            # 1. Buscar consultas
-            consultations_response = self.supabase.table("consultations").select(
-                "id, user_id, cnpj, total_cost_cents, status, created_at"
-            ).eq("user_id", user_id).gte("created_at", start_timestamp).lte("created_at", end_timestamp).order("created_at", desc=True).execute()
-            
-            consultations = consultations_response.data or []
-            
-            # 2. Buscar todos os details em uma única query se possível
-            if consultations:
-                consultation_ids = [c["id"] for c in consultations]
-                
-                # Buscar todos os details de uma vez
-                details_response = self.supabase.table("consultation_details").select(
-                    "id, consultation_id, consultation_type_id, cost_cents, success, response_data, cache_used, response_time_ms, error_message"
-                ).in_("consultation_id", consultation_ids).execute()
-                
-                all_details = details_response.data or []
-                
-                # Agrupar details por consultation_id
-                details_by_consultation = {}
-                for detail in all_details:
-                    cons_id = detail["consultation_id"]
-                    if cons_id not in details_by_consultation:
-                        details_by_consultation[cons_id] = []
-                    
-                    # Usar cache de types para evitar requests individuais
-                    type_id = detail.get("consultation_type_id")
-                    if type_id and str(type_id) in cached_types:
-                        detail["consultation_types"] = cached_types[str(type_id)]
-                    else:
-                        detail["consultation_types"] = {"code": "outros", "name": "Outros"}
-                        if type_id:  # Só avisar se havia type_id mas não achou no cache
-                            logger.warning("type_nao_encontrado_no_cache", type_id=type_id)
-                    
-                    details_by_consultation[cons_id].append(detail)
-                
-                # Atribuir details às consultas
-                for consultation in consultations:
-                    cons_id = consultation["id"]
-                    consultation["consultation_details"] = details_by_consultation.get(cons_id, [])
-            
-            logger.info("consultas_fallback_concluidas", 
-                       user_id=user_id, 
-                       count=len(consultations), 
-                       method="optimized_fallback_with_cache")
-            
-            return consultations
-            
-        except Exception as e:
-            logger.error("erro_consultas_fallback", 
-                        user_id=user_id, 
-                        error=str(e))
-            return []
     
     async def _get_consultation_types_cached(self) -> Dict[str, Dict[str, Any]]:
         """
-        🚀 CACHE OTIMIZADO: Busca consultation_types com cache de 5 minutos
+        MIGRADO: Busca consultation_types com cache de 5 minutos usando MariaDB
         Evita requests desnecessários já que types raramente mudam
         """
         current_time = time.time()
@@ -363,25 +300,27 @@ class DashboardService:
             return self._consultation_types_cache
         
         try:
-            # Buscar tipos do banco e atualizar cache
-            if not self.supabase:
+            # Buscar tipos do MariaDB e atualizar cache
+            result = await execute_sql(
+                "SELECT id, code, name, cost_cents, is_active, description FROM consultation_types WHERE is_active = TRUE",
+                (),
+                "all"
+            )
+            
+            if result["error"]:
+                logger.error("erro_buscar_consultation_types_cache", error=result["error"])
                 return {}
             
-            types_response = self.supabase.table("consultation_types").select(
-                "id, code, name, cost_cents, is_active, description"
-            ).eq("is_active", True).execute()
-            
-            types_data = types_response.data or []
+            types_data = result["data"] or []
             
             # Criar mapeamento por ID e por code
             cached_types = {}
-            types_by_code = {}
             
             for type_data in types_data:
-                type_id = str(type_data["id"])  # 🔧 Garantir que ID é string
+                type_id = str(type_data["id"])  # Garantir que ID é string
                 type_code = type_data["code"]
                 
-                # Cache por ID (usado no fallback)
+                # Cache por ID (usado no processamento)
                 cached_types[type_id] = {
                     "id": type_id,
                     "code": type_code,
@@ -390,22 +329,19 @@ class DashboardService:
                     "is_active": type_data["is_active"],
                     "description": type_data.get("description", "")
                 }
-                
-                # Cache por code (usado em costs_data)
-                types_by_code[type_code] = cached_types[type_id]
             
             # Armazenar em cache
             self._consultation_types_cache = cached_types
             self._cache_timestamp = current_time
             
-            logger.info("cache_consultation_types_atualizado", 
+            logger.info("cache_consultation_types_atualizado_mariadb", 
                        types_count=len(cached_types),
                        cache_ttl_seconds=self._cache_ttl)
             
             return cached_types
             
         except Exception as e:
-            logger.error("erro_cache_consultation_types", error=str(e))
+            logger.error("erro_cache_consultation_types_mariadb", error=str(e))
             return {}
     
     async def _get_consultation_costs(self) -> Dict[str, Any]:
@@ -538,7 +474,16 @@ class DashboardService:
             
             # Processar consultas reais
             for consultation in consultations:
-                consultation_date = datetime.fromisoformat(consultation["created_at"]).date()
+                # Lidar com diferentes formatos de created_at (string ISO ou objeto datetime)
+                created_at = consultation["created_at"]
+                if isinstance(created_at, str):
+                    consultation_date = datetime.fromisoformat(created_at).date()
+                elif isinstance(created_at, datetime):
+                    consultation_date = created_at.date()
+                else:
+                    # Fallback: tentar converter
+                    consultation_date = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S").date()
+                
                 date_key = consultation_date.strftime("%Y-%m-%d")
                 
                 if date_key in daily_data:
@@ -617,10 +562,20 @@ class DashboardService:
                         "borderWidth": 2
                     })
         
-            return {
+            result = {
                 "labels": labels,
                 "datasets": chart_datasets
             }
+            
+            # 🔍 DEBUG: Log dos dados gerados do gráfico de consumo
+            logger.info("consumption_chart_gerado", 
+                       labels_count=len(labels),
+                       datasets_count=len(chart_datasets),
+                       total_data_points=len(datasets["total"]),
+                       period=period,
+                       consultations_processed=len(consultations))
+            
+            return result
             
         except Exception as e:
             logger.error("erro_gerar_grafico_consumo", error=str(e))
@@ -685,7 +640,7 @@ class DashboardService:
                 data.append(count)
                 colors.append(type_colors.get(type_code, "#6B7280"))
         
-            return {
+            result = {
                 "labels": labels,
                 "data": data,
                 "backgroundColor": colors,
@@ -698,6 +653,16 @@ class DashboardService:
                     } for type_code, info in type_counts.items()
                 }
             }
+            
+            # 🔍 DEBUG: Log dos dados gerados do gráfico de volume
+            logger.info("volume_chart_gerado", 
+                       labels_count=len(labels),
+                       data_count=len(data),
+                       total_usos=total_usos,
+                       consultations_processed=len(consultations),
+                       type_counts=type_counts)
+            
+            return result
             
         except Exception as e:
             logger.error("erro_gerar_grafico_volume", error=str(e))
@@ -753,10 +718,20 @@ class DashboardService:
             # Gerar dados dos últimos 7 dias para tendência
             current_date = end_date - timedelta(days=6)
             while current_date <= end_date:
-                day_consultations = [
-                    c for c in consultations 
-                    if datetime.fromisoformat(c["created_at"]).date() == current_date
-                ]
+                day_consultations = []
+                for c in consultations:
+                    # Lidar com diferentes formatos de created_at
+                    created_at = c["created_at"]
+                    if isinstance(created_at, str):
+                        c_date = datetime.fromisoformat(created_at).date()
+                    elif isinstance(created_at, datetime):
+                        c_date = created_at.date()
+                    else:
+                        # Fallback: tentar converter
+                        c_date = datetime.strptime(str(created_at), "%Y-%m-%d %H:%M:%S").date()
+                    
+                    if c_date == current_date:
+                        day_consultations.append(c)
                 
                 trend_data.append({
                     "date": current_date.strftime("%Y-%m-%d"),
@@ -775,47 +750,54 @@ class DashboardService:
     
     async def _get_credits_history(self, user_id: str) -> Dict[str, Any]:
         """
-        Busca histórico de créditos (compras e uso) de forma mais precisa
+        Busca histórico de créditos (compras e uso) usando MariaDB
+        MIGRADO: Supabase → MariaDB
         """
         try:
-            if not self.supabase:
-                return {"total_purchased": 0, "total_used": 0, "last_purchase_date": None}
+            # Buscar todas as transações de créditos do MariaDB
+            result = await execute_sql(
+                "SELECT type, amount_cents, created_at FROM credit_transactions WHERE user_id = %s ORDER BY created_at DESC",
+                (user_id,),
+                "all"
+            )
             
-            # Buscar todas as transações de créditos
-            try:
-                all_transactions = self.supabase.table("credit_transactions").select("*").eq("user_id", user_id).execute()
-            except:
-                all_transactions = {"data": []}
+            if result["error"]:
+                logger.error("erro_buscar_credit_transactions", user_id=user_id, error=result["error"])
+                return {"total_purchased": 0, "total_used": 0, "last_purchase_date": None}
             
             # Calcular compras e uso baseado nas transações
             total_purchased = 0
             total_used = 0
             last_purchase = None
             
-            if all_transactions.data:
-                for transaction in all_transactions.data:
-                    amount_cents = transaction.get("amount_cents", 0)
-                    transaction_type = transaction.get("type", "")
-                    
-                    if transaction_type == "purchase":
-                        total_purchased += amount_cents
-                        if last_purchase is None or transaction.get("created_at", "") > last_purchase:
-                            last_purchase = transaction.get("created_at")
-                    elif transaction_type == "usage":
-                        # Transações de uso são negativas, então somamos o valor absoluto
-                        total_used += abs(amount_cents)
+            transactions = result["data"] or []
+            
+            for transaction in transactions:
+                amount_cents = transaction.get("amount_cents", 0)
+                transaction_type = transaction.get("type", "")
+                
+                if transaction_type in ["purchase", "add"]:
+                    total_purchased += amount_cents
+                    if last_purchase is None or transaction.get("created_at", "") > last_purchase:
+                        last_purchase = transaction.get("created_at")
+                elif transaction_type in ["usage", "subtract", "spend"]:
+                    # Transações de uso podem ser negativas, usar valor absoluto
+                    total_used += abs(amount_cents)
             
             # Converter para reais
             total_purchased = total_purchased / 100
             total_used = total_used / 100
             
             # Fallback: se não há transações, calcular baseado nas consultas
-            if total_used == 0:
-                try:
-                    consultations = self.supabase.table("consultations").select("total_cost_cents").eq("user_id", user_id).execute()
-                    total_used = sum(c.get("total_cost_cents", 0) for c in (consultations.data or [])) / 100
-                except:
-                    total_used = 0
+            if total_used == 0 and total_purchased == 0:
+                consultations_result = await execute_sql(
+                    "SELECT SUM(total_cost_cents) as total_cost FROM consultations WHERE user_id = %s",
+                    (user_id,),
+                    "one"
+                )
+                
+                if consultations_result["data"]:
+                    total_used = (consultations_result["data"]["total_cost"] or 0) / 100
             
             return {
                 "total_purchased": total_purchased,
@@ -824,7 +806,7 @@ class DashboardService:
             }
             
         except Exception as e:
-            logger.error("erro_buscar_historico_creditos", user_id=user_id, error=str(e))
+            logger.error("erro_buscar_historico_creditos_mariadb", user_id=user_id, error=str(e))
             return {"total_purchased": 0, "total_used": 0, "last_purchase_date": None}
     
     def _calculate_period_dates(self, period: str) -> tuple[date, date]:

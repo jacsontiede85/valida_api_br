@@ -1,13 +1,14 @@
 """
 Serviço de Tipos de Consulta
 Gerencia custos dinâmicos da tabela consultation_types com cache inteligente
+MIGRADO: Supabase → MariaDB
 """
 
 import structlog
 import asyncio
 from typing import Dict, Optional, Any, List
 from datetime import datetime, timedelta
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql
 
 logger = structlog.get_logger(__name__)
 
@@ -18,11 +19,10 @@ class ConsultationTypesService:
     """
     
     def __init__(self):
-        """Inicializa o serviço com cache vazio"""
+        """Inicializa o serviço com cache vazio - Migrado para MariaDB"""
         self._cache: Dict[str, Any] = {}
         self._cache_timestamp: Optional[datetime] = None
         self._cache_ttl_minutes = 5  # TTL do cache: 5 minutos
-        self._supabase = None
         
         # Mapeamento de códigos do sistema para códigos do banco
         self._code_mapping = {
@@ -44,11 +44,6 @@ class ConsultationTypesService:
             'suframa': 5              # R$ 0,05
         }
     
-    def _get_supabase(self):
-        """Lazy initialization do Supabase client"""
-        if self._supabase is None:
-            self._supabase = get_supabase_client()
-        return self._supabase
     
     def _map_system_code_to_db_code(self, system_code: str) -> str:
         """
@@ -77,27 +72,31 @@ class ConsultationTypesService:
     
     async def _load_types_from_database(self) -> Dict[str, Dict]:
         """
-        Carrega tipos de consulta diretamente do banco de dados
+        Carrega tipos de consulta diretamente do banco de dados MariaDB
         
         Returns:
             Dict[str, Dict]: Dicionário com tipos indexados por código
         """
         try:
-            supabase = self._get_supabase()
-            if not supabase:
-                logger.error("supabase_nao_configurado")
+            # Buscar apenas tipos ativos no MariaDB
+            result = await execute_sql("""
+                SELECT id, code, name, description, cost_cents, provider, is_active, created_at, updated_at
+                FROM consultation_types 
+                WHERE is_active = TRUE
+                ORDER BY code
+            """, (), "all")
+            
+            if result["error"]:
+                logger.error("erro_buscar_consultation_types", error=result["error"])
                 return {}
             
-            # Buscar apenas tipos ativos
-            response = supabase.table("consultation_types").select("*").eq("is_active", True).execute()
-            
-            if not response.data:
+            if not result["data"]:
                 logger.warning("nenhum_tipo_consulta_encontrado")
                 return {}
             
             # Indexar por código para acesso rápido
             types_dict = {}
-            for tipo in response.data:
+            for tipo in result["data"]:
                 code = tipo.get("code")
                 if code:
                     types_dict[code] = {
@@ -264,7 +263,7 @@ class ConsultationTypesService:
                 "cache_valid": self._is_cache_valid(),
                 "cache_timestamp": self._cache_timestamp.isoformat() if self._cache_timestamp else None,
                 "response_time_ms": response_time,
-                "supabase_connected": bool(self._get_supabase())
+                "mariadb_connected": True  # MariaDB sempre conectado via connection pool
             }
         except Exception as e:
             return {

@@ -34,6 +34,49 @@
         .inactive-link {
             color: #9CA3AF;
         }
+        
+        /* Estilo personalizado para scrollbar no modal JSON */
+        #json-content {
+            scrollbar-width: thin;
+            scrollbar-color: #4B5563 #1F2937;
+        }
+        
+        #json-content::-webkit-scrollbar {
+            width: 14px;
+        }
+        
+        #json-content::-webkit-scrollbar-track {
+            background: #1F2937;
+            border-radius: 7px;
+        }
+        
+        #json-content::-webkit-scrollbar-thumb {
+            background: #4B5563;
+            border-radius: 7px;
+            border: 2px solid #1F2937;
+        }
+        
+        #json-content::-webkit-scrollbar-thumb:hover {
+            background: #6B7280;
+        }
+        
+        /* Força altura fixa para o modal */
+        #json-modal .bg-gray-800 {
+            height: 80vh !important;
+            max-height: 80vh !important;
+        }
+        
+        /* Container do JSON com altura definida */
+        #json-modal .h-full.flex.flex-col {
+            height: 100% !important;
+        }
+        
+        /* Área do JSON com scroll forçado */
+        #json-content {
+            height: 100% !important;
+            overflow-y: scroll !important;
+            overflow-x: auto !important;
+        }
     </style>
     <script src="/static/js/history.js"></script>
   </head>
@@ -210,11 +253,29 @@
                   </div>
                   
                   <div class="border-t border-gray-700 pt-4">
-                    <h3 class="text-white font-semibold mb-2">Ações</h3>
+                    <h3 class="text-white font-semibold mb-2">Dados da Resposta</h3>
+                    <div class="mb-3">
+                      <div class="flex justify-between items-center text-sm mb-2">
+                        <span class="text-gray-400">Response Data:</span>
+                        <span class="text-white" data-detail-response-data-status>--</span>
+                      </div>
+                      <div class="text-xs text-gray-500" data-detail-response-data-info>
+                        JSON completo retornado pela API de consulta
+                      </div>
+                    </div>
+                    
                     <div class="flex gap-2">
-                      <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded" data-view-json>
+                      <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors" data-view-json>
                         <span class="material-icons text-xs mr-1">code</span>
-                        Ver JSON
+                        Ver JSON Completo
+                      </button>
+                      <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors" data-copy-json style="display: none;">
+                        <span class="material-icons text-xs mr-1">content_copy</span>
+                        Copiar
+                      </button>
+                      <button class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors" data-download-json style="display: none;">
+                        <span class="material-icons text-xs mr-1">download</span>
+                        Download
                       </button>
                     </div>
                   </div>
@@ -225,8 +286,226 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal para visualizar JSON -->
+    <div id="json-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+      <div class="bg-gray-800 rounded-lg shadow-xl w-full mx-4 flex flex-col" style="max-width: 1000px; height: 80vh;">
+        <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-semibold text-white">JSON Completo da Consulta</h2>
+            <p class="text-sm text-gray-400 mt-1" id="json-modal-subtitle">Dados retornados pela API de consulta</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors" id="copy-json-btn">
+              <span class="material-icons text-xs mr-1">content_copy</span>
+              Copiar
+            </button>
+            <button class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors" id="download-json-btn">
+              <span class="material-icons text-xs mr-1">download</span>
+              Download
+            </button>
+            <button class="text-gray-400 hover:text-white transition-colors p-1" id="close-json-modal">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 p-4 overflow-hidden">
+          <div class="h-full flex flex-col">
+            <div class="mb-2 flex justify-between items-center flex-shrink-0">
+              <div class="text-sm text-gray-400">
+                <span class="text-green-400">●</span> Válido
+                <span id="json-size-info" class="ml-3"></span>
+              </div>
+              <div class="flex gap-2">
+                <button class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors" id="format-json-btn">
+                  <span class="material-icons text-xs mr-1">auto_fix_high</span>
+                  Formatar
+                </button>
+                <button class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors" id="collapse-json-btn">
+                  <span class="material-icons text-xs mr-1">unfold_less</span>
+                  Colapsar
+                </button>
+              </div>
+            </div>
+            <div class="flex-1 bg-gray-900 border border-gray-600 rounded-lg overflow-hidden">
+              <pre class="h-full p-4 text-sm text-green-400 font-mono overflow-y-scroll overflow-x-auto m-0 whitespace-pre-wrap" id="json-content" style="height: 100%; max-height: none;"></pre>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-gray-700 bg-gray-750">
+          <div class="flex justify-between items-center text-xs text-gray-500">
+            <div>
+              💡 <strong>Dica:</strong> Este JSON contém todos os dados retornados pela consulta, incluindo protestos, dados da Receita Federal e metadados.
+            </div>
+            <!-- <div class="text-right">
+              <span class="text-blue-400">Ctrl+A</span> para selecionar tudo • 
+              <span class="text-blue-400">Ctrl+C</span> para copiar
+            </div> -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast para feedback -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg transition-transform duration-300 z-50" style="display: none; transform: translateY(100%);">
+      <div class="flex items-center gap-2">
+        <span class="material-icons text-sm">check_circle</span>
+        <span id="toast-message">JSON copiado para a área de transferência!</span>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="/static/js/auth-utils.js"></script>
     <script src="/static/js/history.js"></script>
+
+    <script>
+      // JavaScript para modal JSON
+      document.addEventListener('DOMContentLoaded', function() {
+        const jsonModal = document.getElementById('json-modal');
+        const closeModalBtn = document.getElementById('close-json-modal');
+        const copyJsonBtn = document.getElementById('copy-json-btn');
+        const downloadJsonBtn = document.getElementById('download-json-btn');
+        const formatJsonBtn = document.getElementById('format-json-btn');
+        const collapseJsonBtn = document.getElementById('collapse-json-btn');
+        const jsonContent = document.getElementById('json-content');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        let currentJsonData = null;
+        let currentCnpj = null;
+        
+        // Fechar modal
+        closeModalBtn.addEventListener('click', function() {
+          jsonModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        });
+        
+        // Fechar modal clicando fora
+        jsonModal.addEventListener('click', function(e) {
+          if (e.target === jsonModal) {
+            jsonModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+          }
+        });
+        
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && jsonModal.style.display !== 'none') {
+            jsonModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+          }
+        });
+        
+        // Função para mostrar JSON
+        window.showJsonModal = function(jsonData, cnpj) {
+          currentJsonData = jsonData;
+          currentCnpj = cnpj;
+          
+          // Atualizar subtitle
+          document.getElementById('json-modal-subtitle').textContent = `CNPJ: ${cnpj} - Dados completos da consulta`;
+          
+          // Formatar JSON
+          const formattedJson = JSON.stringify(jsonData, null, 2);
+          jsonContent.textContent = formattedJson;
+          
+          // Calcular tamanho
+          const sizeInBytes = new Blob([formattedJson]).size;
+          const sizeInKB = (sizeInBytes / 1024).toFixed(2);
+          document.getElementById('json-size-info').textContent = `${sizeInKB} KB`;
+          
+          // Mostrar modal
+          jsonModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+          
+          // Forçar recálculo de layout e garantir que scroll funcione
+          setTimeout(() => {
+            jsonContent.scrollTop = 0;
+            // Forçar redimensionamento
+            const rect = jsonContent.getBoundingClientRect();
+            if (jsonContent.scrollHeight > rect.height) {
+              console.log('✅ Scroll necessário:', jsonContent.scrollHeight, '>', rect.height);
+            }
+          }, 100);
+        };
+        
+        // Copiar JSON
+        copyJsonBtn.addEventListener('click', function() {
+          navigator.clipboard.writeText(jsonContent.textContent).then(function() {
+            showToast('JSON copiado para a área de transferência!', 'success');
+          }).catch(function() {
+            showToast('Erro ao copiar JSON', 'error');
+          });
+        });
+        
+        // Download JSON
+        downloadJsonBtn.addEventListener('click', function() {
+          const blob = new Blob([jsonContent.textContent], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `consulta_${currentCnpj}_${new Date().toISOString().split('T')[0]}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('JSON baixado com sucesso!', 'success');
+        });
+        
+        // Formatar JSON
+        formatJsonBtn.addEventListener('click', function() {
+          if (currentJsonData) {
+            const formatted = JSON.stringify(currentJsonData, null, 2);
+            jsonContent.textContent = formatted;
+            showToast('JSON formatado', 'info');
+            
+            // Garantir que scroll funcione após formatação
+            setTimeout(() => {
+              jsonContent.scrollTop = 0;
+            }, 10);
+          }
+        });
+        
+        // Colapsar JSON
+        collapseJsonBtn.addEventListener('click', function() {
+          if (currentJsonData) {
+            const collapsed = JSON.stringify(currentJsonData);
+            jsonContent.textContent = collapsed;
+            showToast('JSON colapsado', 'info');
+            
+            // Garantir que scroll funcione após colapso
+            setTimeout(() => {
+              jsonContent.scrollTop = 0;
+            }, 10);
+          }
+        });
+        
+        // Mostrar toast
+        function showToast(message, type = 'success') {
+          toastMessage.textContent = message;
+          
+          // Cores baseadas no tipo
+          const colors = {
+            success: 'bg-green-600',
+            error: 'bg-red-600',
+            info: 'bg-blue-600'
+          };
+          
+          toast.className = `fixed bottom-4 right-4 ${colors[type] || colors.success} text-white px-4 py-2 rounded-lg shadow-lg transition-transform duration-300 z-50`;
+          
+          // Mostrar
+          toast.style.display = 'block';
+          toast.style.transform = 'translateY(0)';
+          
+          // Esconder após 3 segundos
+          setTimeout(function() {
+            toast.style.transform = 'translateY(100%)';
+            // Esconder completamente após a animação
+            setTimeout(function() {
+              toast.style.display = 'none';
+            }, 300);
+          }, 3000);
+        }
+      });
+    </script>
   </body>
 </html>

@@ -193,6 +193,7 @@ class RealDashboard {
                 // 💾 SALVAR NO CACHE
                 this.setCache(selectedPeriod, data);
                 
+                // 🔍 DEBUG DETALHADO DOS DADOS RECEBIDOS
                 console.log('✅ Dados REAIS carregados e cached:', {
                     consultas: data.usage?.total_consultations || 0,
                     custo_total: data.usage?.total_cost || 'R$ 0,00',
@@ -202,6 +203,16 @@ class RealDashboard {
                     source: 'server_with_cache',
                     version: 'v2.2_ux_optimized'
                 });
+                
+                // 🔍 DEBUG DOS GRÁFICOS (resumido para produção)
+                if (data.charts) {
+                    const consumption = data.charts.consumption || {};
+                    const volume = data.charts.volume || {};
+                    console.log('📊 Gráficos:', {
+                        consumption: `${consumption.labels?.length || 0} labels, ${consumption.datasets?.length || 0} datasets`,
+                        volume: `${volume.labels?.length || 0} labels, ${volume.data?.length || 0} pontos, ${volume.total_usos || 0} usos`
+                    });
+                }
                 
                 // 🎨 AGENDAR ATUALIZAÇÃO SUAVE DA UI
                 this.scheduleUIUpdate(data, 'server');
@@ -558,7 +569,15 @@ class RealDashboard {
 
     createConsumptionChart(data) {
         const ctx = document.getElementById('apiConsumptionChart');
-        if (!ctx || !data.datasets) return;
+        console.log('📈 Criando gráfico de consumo:', {
+            labels: data?.labels?.length || 0,
+            datasets: data?.datasets?.length || 0
+        });
+        
+        if (!ctx || !data.datasets) {
+            console.warn('⚠️ createConsumptionChart - Cancelado: ctx ou datasets não encontrados');
+            return;
+        }
 
         this.charts.consumption = new Chart(ctx, {
             type: 'line',
@@ -606,7 +625,16 @@ class RealDashboard {
 
     createVolumeChart(data) {
         const ctx = document.getElementById('apiVolumeChart');
-        if (!ctx || !data.data || data.data.length === 0) return;
+        console.log('🥧 Criando gráfico de volume:', {
+            labels: data?.labels?.length || 0,
+            data: data?.data?.length || 0,
+            total_usos: data?.total_usos || 0
+        });
+        
+        if (!ctx || !data.data || data.data.length === 0) {
+            console.warn('⚠️ createVolumeChart - Cancelado: ctx, data.data não encontrados ou vazios');
+            return;
+        }
 
         this.charts.volume = new Chart(ctx, {
             type: 'doughnut',

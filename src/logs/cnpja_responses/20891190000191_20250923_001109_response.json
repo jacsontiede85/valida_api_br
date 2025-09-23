@@ -1,0 +1,170 @@
+{
+    "url": "https://api.cnpja.com/office/20891190000191",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "geocoding": "true",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "17027f0fe3c03127a4ae3f39eed9a5f1",
+        "trace-id": "13c8e0bdfd270bba4a0f4b490e4f4b72",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "00815121e84159b34bd7ad9b3b2f9b2d",
+        "date": "Tue, 23 Sep 2025 03:11:08 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "2336",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-23T00:11:09.375044",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "20891190000191",
+        "company": {
+            "id": 20891190,
+            "name": "SUPREMA SUPERMERCADOS LTDA",
+            "equity": 150000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2014-08-22",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "d46bacfb-e5eb-4fb8-b03a-6d9b66c7da48",
+                        "name": "Ailton Nonato da Silva",
+                        "type": "NATURAL",
+                        "taxId": "***786445**",
+                        "age": "51-60"
+                    }
+                }
+            ]
+        },
+        "alias": "Supermercado Mota",
+        "founded": "2014-08-22",
+        "head": true,
+        "statusDate": "2014-08-22",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2911808,
+            "street": "Rua Jose Dias da Costa",
+            "number": "28",
+            "details": "Terreo",
+            "district": "Antonio Costa",
+            "city": "Guaratinga",
+            "state": "BA",
+            "zip": "45840000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -16.5803188,
+            "longitude": -39.7788255
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "73",
+                "number": "32611709"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "lc_luis6@hotmail.com",
+                "domain": "hotmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4711302,
+            "text": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - supermercados"
+        },
+        "sideActivities": [
+            {
+                "id": 4721102,
+                "text": "Padaria e confeitaria com predominância de revenda"
+            },
+            {
+                "id": 4721103,
+                "text": "Comércio varejista de laticínios e frios"
+            },
+            {
+                "id": 4722901,
+                "text": "Comércio varejista de carnes - açougues"
+            },
+            {
+                "id": 4723700,
+                "text": "Comércio varejista de bebidas"
+            },
+            {
+                "id": 4724500,
+                "text": "Comércio varejista de hortifrutigranjeiros"
+            },
+            {
+                "id": 4741500,
+                "text": "Comércio varejista de tintas e materiais para pintura"
+            },
+            {
+                "id": 4742300,
+                "text": "Comércio varejista de material elétrico"
+            },
+            {
+                "id": 4743100,
+                "text": "Comércio varejista de vidros"
+            },
+            {
+                "id": 4744001,
+                "text": "Comércio varejista de ferragens e ferramentas"
+            },
+            {
+                "id": 4744003,
+                "text": "Comércio varejista de materiais hidráulicos"
+            },
+            {
+                "id": 4744004,
+                "text": "Comércio varejista de cal, areia, pedra britada, tijolos e telhas"
+            },
+            {
+                "id": 4744005,
+                "text": "Comércio varejista de materiais de construção não especificados anteriormente"
+            },
+            {
+                "id": 4744099,
+                "text": "Comércio varejista de materiais de construção em geral"
+            },
+            {
+                "id": 4784900,
+                "text": "Comércio varejista de gás liqüefeito de petróleo (GLP)"
+            },
+            {
+                "id": 5611201,
+                "text": "Restaurantes e similares"
+            },
+            {
+                "id": 5611203,
+                "text": "Lanchonetes, casas de chá, de sucos e similares"
+            }
+        ]
+    }
+}

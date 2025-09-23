@@ -348,6 +348,10 @@ class HistoryManager {
                             <span class="text-white">${query.cache_used ? 'Sim' : 'Não'}</span>
                         </div>
                         <div class="flex justify-between">
+                            <span class="text-gray-400">Response Data:</span>
+                            <span class="text-white">${this.getResponseDataStatus(query.response_data)}</span>
+                        </div>
+                        <div class="flex justify-between">
                             <span class="text-gray-400">ID da Consulta:</span>
                             <span class="text-white font-mono text-xs">${query.id}</span>
                         </div>
@@ -419,20 +423,70 @@ class HistoryManager {
 
     viewJSON(queryId) {
         const query = this.queryHistory.find(q => q.id === queryId);
-        if (!query) return;
+        if (!query) {
+            console.error('Query não encontrada:', queryId);
+            return;
+        }
 
-        // Criar modal para exibir JSON
+        console.log('🔍 Visualizando JSON para query:', queryId, query);
+
+        // Priorizar response_data se existir, senão usar dados da query
+        let jsonData = query.response_data;
+        let dataSource = 'Response Data';
+
+        // Se response_data não existir ou estiver vazio, usar dados da própria query
+        if (!jsonData || (typeof jsonData === 'string' && jsonData.trim() === '')) {
+            console.log('⚠️ response_data não encontrado, usando dados da query');
+            jsonData = {
+                ...query,
+                source: 'query_metadata',
+                note: 'Este é o metadata da consulta. O JSON completo da resposta não está disponível para consultas antigas.'
+            };
+            dataSource = 'Query Metadata (Fallback)';
+        } else if (typeof jsonData === 'string') {
+            try {
+                jsonData = JSON.parse(jsonData);
+                console.log('✅ response_data parseado com sucesso');
+            } catch (error) {
+                console.error('❌ Erro ao fazer parse do response_data:', error);
+                jsonData = {
+                    error: 'Erro ao decodificar JSON',
+                    raw_data: jsonData,
+                    source: 'parse_error'
+                };
+                dataSource = 'Parse Error';
+            }
+        }
+
+        // Usar a função global do modal definida no HTML
+        if (typeof window.showJsonModal === 'function') {
+            window.showJsonModal(jsonData, query.cnpj);
+        } else {
+            // Fallback para modal simples se a função não existir
+            console.warn('⚠️ showJsonModal não encontrado, usando modal simples');
+            this.showSimpleJsonModal(jsonData, query.cnpj, dataSource);
+        }
+    }
+
+    // Fallback para modal simples (caso a função global não funcione)
+    showSimpleJsonModal(jsonData, cnpj, dataSource = 'Data') {
         const jsonModal = document.createElement('div');
         jsonModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
         jsonModal.innerHTML = `
             <div class="bg-gray-800 rounded-lg p-6 max-w-4xl max-h-96 overflow-auto">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-white">Dados JSON da Consulta</h3>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">JSON da Consulta</h3>
+                        <p class="text-sm text-gray-400">CNPJ: ${cnpj} - ${dataSource}</p>
+                    </div>
                     <button class="text-gray-400 hover:text-white" onclick="this.closest('.fixed').remove()">
                         <span class="material-icons">close</span>
                     </button>
                 </div>
-                <pre class="bg-gray-900 p-4 rounded text-green-400 text-sm overflow-auto">${JSON.stringify(query, null, 2)}</pre>
+                <pre class="bg-gray-900 p-4 rounded text-green-400 text-sm overflow-auto font-mono">${JSON.stringify(jsonData, null, 2)}</pre>
+                <div class="mt-4 text-xs text-gray-500">
+                    💡 <strong>Dica:</strong> Use Ctrl+A para selecionar tudo e Ctrl+C para copiar
+                </div>
             </div>
         `;
         document.body.appendChild(jsonModal);
@@ -684,6 +738,28 @@ class HistoryManager {
             .join('\n');
         
         return csvContent;
+    }
+
+    // Função para determinar o status do response_data
+    getResponseDataStatus(responseData) {
+        if (!responseData) {
+            return '<span class="text-yellow-400">⚪ Não disponível</span>';
+        }
+
+        if (typeof responseData === 'string') {
+            try {
+                JSON.parse(responseData);
+                const sizeInKB = (new Blob([responseData]).size / 1024).toFixed(2);
+                return `<span class="text-green-400">✓ Disponível</span> <span class="text-gray-400">(${sizeInKB} KB)</span>`;
+            } catch (error) {
+                return '<span class="text-red-400">⚠ Inválido</span>';
+            }
+        } else if (typeof responseData === 'object') {
+            const sizeInKB = (new Blob([JSON.stringify(responseData)]).size / 1024).toFixed(2);
+            return `<span class="text-green-400">✓ Disponível</span> <span class="text-gray-400">(${sizeInKB} KB)</span>`;
+        }
+
+        return '<span class="text-gray-400">⚪ Formato desconhecido</span>';
     }
 }
 

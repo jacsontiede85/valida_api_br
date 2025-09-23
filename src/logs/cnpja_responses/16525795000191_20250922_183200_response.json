@@ -1,0 +1,173 @@
+{
+    "url": "https://api.cnpja.com/office/16525795000191",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "dbaf78f18db2b541d2d1803452f02b71",
+        "trace-id": "77fd401ce996490e2f8c45639c145eb4",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "11a0d6b5d6fdd74fb96a099e3bca7181",
+        "date": "Mon, 22 Sep 2025 21:32:00 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "2189",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-22T18:32:00.413296",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "16525795000191",
+        "company": {
+            "id": 16525795,
+            "name": "KEEPCON BRASIL TECNOLOGIA EM INTERNET LTDA.",
+            "equity": 140140,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 5,
+                "acronym": "DEMAIS",
+                "text": "Demais"
+            },
+            "members": [
+                {
+                    "since": "2012-06-20",
+                    "role": {
+                        "id": 37,
+                        "text": "Sócio Pessoa Jurídica Domiciliado no Exterior"
+                    },
+                    "person": {
+                        "id": "2d2ecf15-a6e9-4e18-8f2b-abccc0837e14",
+                        "name": "KEEPCON SOLUTIONS LLC",
+                        "type": "LEGAL",
+                        "taxId": "15551783000179"
+                    },
+                    "agent": {
+                        "role": {
+                            "id": 17,
+                            "text": "Procurador"
+                        },
+                        "person": {
+                            "id": "4d3b8852-5767-4c79-9fb1-f43d1c12f000",
+                            "name": "Roberto Guerra Pereira Trevisan",
+                            "type": "NATURAL",
+                            "taxId": "***860827**",
+                            "age": "41-50"
+                        }
+                    }
+                },
+                {
+                    "since": "2012-06-20",
+                    "role": {
+                        "id": 5,
+                        "text": "Administrador"
+                    },
+                    "person": {
+                        "id": "4d3b8852-5767-4c79-9fb1-f43d1c12f000",
+                        "name": "Roberto Guerra Pereira Trevisan",
+                        "type": "NATURAL",
+                        "taxId": "***860827**",
+                        "age": "41-50"
+                    }
+                },
+                {
+                    "since": "2012-06-20",
+                    "role": {
+                        "id": 37,
+                        "text": "Sócio Pessoa Jurídica Domiciliado no Exterior"
+                    },
+                    "person": {
+                        "id": "aa35082d-87fa-4eaa-aca1-cbbdd738edf6",
+                        "name": "KEEPCON SERVICES LLC",
+                        "type": "LEGAL",
+                        "taxId": "15551784000113"
+                    },
+                    "agent": {
+                        "role": {
+                            "id": 17,
+                            "text": "Procurador"
+                        },
+                        "person": {
+                            "id": "4d3b8852-5767-4c79-9fb1-f43d1c12f000",
+                            "name": "Roberto Guerra Pereira Trevisan",
+                            "type": "NATURAL",
+                            "taxId": "***860827**",
+                            "age": "41-50"
+                        }
+                    }
+                }
+            ],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": false,
+                "since": null
+            }
+        },
+        "alias": null,
+        "founded": "2012-06-20",
+        "head": true,
+        "statusDate": "2012-06-20",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3550308,
+            "street": "Rua Enxovia",
+            "number": "472",
+            "details": "Conj 2208",
+            "district": "Vila Sao Francisco (zona Sul)",
+            "city": "São Paulo",
+            "state": "SP",
+            "zip": "04711030",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -23.6273005,
+            "longitude": -46.7006828
+        },
+        "phones": [
+            {
+                "type": "MOBILE",
+                "area": "11",
+                "number": "82093415"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "CORPORATE",
+                "address": "jh@badv.com.br",
+                "domain": "badv.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 6202300,
+            "text": "Desenvolvimento e licenciamento de programas de computador customizáveis"
+        },
+        "sideActivities": [
+            {
+                "id": 6209100,
+                "text": "Suporte técnico, manutenção e outros serviços em tecnologia da informação"
+            }
+        ],
+        "registrations": []
+    }
+}

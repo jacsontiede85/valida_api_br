@@ -1,0 +1,121 @@
+{
+    "url": "https://api.cnpja.com/office/11222333000181",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "77f8c2ea3e7a504f08118b44e2ef1036",
+        "trace-id": "a650b29e3138855c0841c53e009c8873",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "61b3dd6e59f7507abf271bc4051b9ec0",
+        "date": "Tue, 23 Sep 2025 14:19:41 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1330",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-23T11:19:43.065014",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "11222333000181",
+        "company": {
+            "id": 11222333,
+            "name": "CAIXA ESCOLAR DA ESCOLA ESTADUAL DE ENSINO FUNDAMENTAL JOSEFINA JACQUES NORONHA",
+            "equity": null,
+            "nature": {
+                "id": 3999,
+                "text": "Associação Privada"
+            },
+            "size": {
+                "id": 5,
+                "acronym": "DEMAIS",
+                "text": "Demais"
+            },
+            "members": [
+                {
+                    "since": "2016-09-29",
+                    "role": {
+                        "id": 16,
+                        "text": "Presidente"
+                    },
+                    "person": {
+                        "id": "ed753242-edb9-4d70-b1f1-b70342d3d50a",
+                        "name": "Claudia Kich da Silva",
+                        "type": "NATURAL",
+                        "taxId": "***354400**",
+                        "age": "51-60"
+                    }
+                }
+            ],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": false,
+                "since": null
+            }
+        },
+        "alias": "Caixa Escola da Escola Estadual de Ensino Fundamental J",
+        "founded": "2009-09-02",
+        "head": true,
+        "statusDate": "2009-09-02",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 4319505,
+            "street": "Rua Garibaldi",
+            "number": "070",
+            "details": null,
+            "district": "Vila Rica",
+            "city": "São Sebastião do Caí",
+            "state": "RS",
+            "zip": "95760000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -29.5753331,
+            "longitude": -51.3653577
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "51",
+                "number": "36351603"
+            },
+            {
+                "type": "LANDLINE",
+                "area": "51",
+                "number": "36354333"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "josefinanoronha@hotmail.com",
+                "domain": "hotmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 8550301,
+            "text": "Administração de caixas escolares"
+        },
+        "sideActivities": [],
+        "registrations": []
+    }
+}

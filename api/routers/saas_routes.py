@@ -313,6 +313,14 @@ async def get_dashboard_stats(user: AuthUser = Depends(require_auth)):
             detail="Erro interno do servidor"
         )
 
+def clean_cnpj(cnpj: str) -> str:
+    """
+    Remove todos os caracteres não numéricos do CNPJ
+    Exemplo: '11.222.333/0001-81' -> '11222333000181'
+    """
+    import re
+    return re.sub(r'[^0-9]', '', cnpj)
+
 @router.post("/cnpj/consult", response_model=ConsultationResponse)
 async def consult_cnpj(
     consultation_request: ConsultationRequest,
@@ -354,7 +362,7 @@ async def consult_cnpj(
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-            cnpj: "12345678000195",
+            cnpj: "12.345.678/0001-95", // Pode usar formatado ou não
             protestos: true,
             receita_federal: true
         })
@@ -366,7 +374,7 @@ async def consult_cnpj(
     curl -X POST "http://localhost:2377/api/v1/cnpj/consult" \\
          -H "Content-Type: application/json" \\
          -H "Authorization: Bearer rcp_sua_api_key_aqui" \\
-         -d '{"cnpj": "12345678000195", "protestos": true, "receita_federal": true}'
+         -d '{"cnpj": "12.345.678/0001-95", "protestos": true, "receita_federal": true}'
     ```
     
     API Externa (Python):
@@ -379,7 +387,7 @@ async def consult_cnpj(
         "Authorization": "Bearer rcp_sua_api_key_aqui"
     }
     data = {
-        "cnpj": "12345678000195",
+        "cnpj": "12.345.678/0001-95",  # Pode usar formatado
         "protestos": True,
         "receita_federal": True,
         "simples": True,
@@ -408,6 +416,24 @@ async def consult_cnpj(
     ```
     """
     try:
+        # ✅ LIMPAR CNPJ: Remover caracteres especiais (pontos, barras, hífens)
+        original_cnpj = consultation_request.cnpj
+        cleaned_cnpj = clean_cnpj(consultation_request.cnpj)
+        consultation_request.cnpj = cleaned_cnpj
+        
+        # Log da limpeza do CNPJ se houve mudança
+        if original_cnpj != cleaned_cnpj:
+            logger.info("cnpj_limpo", 
+                       original=original_cnpj,
+                       cleaned=cleaned_cnpj[:8] + "****",
+                       user_id=user.user_id)
+        
+        # Validar se CNPJ tem 14 dígitos após limpeza
+        if len(cleaned_cnpj) != 14 or not cleaned_cnpj.isdigit():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"CNPJ deve ter 14 dígitos numéricos. Recebido: '{original_cnpj}' -> '{cleaned_cnpj}'"
+            )
         # Capturar IP do cliente
         client_ip = get_client_ip(http_request)
         
@@ -581,7 +607,27 @@ async def consult_cnpj(
                     "error_message": None if result.success else result.error
                 })
             
-            # Usar novo sistema de logging
+            # Construir response_data completo para armazenamento
+            full_response_data = {
+                "cnpj": result.cnpj,
+                "success": result.success,
+                "status": "success" if result.success else "error",
+                "error": result.error if result.error else None,  # ✅ CORRIGIDO: usar result.error
+                "timestamp": result.timestamp.isoformat() if result.timestamp else None,
+                "response_time_ms": result.response_time_ms,
+                "cache_used": result.cache_used,
+                "total_protests": result.total_protests,
+                "has_protests": result.has_protests,
+                "data": {
+                    "protestos": result.protestos if result.protestos else None,
+                    "dados_receita": result.dados_receita if result.dados_receita else None
+                },
+                "user_id": user_id,  # ✅ CORRIGIDO: usar user_id da função, não result.user_id
+                "api_key_id": api_key_uuid,  # ✅ CORRIGIDO: usar api_key_uuid da função, não result.api_key_id
+                "consultation_types": consultation_types  # Incluir tipos consultados
+            }
+            
+            # Usar novo sistema de logging com response_data completo
             logged_consultation = await query_logger_service.log_consultation(
                 user_id=user_id,
                 api_key_id=api_key_uuid,
@@ -589,9 +635,10 @@ async def consult_cnpj(
                 consultation_types=consultation_types,
                 response_time_ms=result.response_time_ms or 0,
                 status="success" if result.success else "error",
-                error_message=result.message if not result.success else None,
+                error_message=result.error if not result.success else None,  # ✅ CORRIGIDO: usar result.error
                 cache_used=result.cache_used,
-                client_ip=client_ip  # IP do cliente
+                client_ip=client_ip,  # IP do cliente
+                response_data=full_response_data  # ✅ NOVO: JSON completo da resposta
             )
             
             if logged_consultation:

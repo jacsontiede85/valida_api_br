@@ -1,5 +1,6 @@
 """
 Middleware de autenticação para o SaaS
+MIGRADO: Supabase → MariaDB
 """
 import os
 import jwt
@@ -8,7 +9,6 @@ from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import structlog
-from supabase import create_client, Client
 from dotenv import load_dotenv
 from api.middleware.mock_auth import get_mock_auth
 
@@ -21,29 +21,8 @@ logger = structlog.get_logger("auth_middleware")
 JWT_SECRET = os.getenv("JWT_SECRET", "valida-jwt-secret-2024")
 JWT_ALGORITHM = "HS256"
 
-# Configuração do Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-# Cliente Supabase - usar SERVICE_ROLE_KEY para operações administrativas
-supabase_client: Optional[Client] = None
-if SUPABASE_URL and SUPABASE_SERVICE_KEY:
-    try:
-        supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        logger.info("Cliente Supabase configurado com SERVICE_ROLE_KEY")
-    except Exception as e:
-        logger.error(f"Erro ao configurar Supabase: {e}")
-        supabase_client = None
-elif SUPABASE_URL and SUPABASE_ANON_KEY:
-    try:
-        supabase_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-        logger.info("Cliente Supabase configurado com ANON_KEY")
-    except Exception as e:
-        logger.error(f"Erro ao configurar Supabase: {e}")
-        supabase_client = None
-else:
-    logger.warning("Variáveis de ambiente do Supabase não configuradas - usando modo mock")
+# MIGRADO: Removidas configurações Supabase - agora usa MariaDB
+logger.info("Middleware de autenticação configurado para MariaDB")
 
 # Esquema de autenticação
 security = HTTPBearer(auto_error=False)
@@ -97,16 +76,15 @@ async def get_current_user(
         
         # Buscar API key ativa do usuário para logging
         active_api_key = None
-        if supabase_client:
-            try:
-                from api.services.api_key_service import api_key_service
-                user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
-                active_keys = [k for k in user_api_keys if k.is_active]
-                if active_keys:
-                    active_api_key = active_keys[0].key  # Usar a primeira API key ativa
-                    logger.info(f"API key ativa encontrada para usuário: {active_api_key[:8]}****")
-            except Exception as e:
-                logger.warning(f"Erro ao buscar API key do usuário: {e}")
+        try:
+            from api.services.api_key_service import api_key_service
+            user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
+            active_keys = [k for k in user_api_keys if k.is_active]
+            if active_keys:
+                active_api_key = f"rcp_{active_keys[0].key_hash[:8]}****"  # Simular chave para logging
+                logger.info(f"API key ativa encontrada para usuário: {active_api_key}")
+        except Exception as e:
+            logger.warning(f"Erro ao buscar API key do usuário: {e}")
         
         return AuthUser(
             user_id=jwt_payload.get("user_id"),
@@ -114,44 +92,40 @@ async def get_current_user(
             api_key=active_api_key
         )
     
-    # Verificar se é uma API key
+    # Verificar se é uma API key (MIGRADO: MariaDB)
     if token.startswith("rcp_"):
-        if not supabase_client:
-            logger.warning("Supabase não configurado, usando modo mock para API key")
-            mock_auth = get_mock_auth()
-            result = mock_auth.get_user_by_api_key(token)
-            if result and result[0] and result[1]:
-                user_data, api_key_data = result
-                return AuthUser(
-                    user_id=user_data["id"],
-                    email=user_data["email"],
-                    api_key=token
-                )
-            else:
-                raise HTTPException(status_code=401, detail="API key inválida")
-        
-        # Buscar usuário pela API key no Supabase
         try:
-            # Calcular o hash da chave visível para buscar no banco
+            # Calcular o hash da chave visível para buscar no MariaDB
             import hashlib
             key_hash = hashlib.sha256(token.encode()).hexdigest()
-            logger.info(f"Buscando API key com hash: {key_hash}")
+            logger.info(f"Buscando API key com hash: {key_hash[:16]}...")
             
-            result = supabase_client.table("api_keys").select(
-                "id, user_id, name, is_active, users(id, email, name)"
-            ).eq("key_hash", key_hash).execute()
+            # Usar APIKeyService migrado para MariaDB
+            from api.services.api_key_service import api_key_service
+            api_key_data = await api_key_service.get_api_key_by_hash(key_hash)
             
-            logger.info(f"Resultado da busca: {len(result.data)} chaves encontradas")
+            logger.info(f"Resultado da busca: {'1' if api_key_data else '0'} chaves encontradas")
             
-            if result.data and len(result.data) > 0:
-                api_key_data = result.data[0]
+            if api_key_data:
                 if api_key_data["is_active"]:
-                    user_data = api_key_data["users"]
-                    return AuthUser(
-                        user_id=api_key_data["user_id"],
-                        email=user_data["email"],
-                        api_key=token
+                    # Buscar dados do usuário
+                    from api.database.connection import execute_sql
+                    user_result = await execute_sql(
+                        "SELECT id, email, name FROM users WHERE id = %s",
+                        (api_key_data["user_id"],),
+                        "one"
                     )
+                    
+                    if user_result["data"]:
+                        user_data = user_result["data"]
+                        logger.info(f"✅ API key válida para usuário: {user_data['email']}")
+                        return AuthUser(
+                            user_id=api_key_data["user_id"],
+                            email=user_data["email"],
+                            api_key=token
+                        )
+                    else:
+                        raise HTTPException(status_code=401, detail="Usuário não encontrado")
                 else:
                     raise HTTPException(status_code=401, detail="API key inativa")
             else:
@@ -206,16 +180,15 @@ async def validate_jwt_or_api_key(
         
         # Buscar API key ativa do usuário para logging
         active_api_key = None
-        if supabase_client:
-            try:
-                from api.services.api_key_service import api_key_service
-                user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
-                active_keys = [k for k in user_api_keys if k.is_active]
-                if active_keys:
-                    active_api_key = active_keys[0].key  # Usar a primeira API key ativa
-                    logger.info(f"API key ativa encontrada para usuário: {active_api_key[:8]}****")
-            except Exception as e:
-                logger.warning(f"Erro ao buscar API key do usuário: {e}")
+        try:
+            from api.services.api_key_service import api_key_service
+            user_api_keys = await api_key_service.get_user_api_keys(jwt_payload.get("user_id"))
+            active_keys = [k for k in user_api_keys if k.is_active]
+            if active_keys:
+                active_api_key = f"rcp_{active_keys[0].key_hash[:8]}****"  # Simular chave para logging
+                logger.info(f"API key ativa encontrada para usuário: {active_api_key}")
+        except Exception as e:
+            logger.warning(f"Erro ao buscar API key do usuário: {e}")
         
         return AuthUser(
             user_id=jwt_payload.get("user_id"),
@@ -227,46 +200,43 @@ async def validate_jwt_or_api_key(
     if token.startswith("rcp_"):
         logger.info(f"🔑 Tentando validar como API key: {token[:10]}...")
         
-        if not supabase_client:
-            logger.warning("Supabase não configurado, usando modo mock para API key")
-            mock_auth = get_mock_auth()
-            result = mock_auth.get_user_by_api_key(token)
-            if result and result[0] and result[1]:
-                user_data, api_key_data = result
-                return AuthUser(
-                    user_id=user_data["id"],
-                    email=user_data["email"],
-                    api_key=token
-                )
-            else:
-                raise HTTPException(
-                    status_code=401, 
-                    detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
-                )
-        
-        # Buscar usuário pela API key no Supabase
+        # Buscar usuário pela API key no MariaDB (MIGRADO)
         try:
-            # Calcular o hash da chave visível para buscar no banco
+            # Calcular o hash da chave visível para buscar no MariaDB
             import hashlib
             key_hash = hashlib.sha256(token.encode()).hexdigest()
             logger.info(f"Buscando API key com hash: {key_hash[:16]}...")
             
-            result = supabase_client.table("api_keys").select(
-                "id, user_id, name, is_active, users(id, email, name)"
-            ).eq("key_hash", key_hash).execute()
+            # Usar APIKeyService migrado para MariaDB
+            from api.services.api_key_service import api_key_service
+            api_key_data = await api_key_service.get_api_key_by_hash(key_hash)
             
-            logger.info(f"Resultado da busca: {len(result.data)} chaves encontradas")
+            logger.info(f"Resultado da busca: {'1' if api_key_data else '0'} chaves encontradas")
             
-            if result.data and len(result.data) > 0:
-                api_key_data = result.data[0]
+            if api_key_data:
                 if api_key_data["is_active"]:
-                    user_data = api_key_data["users"]
-                    logger.info(f"✅ API key válida para usuário: {user_data['email']}")
-                    return AuthUser(
-                        user_id=api_key_data["user_id"],
-                        email=user_data["email"],
-                        api_key=token
+                    # Buscar dados do usuário no MariaDB
+                    from api.database.connection import execute_sql
+                    user_result = await execute_sql(
+                        "SELECT id, email, name FROM users WHERE id = %s",
+                        (api_key_data["user_id"],),
+                        "one"
                     )
+                    
+                    if user_result["data"]:
+                        user_data = user_result["data"]
+                        logger.info(f"✅ API key válida para usuário: {user_data['email']}")
+                        return AuthUser(
+                            user_id=api_key_data["user_id"],
+                            email=user_data["email"],
+                            api_key=token
+                        )
+                    else:
+                        logger.warning(f"❌ Usuário não encontrado para API key: {token[:10]}...")
+                        raise HTTPException(
+                            status_code=401, 
+                            detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
+                        )
                 else:
                     logger.warning(f"❌ API key inativa: {token[:10]}...")
                     raise HTTPException(
@@ -295,11 +265,12 @@ async def validate_jwt_or_api_key(
         detail={"error": "http_error", "message": "Autenticação necessária", "path": "/api/v1/cnpj/consult", "status_code": 401, "timestamp": datetime.now().isoformat()}
     )
 
-def get_supabase_client() -> Optional[Client]:
+def get_supabase_client():
     """
-    Retorna o cliente Supabase configurado
+    DEPRECATED: Função mantida apenas para compatibilidade - sistema migrado para MariaDB
     """
-    return supabase_client
+    logger.warning("get_supabase_client() is deprecated - system migrated to MariaDB")
+    return None
 
 async def get_current_user_optional(request: Request) -> Optional[AuthUser]:
     """

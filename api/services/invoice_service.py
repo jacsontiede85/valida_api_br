@@ -1,16 +1,18 @@
 """
 Serviço de gerenciamento de faturas
+MIGRADO: Supabase → MariaDB
 """
 import structlog
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql
 
 logger = structlog.get_logger("invoice_service")
 
 class InvoiceService:
     def __init__(self):
-        self.supabase = get_supabase_client()
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
+        pass
     
     async def get_user_invoices(
         self, 
@@ -24,148 +26,202 @@ class InvoiceService:
     ) -> Dict[str, Any]:
         """
         Lista as faturas do usuário com filtros e paginação
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                # Sem Supabase configurado
-                return {
-                    "invoices": [],
-                    "pagination": {
-                        "page": page,
-                        "limit": limit,
-                        "total": 0,
-                        "pages": 0
-                    },
-                    "message": "Sistema de faturas não configurado"
-                }
+            # Construir condições WHERE
+            where_conditions = ["user_id = %s"]
+            params = [user_id]
             
-            # Construir query com filtros
-            query = self.supabase.table("invoices").select("*").eq("user_id", user_id)
-            
-            # Aplicar filtros
             if status != "all":
-                query = query.eq("status", status)
+                where_conditions.append("status = %s")
+                params.append(status)
             
             if date_from:
-                query = query.gte("created_at", date_from)
+                where_conditions.append("created_at >= %s")
+                params.append(date_from)
             
             if date_to:
-                query = query.lte("created_at", date_to)
+                where_conditions.append("created_at <= %s")
+                params.append(date_to)
             
             if search:
-                query = query.ilike("invoice_number", f"%{search}%")
+                where_conditions.append("invoice_number LIKE %s")
+                params.append(f"%{search}%")
             
-            # Aplicar paginação
-            offset = (page - 1) * limit
-            query = query.range(offset, offset + limit - 1).order("created_at", desc=True)
-            
-            response = query.execute()
+            where_clause = " AND ".join(where_conditions)
             
             # Buscar total de registros para paginação
-            count_query = self.supabase.table("invoices").select("id", count="exact").eq("user_id", user_id)
-            if status != "all":
-                count_query = count_query.eq("status", status)
-            if date_from:
-                count_query = count_query.gte("created_at", date_from)
-            if date_to:
-                count_query = count_query.lte("created_at", date_to)
-            if search:
-                count_query = count_query.ilike("invoice_number", f"%{search}%")
+            count_sql = f"SELECT COUNT(*) as total FROM invoices WHERE {where_clause}"
+            count_result = await execute_sql(count_sql, tuple(params))
+            total = count_result["data"][0]["total"] if count_result["data"] else 0
             
-            count_response = count_query.execute()
-            total = count_response.count if count_response.count else 0
+            # Buscar faturas com paginação
+            offset = (page - 1) * limit
+            invoices_sql = f"""
+                SELECT id, user_id, invoice_number, amount_cents, currency, status,
+                       due_date, paid_at, stripe_invoice_id, description,
+                       created_at, updated_at
+                FROM invoices 
+                WHERE {where_clause}
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            
+            invoices_params = params + [limit, offset]
+            invoices_result = await execute_sql(invoices_sql, tuple(invoices_params))
+            
+            # Converter para formato esperado
+            invoices = []
+            for invoice in invoices_result["data"]:
+                invoices.append({
+                    "id": invoice["id"],
+                    "user_id": invoice["user_id"],
+                    "invoice_number": invoice["invoice_number"],
+                    "amount": invoice["amount_cents"] / 100,  # Converter para reais
+                    "amount_cents": invoice["amount_cents"],
+                    "currency": invoice["currency"],
+                    "status": invoice["status"],
+                    "due_date": invoice["due_date"].isoformat() if invoice["due_date"] else None,
+                    "paid_at": invoice["paid_at"].isoformat() if invoice["paid_at"] else None,
+                    "stripe_invoice_id": invoice["stripe_invoice_id"],
+                    "description": invoice["description"],
+                    "created_at": invoice["created_at"].isoformat() if invoice["created_at"] else None,
+                    "updated_at": invoice["updated_at"].isoformat() if invoice["updated_at"] else None
+                })
             
             return {
-                "data": response.data,
+                "data": invoices,
                 "pagination": {
                     "page": page,
                     "limit": limit,
                     "total": total,
-                    "pages": (total + limit - 1) // limit
+                    "pages": (total + limit - 1) // limit if total > 0 else 0
                 }
             }
             
         except Exception as e:
-            logger.error("erro_buscar_faturas", user_id=user_id, error=str(e))
+            logger.error("erro_buscar_faturas_mariadb", user_id=user_id, error=str(e))
             raise e
     
     async def get_invoice(self, user_id: str, invoice_id: str) -> Optional[Dict[str, Any]]:
         """
         Obtém detalhes de uma fatura específica
+        MIGRADO: MariaDB
         """
         try:
-            if not self.supabase:
-                # Retornar fatura mock
-                return self._generate_mock_invoice(invoice_id)
+            # Buscar fatura no MariaDB
+            sql = """
+                SELECT id, user_id, invoice_number, amount_cents, currency, status,
+                       due_date, paid_at, stripe_invoice_id, description,
+                       created_at, updated_at
+                FROM invoices 
+                WHERE id = %s AND user_id = %s
+                LIMIT 1
+            """
             
-            # Buscar fatura no Supabase
-            response = self.supabase.table("invoices").select("*").eq("id", invoice_id).eq("user_id", user_id).execute()
+            result = await execute_sql(sql, (invoice_id, user_id))
             
-            if response.data:
-                return response.data[0]
-            return None
+            if result["error"] or not result["data"]:
+                logger.info("fatura_nao_encontrada", user_id=user_id, invoice_id=invoice_id)
+                return None
+            
+            invoice = result["data"][0]
+            return {
+                "id": invoice["id"],
+                "user_id": invoice["user_id"],
+                "invoice_number": invoice["invoice_number"],
+                "amount": invoice["amount_cents"] / 100,  # Converter para reais
+                "amount_cents": invoice["amount_cents"],
+                "currency": invoice["currency"],
+                "status": invoice["status"],
+                "due_date": invoice["due_date"].isoformat() if invoice["due_date"] else None,
+                "paid_at": invoice["paid_at"].isoformat() if invoice["paid_at"] else None,
+                "stripe_invoice_id": invoice["stripe_invoice_id"],
+                "description": invoice["description"],
+                "created_at": invoice["created_at"].isoformat() if invoice["created_at"] else None,
+                "updated_at": invoice["updated_at"].isoformat() if invoice["updated_at"] else None
+            }
             
         except Exception as e:
-            logger.error("erro_buscar_fatura", user_id=user_id, invoice_id=invoice_id, error=str(e))
+            logger.error("erro_buscar_fatura_mariadb", user_id=user_id, invoice_id=invoice_id, error=str(e))
             raise e
     
     async def download_invoice(self, user_id: str, invoice_id: str) -> Dict[str, Any]:
         """
         Faz download de uma fatura em PDF
+        MIGRADO: MariaDB - PDF generation TODO
         """
         try:
-            if not self.supabase:
-                # Retornar dados mock para download
-                return {
-                    "filename": f"fatura_{invoice_id}.pdf",
-                    "content_type": "application/pdf",
-                    "data": "base64_encoded_pdf_data_mock",
-                    "size": 1024
-                }
-            
-            # Buscar fatura
+            # Buscar fatura no MariaDB
             invoice = await self.get_invoice(user_id, invoice_id)
             if not invoice:
                 raise Exception("Fatura não encontrada")
             
-            # Aqui você implementaria a geração real do PDF
-            # Por enquanto, retornar mock
+            # TODO: Implementar geração real do PDF usando biblioteca como ReportLab
+            # Por enquanto, retornar resposta com indicação de que fatura existe
             return {
-                "filename": f"fatura_{invoice_id}.pdf",
+                "filename": f"fatura_{invoice['invoice_number']}.pdf",
                 "content_type": "application/pdf",
-                "data": "base64_encoded_pdf_data",
-                "size": 1024
+                "invoice_data": invoice,
+                "download_url": f"/api/v1/invoices/{invoice_id}/download",
+                "message": "Fatura encontrada - PDF generation precisa ser implementado"
             }
             
         except Exception as e:
-            logger.error("erro_download_fatura", user_id=user_id, invoice_id=invoice_id, error=str(e))
+            logger.error("erro_download_fatura_mariadb", user_id=user_id, invoice_id=invoice_id, error=str(e))
             raise e
     
-    async def pay_invoice(self, user_id: str, invoice_id: str) -> Dict[str, Any]:
+    async def pay_invoice(self, user_id: str, invoice_id: str, payment_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Processa o pagamento de uma fatura
+        MIGRADO: MariaDB - Stripe integration TODO
         """
         try:
-            if not self.supabase:
-                # Mock para pagamento
+            # Verificar se fatura existe e não foi paga
+            invoice = await self.get_invoice(user_id, invoice_id)
+            if not invoice:
                 return {
-                    "success": True,
-                    "message": "Pagamento processado com sucesso",
-                    "payment_id": f"pay_{invoice_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    "paid_at": datetime.now().isoformat()
+                    "success": False,
+                    "error": "Fatura não encontrada"
                 }
             
-            # Implementar lógica de pagamento real
-            # Por enquanto, retornar mock
+            if invoice["status"] == "paid":
+                return {
+                    "success": False,
+                    "error": "Fatura já foi paga",
+                    "paid_at": invoice["paid_at"]
+                }
+            
+            # TODO: Integrar com Stripe para processar pagamento real
+            # Por enquanto, simular pagamento bem-sucedido
+            payment_id = f"pay_{invoice_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            paid_at = datetime.now()
+            
+            # Atualizar status da fatura no MariaDB
+            update_sql = """
+                UPDATE invoices 
+                SET status = 'paid',
+                    paid_at = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s
+            """
+            
+            await execute_sql(update_sql, (paid_at, invoice_id, user_id))
+            
+            logger.info("fatura_paga", user_id=user_id, invoice_id=invoice_id, payment_id=payment_id)
+            
             return {
                 "success": True,
                 "message": "Pagamento processado com sucesso",
-                "payment_id": f"pay_{invoice_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                "paid_at": datetime.now().isoformat()
+                "payment_id": payment_id,
+                "paid_at": paid_at.isoformat(),
+                "invoice_id": invoice_id,
+                "amount_paid": invoice["amount"]
             }
             
         except Exception as e:
-            logger.error("erro_pagar_fatura", user_id=user_id, invoice_id=invoice_id, error=str(e))
+            logger.error("erro_pagar_fatura_mariadb", user_id=user_id, invoice_id=invoice_id, error=str(e))
             raise e
     
 

@@ -1,0 +1,238 @@
+{
+  "timestamp": "2025-09-22T13:35:00Z",
+  "general_inspection": {
+    "users": {
+      "exists": true,
+      "columns": [
+        "id",
+        "email",
+        "name",
+        "created_at",
+        "updated_at",
+        "password_hash",
+        "last_login",
+        "is_active"
+      ],
+      "sample_data": {
+        "id": "954eef7b-beb7-4109-862d-189f3ca8c2cf",
+        "email": "ti@casaaladim.com.br",
+        "name": "ti",
+        "created_at": "2025-09-18T23:26:37.653935+00:00",
+        "updated_at": "2025-09-19T03:21:34.862861+00:00",
+        "password_hash": "22679d124a4e51ef3754bec835d9a53a13bdc447cbb45c040c72a321e3e3f7c0",
+        "last_login": "2025-09-19T00:21:35.415514+00:00",
+        "is_active": true
+      },
+      "record_count": 1
+    },
+    "subscriptions": {
+      "exists": true,
+      "columns": [
+        "id",
+        "user_id",
+        "plan_id",
+        "status",
+        "stripe_subscription_id",
+        "current_period_start",
+        "current_period_end",
+        "created_at",
+        "updated_at",
+        "last_auto_renewal",
+        "auto_renewal_enabled",
+        "auto_renewal_count",
+        "total_spent_cents"
+      ],
+      "sample_data": {
+        "id": "186c1340-4a8a-4316-8e87-efa2b9c770bb",
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "plan_id": "fb4a6832-eec9-4cf1-84f8-db43a93f362c",
+        "status": "active",
+        "stripe_subscription_id": null,
+        "current_period_start": null,
+        "current_period_end": null,
+        "created_at": "2025-09-15T13:23:43.542706+00:00",
+        "updated_at": "2025-09-17T14:04:32.7189+00:00",
+        "last_auto_renewal": null,
+        "auto_renewal_enabled": true,
+        "auto_renewal_count": 0,
+        "total_spent_cents": 0
+      },
+      "record_count": 1
+    },
+    "subscription_plans": {
+      "exists": true,
+      "columns": [
+        "id",
+        "code",
+        "name",
+        "description",
+        "price_cents",
+        "credits_included_cents",
+        "api_keys_limit",
+        "auto_renew_on_depletion",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ],
+      "sample_data": {
+        "id": "fb4a6832-eec9-4cf1-84f8-db43a93f362c",
+        "code": "basic",
+        "name": "Plano Básico",
+        "description": "Ideal para começar - R$ 100,00 em créditos, renova automaticamente",
+        "price_cents": 10000,
+        "credits_included_cents": 10000,
+        "api_keys_limit": 1,
+        "auto_renew_on_depletion": true,
+        "is_active": true,
+        "created_at": "2025-09-17T13:49:55.247151+00:00",
+        "updated_at": "2025-09-17T13:49:55.247151+00:00"
+      },
+      "record_count": 1
+    },
+    "api_keys": {
+      "exists": true,
+      "columns": [
+        "id",
+        "user_id",
+        "key_hash",
+        "name",
+        "is_active",
+        "last_used_at",
+        "created_at",
+        "description",
+        "key"
+      ],
+      "sample_data": {
+        "id": "37633483-fab8-43c9-a366-5121cc8dc479",
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "key_hash": "6bfd5c2c3cdd3e81ad06011b299b5ed2ffd94159bc566831f906912f8eb88fb0",
+        "name": "Chave Principal",
+        "is_active": true,
+        "last_used_at": null,
+        "created_at": "2025-09-15T20:06:07.795389+00:00",
+        "description": "Chave principal para testes da interface",
+        "key": "rcp_e27e5fea334e3fa26e50da0151fc3bd5e04f75124dc09763e9151fdcc2731d9c"
+      },
+      "record_count": 1
+    },
+    "credit_transactions": {
+      "exists": true,
+      "columns": [
+        "id",
+        "user_id",
+        "consultation_id",
+        "type",
+        "amount_cents",
+        "balance_after_cents",
+        "description",
+        "stripe_payment_id",
+        "created_at",
+        "stripe_payment_intent_id",
+        "stripe_invoice_id",
+        "balance_after"
+      ],
+      "sample_data": {
+        "id": "cd7fefc6-6652-4166-8795-bddface964db",
+        "user_id": "41b85a71-db10-4e92-bc17-25b555e6cf37",
+        "consultation_id": null,
+        "type": "purchase",
+        "amount_cents": 1000,
+        "balance_after_cents": 1000,
+        "description": "Compra inicial de créditos",
+        "stripe_payment_id": null,
+        "created_at": "2025-09-19T01:49:09.322939+00:00",
+        "stripe_payment_intent_id": null,
+        "stripe_invoice_id": null,
+        "balance_after": null
+      },
+      "record_count": 1
+    },
+    "service_costs": {
+      "exists": false,
+      "error": "{'code': 'PGRST205', 'details': None, 'hint': \"Perhaps you meant the table 'public.user_credits'\", 'message': \"Could not find the table 'public.service_costs' in the schema cache\"}",
+      "columns": [],
+      "sample_data": null
+    },
+    "stripe_webhook_logs": {
+      "exists": false,
+      "error": "{'code': 'PGRST205', 'details': None, 'hint': None, 'message': \"Could not find the table 'public.stripe_webhook_logs' in the schema cache\"}",
+      "columns": [],
+      "sample_data": null
+    }
+  },
+  "credit_transactions_analysis": {
+    "table_exists": true,
+    "columns_detected": [
+      "id",
+      "user_id",
+      "consultation_id",
+      "type",
+      "amount_cents",
+      "balance_after_cents",
+      "description",
+      "stripe_payment_id",
+      "created_at",
+      "stripe_payment_intent_id",
+      "stripe_invoice_id",
+      "balance_after"
+    ],
+    "sample_records": [
+      {
+        "id": "cd7fefc6-6652-4166-8795-bddface964db",
+        "user_id": "41b85a71-db10-4e92-bc17-25b555e6cf37",
+        "consultation_id": null,
+        "type": "purchase",
+        "amount_cents": 1000,
+        "balance_after_cents": 1000,
+        "description": "Compra inicial de créditos",
+        "stripe_payment_id": null,
+        "created_at": "2025-09-19T01:49:09.322939+00:00",
+        "stripe_payment_intent_id": null,
+        "stripe_invoice_id": null,
+        "balance_after": null
+      },
+      {
+        "id": "9c425f7b-a0f8-4429-a02f-dfeeec7cc5c3",
+        "user_id": "c81cf3f0-f3e6-4075-8ba0-ddbba9955de0",
+        "consultation_id": null,
+        "type": "purchase",
+        "amount_cents": 1000,
+        "balance_after_cents": 1000,
+        "description": "Créditos de boas-vindas",
+        "stripe_payment_id": null,
+        "created_at": "2025-09-18T23:06:24.221547+00:00",
+        "stripe_payment_intent_id": null,
+        "stripe_invoice_id": null,
+        "balance_after": null
+      },
+      {
+        "id": "afb45f26-ce4f-484c-a3bd-b2d866e72baa",
+        "user_id": "954eef7b-beb7-4109-862d-189f3ca8c2cf",
+        "consultation_id": null,
+        "type": "purchase",
+        "amount_cents": 1000,
+        "balance_after_cents": 1000,
+        "description": "Créditos de boas-vindas",
+        "stripe_payment_id": null,
+        "created_at": "2025-09-18T23:26:39.976034+00:00",
+        "stripe_payment_intent_id": null,
+        "stripe_invoice_id": null,
+        "balance_after": null
+      }
+    ],
+    "structure_analysis": {
+      "id": "str",
+      "user_id": "str",
+      "consultation_id": "NoneType",
+      "type": "str",
+      "amount_cents": "int",
+      "balance_after_cents": "int",
+      "description": "str",
+      "stripe_payment_id": "NoneType",
+      "created_at": "str",
+      "stripe_payment_intent_id": "NoneType",
+      "stripe_invoice_id": "NoneType",
+      "balance_after": "NoneType"
+    }
+  }
+}

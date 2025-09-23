@@ -1,0 +1,110 @@
+{
+    "url": "https://api.cnpja.com/office/04217854000185",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "d02587e38a94348424321c08af2be6e1",
+        "trace-id": "fdc2ba9b8f0a7b659eb129d8f73dbbcd",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "9d8c84364d620544ae75f59ee473490c",
+        "date": "Tue, 23 Sep 2025 15:10:19 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1176",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-23T12:10:20.508642",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "04217854000185",
+        "company": {
+            "id": 4217854,
+            "name": "CRISTIANO SOUZA COSTA",
+            "equity": 50000,
+            "nature": {
+                "id": 2135,
+                "text": "Empresário (Individual)"
+            },
+            "size": {
+                "id": 3,
+                "acronym": "EPP",
+                "text": "Empresa de Pequeno Porte"
+            },
+            "members": [],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": true,
+                "since": "2007-07-01"
+            }
+        },
+        "alias": null,
+        "founded": "2000-12-26",
+        "head": true,
+        "statusDate": "2005-10-14",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 2929800,
+            "street": "Praca Albino Pereira",
+            "number": "S/N",
+            "details": "Terreo",
+            "district": "Centro",
+            "city": "Saúde",
+            "state": "BA",
+            "zip": "44740000",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -10.9415441,
+            "longitude": -40.4196973
+        },
+        "phones": [],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "nalvars@terra.com.br",
+                "domain": "terra.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 4712100,
+            "text": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - minimercados, mercearias e armazéns"
+        },
+        "sideActivities": [],
+        "registrations": [
+            {
+                "state": "BA",
+                "number": "054472675",
+                "enabled": true,
+                "statusDate": "2001-01-08",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

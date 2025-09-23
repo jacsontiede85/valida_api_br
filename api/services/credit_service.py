@@ -1,5 +1,6 @@
 """
 Serviço para gerenciamento de créditos e renovação automática
+MIGRADO: Supabase → MariaDB
 """
 import structlog
 import stripe
@@ -8,7 +9,7 @@ from typing import Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 
-from api.middleware.auth_middleware import get_supabase_client
+from api.database.connection import execute_sql, generate_uuid
 
 logger = structlog.get_logger("credit_service")
 
@@ -21,20 +22,61 @@ class InsufficientCreditsError(Exception):
 
 class CreditService:
     def __init__(self):
-        self.supabase = get_supabase_client()
+        # Migrado de Supabase para MariaDB - não precisa de cliente específico
+        pass
     
     async def get_user_credits(self, user_id: str) -> Dict[str, Any]:
         """
         Obtém informações de crédito do usuário
+        MIGRADO: Calcula em tempo real baseado em credit_transactions usando MariaDB
         """
         try:
-            response = self.supabase.table("user_credits").select("*").eq("user_id", user_id).execute()
+            logger.info("calculando_creditos_tempo_real", user_id=user_id)
             
-            if response.data:
-                return response.data[0]
-            else:
+            # Buscar todas as transações do usuário
+            transactions_result = await execute_sql(
+                "SELECT * FROM credit_transactions WHERE user_id = %s ORDER BY created_at ASC",
+                (user_id,),
+                "all"
+            )
+            
+            if not transactions_result["data"]:
+                logger.info("usuario_sem_transacoes", user_id=user_id)
                 # Criar registro inicial de créditos
                 return await self.create_initial_credits(user_id)
+            
+            # Calcular saldo em tempo real
+            available_credits_cents = 0
+            total_purchased_cents = 0
+            total_used_cents = 0
+            
+            for tx in transactions_result["data"]:
+                amount = tx['amount_cents']
+                
+                if tx['type'] in ['add', 'purchase']:
+                    available_credits_cents += amount
+                    total_purchased_cents += amount
+                elif tx['type'] in ['usage', 'subtract', 'spend']:
+                    available_credits_cents += amount  # amount já é negativo para 'usage'
+                    total_used_cents += abs(amount)
+            
+            result = {
+                "user_id": user_id,
+                "available_credits_cents": available_credits_cents,
+                "total_purchased_cents": total_purchased_cents,
+                "total_used_cents": total_used_cents,
+                "auto_renewal_count": 0,  # Valor padrão
+                "last_auto_renewal": None,
+                "created_at": transactions_result["data"][0]["created_at"] if transactions_result["data"] else None,
+                "updated_at": transactions_result["data"][-1]["created_at"] if transactions_result["data"] else None
+            }
+            
+            logger.info("creditos_calculados_tempo_real", 
+                       user_id=user_id,
+                       available=available_credits_cents/100,
+                       total_transactions=len(transactions_result["data"]))
+            
+            return result
                 
         except Exception as e:
             logger.error("erro_obter_creditos", user_id=user_id, error=str(e))
@@ -43,19 +85,10 @@ class CreditService:
     async def create_initial_credits(self, user_id: str) -> Dict[str, Any]:
         """
         Cria registro inicial de créditos para novo usuário
+        MIGRADO: MariaDB com trigger automático de saldo
         """
         try:
-            initial_credits = {
-                "user_id": user_id,
-                "available_credits_cents": 1000,  # R$ 10,00 de boas-vindas
-                "total_purchased_cents": 1000,
-                "total_used_cents": 0,
-                "auto_renewal_count": 0
-            }
-            
-            response = self.supabase.table("user_credits").insert(initial_credits).execute()
-            
-            # Registrar transação de boas-vindas
+            # Registrar transação de boas-vindas (trigger atualiza users.credits automaticamente)
             await self.log_credit_transaction(
                 user_id=user_id,
                 transaction_type="purchase",
@@ -65,8 +98,11 @@ class CreditService:
                 stripe_payment_id=None
             )
             
+            # Buscar resultado atualizado
+            result = await self.get_user_credits(user_id)
+            
             logger.info("creditos_iniciais_criados", user_id=user_id, credits=1000)
-            return response.data[0]
+            return result
             
         except Exception as e:
             logger.error("erro_criar_creditos_iniciais", user_id=user_id, error=str(e))
@@ -240,13 +276,17 @@ class CreditService:
         Obtém dados do cliente no Stripe
         """
         try:
-            # Buscar dados do Stripe no banco (assumindo que existe uma tabela stripe_customers)
-            response = self.supabase.table("users").select("stripe_customer_id, default_payment_method").eq("id", user_id).execute()
+            # Buscar dados do Stripe no MariaDB
+            result = await execute_sql(
+                "SELECT stripe_customer_id FROM users WHERE id = %s",
+                (user_id,),
+                "one"
+            )
             
-            if response.data and response.data[0].get("stripe_customer_id"):
+            if result["data"] and result["data"].get("stripe_customer_id"):
                 return {
-                    "stripe_customer_id": response.data[0]["stripe_customer_id"],
-                    "default_payment_method": response.data[0].get("default_payment_method")
+                    "stripe_customer_id": result["data"]["stripe_customer_id"],
+                    "default_payment_method": None  # Campo não implementado ainda
                 }
             
             return None
@@ -266,17 +306,7 @@ class CreditService:
             current_balance = user_credits["available_credits_cents"]
             new_balance = current_balance + amount_cents
             
-            # Atualizar saldo
-            update_data = {
-                "available_credits_cents": new_balance,
-                "total_purchased_cents": user_credits["total_purchased_cents"] + amount_cents,
-                "updated_at": datetime.now().isoformat()
-            }
-            
-            if transaction_type == "auto_renewal":
-                update_data["last_auto_renewal"] = datetime.now().isoformat()
-            
-            response = self.supabase.table("user_credits").update(update_data).eq("user_id", user_id).execute()
+            # ✅ MIGRADO: Não precisa atualizar user_credits - trigger faz automaticamente
             
             # Registrar transação
             await self.log_credit_transaction(
@@ -305,6 +335,7 @@ class CreditService:
                            description: str = "") -> Dict[str, Any]:
         """
         Deduz créditos do usuário
+        MIGRADO: MariaDB - usa trigger automático para atualizar saldos
         """
         try:
             # Obter saldo atual
@@ -312,21 +343,12 @@ class CreditService:
             current_balance = user_credits["available_credits_cents"]
             
             if current_balance < amount_cents:
-                raise ValueError(f"Saldo insuficiente: {current_balance} < {amount_cents}")
+                raise InsufficientCreditsError(f"Saldo insuficiente: {current_balance/100:.2f} < {amount_cents/100:.2f}")
             
             new_balance = current_balance - amount_cents
             
-            # Atualizar saldo
-            update_data = {
-                "available_credits_cents": new_balance,
-                "total_used_cents": user_credits["total_used_cents"] + amount_cents,
-                "updated_at": datetime.now().isoformat()
-            }
-            
-            response = self.supabase.table("user_credits").update(update_data).eq("user_id", user_id).execute()
-            
-            # Registrar transação
-            await self.log_credit_transaction(
+            # ✅ MIGRADO: Registrar transação (trigger atualiza saldos automaticamente)
+            transaction_result = await self.log_credit_transaction(
                 user_id=user_id,
                 consultation_id=consultation_id,
                 transaction_type="usage",
@@ -335,16 +357,26 @@ class CreditService:
                 description=description
             )
             
-            logger.info("creditos_deduzidos",
+            logger.info("creditos_deduzidos_mariadb",
                        user_id=user_id,
-                       amount=amount_cents,
-                       new_balance=new_balance,
-                       consultation_id=consultation_id)
+                       amount_cents=amount_cents,
+                       new_balance_cents=new_balance,
+                       consultation_id=consultation_id,
+                       description=description)
             
-            return response.data[0]
+            # Retornar informações da dedução
+            return {
+                "user_id": user_id,
+                "amount_deducted_cents": amount_cents,
+                "new_balance_cents": new_balance,
+                "transaction_id": transaction_result.get("id"),
+                "success": True
+            }
             
+        except InsufficientCreditsError:
+            raise  # Re-raise para tratamento específico
         except Exception as e:
-            logger.error("erro_deduzir_creditos", user_id=user_id, error=str(e))
+            logger.error("erro_deduzir_creditos_mariadb", user_id=user_id, error=str(e))
             raise
     
     async def log_credit_transaction(self, user_id: str, transaction_type: str, amount_cents: int, 
@@ -353,27 +385,39 @@ class CreditService:
                                    stripe_payment_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Registra transação de crédito
+        MIGRADO: MariaDB com trigger automático para atualizar saldos
         """
         try:
-            transaction_data = {
-                "user_id": user_id,
-                "consultation_id": consultation_id,
-                "type": transaction_type,
-                "amount_cents": amount_cents,
-                "balance_after_cents": balance_after_cents,
-                "description": description,
-                "stripe_payment_id": stripe_payment_id,
-                "created_at": datetime.now().isoformat()
-            }
+            transaction_id = generate_uuid()
             
-            response = self.supabase.table("credit_transactions").insert(transaction_data).execute()
+            # Inserir transação (trigger atualiza saldos automaticamente)
+            result = await execute_sql("""
+                INSERT INTO credit_transactions 
+                (id, user_id, consultation_id, type, amount_cents, balance_after_cents, 
+                 description, stripe_payment_intent_id, stripe_invoice_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                transaction_id, user_id, consultation_id, transaction_type,
+                amount_cents, balance_after_cents, description, 
+                stripe_payment_id, None
+            ), "none")
+            
+            if result["error"]:
+                raise Exception(result["error"])
             
             logger.debug("transacao_credito_registrada",
                         user_id=user_id,
                         type=transaction_type,
                         amount=amount_cents)
             
-            return response.data[0]
+            # Buscar transação criada
+            transaction_result = await execute_sql(
+                "SELECT * FROM credit_transactions WHERE id = %s",
+                (transaction_id,),
+                "one"
+            )
+            
+            return transaction_result["data"] if transaction_result["data"] else {}
             
         except Exception as e:
             logger.error("erro_registrar_transacao", user_id=user_id, error=str(e))
@@ -382,11 +426,16 @@ class CreditService:
     async def get_user_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Obtém assinatura ativa do usuário
+        MIGRADO: MariaDB
         """
         try:
-            response = self.supabase.table("subscriptions").select("*").eq("user_id", user_id).eq("status", "active").execute()
+            result = await execute_sql(
+                "SELECT * FROM subscriptions WHERE user_id = %s AND status = 'active' ORDER BY created_at DESC LIMIT 1",
+                (user_id,),
+                "one"
+            )
             
-            return response.data[0] if response.data else None
+            return result["data"] if result["data"] else None
             
         except Exception as e:
             logger.error("erro_obter_assinatura", user_id=user_id, error=str(e))
@@ -395,11 +444,16 @@ class CreditService:
     async def get_subscription_plan(self, plan_id: str) -> Optional[Dict[str, Any]]:
         """
         Obtém detalhes do plano de assinatura
+        MIGRADO: MariaDB
         """
         try:
-            response = self.supabase.table("subscription_plans").select("*").eq("id", plan_id).execute()
+            result = await execute_sql(
+                "SELECT * FROM subscription_plans WHERE id = %s AND is_active = TRUE",
+                (plan_id,),
+                "one"
+            )
             
-            return response.data[0] if response.data else None
+            return result["data"] if result["data"] else None
             
         except Exception as e:
             logger.error("erro_obter_plano", plan_id=plan_id, error=str(e))
@@ -408,25 +462,26 @@ class CreditService:
     async def update_renewal_count(self, user_id: str) -> bool:
         """
         Atualiza contador de renovações automáticas
+        MIGRADO: MariaDB - método simplificado
         """
         try:
-            # Atualizar user_credits
-            self.supabase.table("user_credits").update({
-                "auto_renewal_count": self.supabase.rpc("increment_renewal_count", {"user_id": user_id}),
-                "updated_at": datetime.now().isoformat()
-            }).eq("user_id", user_id).execute()
+            # ✅ MIGRADO: Atualizar apenas subscriptions (user_credits removida por ser redundante)
+            result = await execute_sql("""
+                UPDATE subscriptions 
+                SET last_auto_renewal = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND status = 'active'
+            """, (user_id,), "none")
             
-            # Atualizar subscriptions  
-            self.supabase.table("subscriptions").update({
-                "auto_renewal_count": self.supabase.rpc("increment_subscription_renewal", {"user_id": user_id}),
-                "last_auto_renewal": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat()
-            }).eq("user_id", user_id).execute()
+            if result["error"]:
+                logger.error("erro_atualizar_subscription_renewal", user_id=user_id, error=result["error"])
+                return False
             
+            logger.info("contador_renovacao_atualizado", user_id=user_id)
             return True
             
         except Exception as e:
-            logger.error("erro_atualizar_contador_renovacao", user_id=user_id, error=str(e))
+            logger.error("erro_atualizar_contador_renovacao_mariadb", user_id=user_id, error=str(e))
             return False
     
     async def get_credit_balance_formatted(self, user_id: str) -> Dict[str, Any]:
@@ -461,18 +516,18 @@ class CreditService:
         Obtém transações de créditos do usuário
         """
         try:
-            if not self.supabase:
+            # Buscar transações recentes do MariaDB
+            result = await execute_sql(
+                "SELECT * FROM credit_transactions WHERE user_id = %s ORDER BY created_at DESC LIMIT %s",
+                (user_id, limit),
+                "all"
+            )
+            
+            if not result["data"]:
                 return self._generate_mock_transactions(limit)
             
-            # Buscar transações recentes
-            result = self.supabase.table("credit_transactions").select(
-                "*"
-            ).eq("user_id", user_id).order(
-                "created_at", desc=True
-            ).limit(limit).execute()
-            
             transactions = []
-            for txn in result.data:
+            for txn in result["data"]:
                 transactions.append({
                     "id": txn["id"],
                     "type": txn["type"],
@@ -481,7 +536,7 @@ class CreditService:
                     "balance_after_cents": txn["balance_after_cents"],
                     "description": txn["description"],
                     "created_at": txn["created_at"],
-                    "stripe_payment_id": txn.get("stripe_payment_id"),
+                    "stripe_payment_id": txn.get("stripe_payment_intent_id"),
                     "is_credit": txn["amount_cents"] > 0,
                     "is_debit": txn["amount_cents"] < 0
                 })
