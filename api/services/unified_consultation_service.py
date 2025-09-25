@@ -84,8 +84,19 @@ class UnifiedConsultationService:
         # 2. Verificar créditos e renovar se necessário
         if user_id:
             try:
-                await credit_service.check_and_renew_credits(user_id, total_cost_cents)
-                logger.info("verificacao_creditos_ok", user_id=user_id, custo=total_cost_cents)
+                # Converter centavos para reais
+                total_cost_reais = total_cost_cents / 100.0
+                # Validar se há créditos suficientes
+                has_credits = await credit_service.validate_sufficient_credits(user_id, total_cost_reais)
+                if not has_credits:
+                    # Buscar saldo atual para informar na exceção
+                    user_credits = await credit_service.get_user_credits(user_id)
+                    current_balance = user_credits.get("available", 0)
+                    raise InsufficientCreditsError(
+                        current_balance=current_balance,
+                        required_amount=total_cost_reais
+                    )
+                logger.info("verificacao_creditos_ok", user_id=user_id, custo_reais=total_cost_reais)
             except InsufficientCreditsError as e:
                 logger.error("creditos_insuficientes", user_id=user_id, error=str(e))
                 return ConsultationResponse(

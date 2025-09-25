@@ -17,7 +17,7 @@ from api.middleware.auth_middleware import require_auth, require_api_key, AuthUs
 from api.services.user_service import user_service
 from api.services.api_key_service import api_key_service
 from api.services.dashboard_service import dashboard_service
-from api.services.credit_service import credit_service
+from api.services.credit_service import credit_service, InsufficientCreditsError
 
 logger = structlog.get_logger("saas_routes")
 
@@ -652,16 +652,24 @@ async def consult_cnpj(
                     total_cost_cents = sum(ct.get("cost_cents", 0) for ct in consultation_types)
                     if total_cost_cents > 0:
                         try:
-                            await credit_service.deduct_credits(
+                            # Converter centavos para reais
+                            total_cost_reais = total_cost_cents / 100.0
+                            await credit_service.consume_credits(
                                 user_id=user_id,
-                                amount_cents=total_cost_cents,
-                                consultation_id=logged_consultation.get("id"),
-                                description=f"Consulta CNPJ {consultation_request.cnpj[:8]}****"
+                                amount=total_cost_reais,
+                                description=f"Consulta CNPJ {consultation_request.cnpj[:8]}****",
+                                consultation_id=logged_consultation.get("id")
                             )
                             logger.info("creditos_deduzidos_apos_consulta",
                                        user_id=user_id,
                                        amount_cents=total_cost_cents,
                                        consultation_id=logged_consultation.get("id"))
+                        except InsufficientCreditsError as credit_error:
+                            # Se não há créditos suficientes, ainda assim a consulta foi feita
+                            # então apenas logamos o erro
+                            logger.error("creditos_insuficientes_apos_consulta",
+                                       user_id=user_id,
+                                       error=str(credit_error))
                         except Exception as credit_error:
                             logger.error("erro_deduzir_creditos_apos_consulta",
                                        user_id=user_id,

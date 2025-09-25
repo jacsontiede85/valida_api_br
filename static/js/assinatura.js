@@ -11,6 +11,7 @@ class AssinaturaManager {
         this.availablePlans = [];
         this.userSubscription = null;
         this.stripePrices = {};
+        this.consultationTypes = [];  // Para tabela de preços
         this.costs = {
             protestos: 0,
             receita_federal: 0,
@@ -27,9 +28,11 @@ class AssinaturaManager {
             // Inicializar Stripe
             await this.initializeStripe();
             
-            // Carregar dados
+            // Carregar dados - ORDEM IMPORTANTE: consultation types primeiro para atualizar custos
+            await this.loadConsultationTypes(); // 1º - Carregar custos REAIS da tabela
+            
             await Promise.all([
-                this.loadCosts(),
+                this.loadCosts(), // 2º - Carregar custos fallback (caso consultation_types falhe)
                 this.loadPlans(),
                 this.loadCurrentSubscription(),
                 this.loadRecentTransactions(),
@@ -40,6 +43,12 @@ class AssinaturaManager {
             this.renderPlans();
             this.renderCurrentSubscription();
             this.updateAutoRenewalToggle();
+            
+            // ✅ CORREÇÃO: Re-renderizar assinatura após carregamento completo
+            setTimeout(() => {
+                console.log('🔄 Re-renderizando assinatura após carregamento completo...');
+                this.renderCurrentSubscription();
+            }, 500);
             
             console.log('✅ AssinaturaManager inicializado com sucesso');
         } catch (error) {
@@ -116,6 +125,40 @@ class AssinaturaManager {
         }
     }
 
+    async loadConsultationTypes() {
+        try {
+            const data = await AuthUtils.authenticatedFetchJSON('/api/v1/stripe/consultation-types');
+            this.consultationTypes = data.consultation_types || [];
+            
+            // ✅ CORREÇÃO: Atualizar this.costs com dados REAIS da tabela consultation_types
+            if (this.consultationTypes.length > 0) {
+                this.consultationTypes.forEach(type => {
+                    const code = type.code.toLowerCase();
+                    const costInReais = type.cost_reais; // Já vem convertido do backend
+                    
+                    if (code === 'protestos') {
+                        this.costs.protestos = costInReais;
+                    } else if (code === 'receita_federal') {
+                        this.costs.receita_federal = costInReais;
+                    } else if (code === 'outros') {
+                        this.costs.outros = costInReais;
+                    }
+                });
+                
+                console.log('✅ Custos REAIS atualizados da tabela consultation_types:', this.costs);
+                
+                // Re-renderizar estimativas dos planos com custos corretos
+                this.renderPlans();
+            }
+            
+            this.renderPricingTable(this.consultationTypes);
+            console.log('✅ Tipos de consulta carregados:', this.consultationTypes.length);
+        } catch (error) {
+            console.error('❌ Erro ao carregar tipos de consulta:', error);
+            this.consultationTypes = [];
+        }
+    }
+
     setupEventListeners() {
         // Botões de planos
         document.addEventListener('click', (e) => {
@@ -143,11 +186,20 @@ class AssinaturaManager {
         
         if (!plansContainer || !planTemplate) return;
 
-        // Limpar container mantendo o template
+        // ✅ CORREÇÃO: Limpar container mantendo template E card dinâmico
         Array.from(plansContainer.children).forEach(child => {
-            if (!child.hasAttribute('data-plan-template')) {
+            const shouldKeep = child.hasAttribute('data-plan-template') || 
+                             child.classList.contains('dynamic-product-card');
+            
+            if (!shouldKeep) {
                 child.remove();
             }
+        });
+        
+        console.log('🔍 DEBUG: Cards preservados no container:', {
+            template: !!plansContainer.querySelector('[data-plan-template]'),
+            dynamic: !!plansContainer.querySelector('.dynamic-product-card'),
+            total: plansContainer.children.length
         });
 
         this.availablePlans.forEach(plan => {
@@ -227,48 +279,31 @@ class AssinaturaManager {
         
         const features = [];
         
-        // Recursos baseados nos metadados do produto
-        if (plan.metadata) {
-            if (plan.metadata.api_keys_limit) {
-                features.push({
-                    icon: '🔑',
-                    text: plan.metadata.api_keys_limit === '-1' ? 'API Keys ilimitadas' : `${plan.metadata.api_keys_limit} API Keys`
-                });
-            }
-            
-            if (plan.metadata.support_level) {
-                features.push({
-                    icon: '🛠️',
-                    text: `Suporte ${plan.metadata.support_level}`
-                });
-            }
-            
-            if (plan.metadata.analytics) {
-                features.push({
-                    icon: '📊',
-                    text: 'Analytics avançado'
-                });
-            }
-            
-            if (plan.metadata.priority_support === 'true') {
-                features.push({
-                    icon: '🚀',
-                    text: 'Suporte prioritário'
-                });
-            }
-        }
+        // ✅ NOVO: Serviços específicos solicitados pelo usuário
+        const availableServices = [
+            { icon: 'warning', text: 'Consulta de Protestos', color: 'from-yellow-400 to-orange-500' },
+            { icon: 'account_balance', text: 'Receita Federal', color: 'from-green-400 to-emerald-500' },
+            { icon: 'business', text: 'Cadastro de Contribuintes (IE)', color: 'from-blue-400 to-cyan-500' },
+            { icon: 'folder', text: 'Simples Nacional', color: 'from-purple-400 to-pink-500' },
+            { icon: 'place', text: 'Geocodificação', color: 'from-indigo-400 to-blue-500' },
+            { icon: 'help_outline', text: 'Suframa', color: 'from-teal-400 to-green-500' },
+            { icon: 'web', text: 'Consultas pelo site', color: 'from-orange-400 to-red-500' },
+            { icon: 'api', text: 'Consultas com API', color: 'from-cyan-400 to-blue-500' },
+            { icon: 'history', text: 'Histórico detalhado de consultas', color: 'from-gray-400 to-slate-500' }
+        ];
         
-        // Recursos padrão
-        features.push(
-            { icon: '🔒', text: 'Acesso completo à API' },
-            { icon: '📈', text: 'Relatórios detalhados' },
-            { icon: '⚡', text: 'Processamento rápido' }
-        );
+        // Adicionar todos os serviços solicitados
+        features.push(...availableServices);
+        
+        // ✅ REMOVIDO: Recursos adicionais não solicitados pelo usuário
+        // Apenas os serviços específicos solicitados serão exibidos
         
         const featuresHtml = features.map(feature => `
-            <div class="flex items-center text-gray-300 text-sm">
-                <span class="mr-3">${feature.icon}</span>
-                <span>${feature.text}</span>
+            <div class="flex items-center text-slate-300 group">
+                <div class="w-6 h-6 mr-3 bg-gradient-to-r ${feature.color} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <span class="material-icons text-white text-xs">${feature.icon}</span>
+                </div>
+                <span class="text-sm group-hover:text-white transition-colors duration-300">${feature.text}</span>
             </div>
         `).join('');
         
@@ -298,6 +333,9 @@ class AssinaturaManager {
             return;
         }
 
+        console.log('🔍 DEBUG - Renderizando assinatura:', this.userSubscription);
+        console.log('🔍 DEBUG - Planos disponíveis:', this.availablePlans);
+
         // Atualizar informações da assinatura atual
         const planNameEl = document.querySelector('[data-current-plan-name]');
         const statusEl = document.querySelector('[data-current-status]');
@@ -306,19 +344,97 @@ class AssinaturaManager {
         const creditsTotalEl = document.querySelector('[data-credits-total]');
         const creditsUsedEl = document.querySelector('[data-credits-used]');
         
-        if (this.userSubscription.items?.data[0]) {
-            const priceObj = this.userSubscription.items.data[0].price;
-            const product = this.availablePlans.find(p => p.id === priceObj.product);
+        // ✅ CRÍTICO: Limpar elementos de loading primeiro
+        this.clearLoadingStates();
+        
+        // ✅ CORREÇÃO: Usar dados diretos da assinatura do banco local
+        if (this.userSubscription.plan_name && this.userSubscription.price_cents) {
+            // Usar dados da assinatura atual do banco
+            const planName = this.userSubscription.plan_name;
+            const priceAmount = this.userSubscription.price_cents / 100;
             
-            if (planNameEl && product) {
-                planNameEl.textContent = product.name;
+            // Atualizar nome do plano
+            if (planNameEl) {
+                planNameEl.innerHTML = planName;
+                planNameEl.className = 'text-white font-bold text-xl';
+                console.log('✅ Plano atual definido:', planName);
             }
             
-            if (priceEl && priceObj) {
-                priceEl.textContent = `R$ ${(priceObj.unit_amount / 100).toFixed(2).replace('.', ',')}`;
+            // Atualizar valor mensal
+            if (priceEl) {
+                const formattedPrice = `R$ ${priceAmount.toFixed(2).replace('.', ',')}`;
+                priceEl.innerHTML = formattedPrice;
+                priceEl.className = 'text-white font-bold text-xl';
+                console.log('✅ Valor mensal definido:', formattedPrice);
+            }
+        } else {
+            // Fallback para dados do Stripe se não houver dados locais
+            if (this.userSubscription.items?.data[0]) {
+                const subscriptionItem = this.userSubscription.items.data[0];
+                const priceObj = subscriptionItem.price;
+                
+                console.log('🔍 DEBUG - Item da assinatura:', subscriptionItem);
+                console.log('🔍 DEBUG - Objeto de preço:', priceObj);
+                
+                // Tentar diferentes formas de encontrar o produto
+                let product = null;
+                if (priceObj?.product) {
+                    // 1. Buscar por ID do produto
+                    product = this.availablePlans.find(p => p.id === priceObj.product);
+                    
+                    // 2. Se não encontrar, buscar por default_price
+                    if (!product) {
+                        product = this.availablePlans.find(p => p.default_price === subscriptionItem.price.id);
+                    }
+                    
+                    // 3. Se ainda não encontrar, buscar por stripe_product_id (sincronização local)
+                    if (!product) {
+                        product = this.availablePlans.find(p => p.stripe_product_id === priceObj.product);
+                    }
+                    
+                    console.log('🔍 DEBUG - Produto encontrado:', product);
+                }
+                
+                // Atualizar nome do plano
+                if (planNameEl) {
+                    if (product && product.name) {
+                        planNameEl.innerHTML = product.name;
+                        planNameEl.className = 'text-white font-bold text-xl';
+                        console.log('✅ Plano atual definido:', product.name);
+                    } else {
+                        // Fallback: usar dados da assinatura diretamente
+                        const planName = priceObj?.nickname || 
+                                       `Plano ${(priceObj.unit_amount / 100).toFixed(0).replace('.', ',')}` ||
+                                       (priceObj?.recurring?.interval === 'month' ? 'Plano Mensal' : 'Plano Personalizado');
+                        planNameEl.innerHTML = planName;
+                        planNameEl.className = 'text-white font-bold text-xl';
+                        console.log('✅ Plano atual (fallback):', planName);
+                    }
+                }
+                
+                // Atualizar valor mensal
+                if (priceEl && priceObj) {
+                    const amount = priceObj.unit_amount / 100;
+                    const formattedPrice = `R$ ${amount.toFixed(2).replace('.', ',')}`;
+                    priceEl.innerHTML = formattedPrice;
+                    priceEl.className = 'text-white font-bold text-xl';
+                    console.log('✅ Valor mensal definido:', formattedPrice);
+                }
+            } else {
+                console.log('⚠️ Sem itens na assinatura - usando valores padrão');
+                // Fallback se não houver items na assinatura
+                if (planNameEl) {
+                    planNameEl.innerHTML = 'Plano Ativo';
+                    planNameEl.className = 'text-white font-bold text-xl';
+                }
+                if (priceEl) {
+                    priceEl.innerHTML = 'Consultar suporte';
+                    priceEl.className = 'text-slate-400 font-bold text-xl';
+                }
             }
         }
         
+        // Atualizar status da assinatura
         if (statusEl) {
             const status = this.userSubscription.status;
             const statusText = {
@@ -328,26 +444,65 @@ class AssinaturaManager {
                 'unpaid': 'Não paga'
             }[status] || status;
             
-            const statusClass = status === 'active' ? 'bg-green-500' : 'bg-red-500';
-            statusEl.textContent = statusText;
-            statusEl.className = `px-2 py-1 rounded text-xs font-medium text-white ${statusClass}`;
+            const statusClass = status === 'active' ? 'bg-green-400 text-green-900' : 'bg-red-400 text-red-900';
+            statusEl.innerHTML = statusText;
+            statusEl.className = `inline-flex px-3 py-1 rounded-full text-xs font-bold ${statusClass}`;
+            console.log('✅ Status definido:', statusText);
         }
         
         // Carregar créditos do usuário
         this.loadUserCredits();
+        
+        console.log('✅ Renderização da assinatura concluída');
+    }
+    
+    // ✅ NOVO MÉTODO: Limpar estados de loading
+    clearLoadingStates() {
+        console.log('🧹 Limpando estados de loading...');
+        
+        // Remover todas as divs de loading shimmer
+        const loadingElements = document.querySelectorAll('.loading-shimmer');
+        loadingElements.forEach(el => el.remove());
+        
+        // Garantir que os elementos principais estejam limpos
+        const planNameEl = document.querySelector('[data-current-plan-name]');
+        const priceEl = document.querySelector('[data-current-price]');
+        
+        if (planNameEl && planNameEl.querySelector('.loading-shimmer')) {
+            planNameEl.innerHTML = '';
+        }
+        if (priceEl && priceEl.querySelector('.loading-shimmer')) {
+            priceEl.innerHTML = '';
+        }
+        
+        console.log('✅ Estados de loading removidos');
     }
     
     renderNoSubscription() {
+        console.log('⚠️ Nenhuma assinatura encontrada - renderizando estado vazio');
+        
+        // ✅ Limpar estados de loading primeiro
+        this.clearLoadingStates();
+        
         const planNameEl = document.querySelector('[data-current-plan-name]');
         const statusEl = document.querySelector('[data-current-status]');
         const priceEl = document.querySelector('[data-current-price]');
         
-        if (planNameEl) planNameEl.textContent = 'Nenhuma assinatura ativa';
-        if (statusEl) {
-            statusEl.textContent = 'Inativa';
-            statusEl.className = 'px-2 py-1 rounded text-xs font-medium text-white bg-gray-500';
+        // Definir valores padrão
+        if (planNameEl) {
+            planNameEl.innerHTML = 'Nenhuma assinatura ativa';
+            planNameEl.className = 'text-slate-400 text-xl font-medium';
         }
-        if (priceEl) priceEl.textContent = 'R$ 0,00';
+        if (statusEl) {
+            statusEl.innerHTML = 'Inativa';
+            statusEl.className = 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-gray-500 text-gray-100';
+        }
+        if (priceEl) {
+            priceEl.innerHTML = 'R$ 0,00';
+            priceEl.className = 'text-slate-400 text-xl font-medium';
+        }
+        
+        console.log('✅ Estado "sem assinatura" renderizado');
     }
     
     async loadUserCredits() {
@@ -416,6 +571,99 @@ class AssinaturaManager {
         }
     }
 
+    async handleCustomPlanSelection(amount) {
+        try {
+            this.showLoading(`Criando plano personalizado de R$ ${amount.toFixed(2).replace('.', ',')}...`);
+
+            // Validar valor
+            if (amount < 10 || amount > 10000) {
+                throw new Error('Valor deve estar entre R$ 10,00 e R$ 10.000,00');
+            }
+
+            // Criar plano personalizado via API
+            const response = await AuthUtils.authenticatedFetch('/api/v1/stripe/create-custom-subscription', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    success_url: window.location.origin + '/assinatura?session_id={CHECKOUT_SESSION_ID}&custom=true',
+                    cancel_url: window.location.origin + '/assinatura'
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Erro ao criar plano personalizado');
+            }
+
+            const result = await response.json();
+            
+            console.log('✅ Plano personalizado criado:', result);
+            this.showSuccess(`Plano de R$ ${amount.toFixed(2).replace('.', ',')} criado! Redirecionando...`);
+            
+            // Redirecionar para checkout
+            setTimeout(() => {
+                window.location.href = result.checkout_url;
+            }, 1000);
+
+        } catch (error) {
+            console.error('❌ Erro ao criar plano personalizado:', error);
+            this.showError(`Erro ao criar plano personalizado: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async handleDynamicPlanSelection(amount) {
+        /**
+         * ✅ NOVA FUNÇÃO: Cria produto dinamicamente no Stripe
+         */
+        try {
+            this.showLoading(`Criando produto automaticamente no Stripe para R$ ${amount.toFixed(2).replace('.', ',')}...`);
+
+            // Validar valor
+            if (amount < 10 || amount > 10000) {
+                throw new Error('Valor deve estar entre R$ 10,00 e R$ 10.000,00');
+            }
+
+            // Criar produto dinamicamente via API
+            const response = await AuthUtils.authenticatedFetch('/api/v1/stripe/create-dynamic-product', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    success_url: window.location.origin + '/assinatura?session_id={CHECKOUT_SESSION_ID}&dynamic=true',
+                    cancel_url: window.location.origin + '/assinatura'
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Erro ao criar produto dinâmico');
+            }
+
+            const result = await response.json();
+            
+            console.log('✅ Produto dinâmico criado no Stripe:', result);
+            this.showSuccess(`Produto R$ ${amount.toFixed(2).replace('.', ',')} criado automaticamente! Redirecionando...`);
+            
+            // Redirecionar para checkout
+            setTimeout(() => {
+                window.location.href = result.checkout_url;
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ Erro ao criar produto dinâmico:', error);
+            this.showError(`Erro ao criar produto dinâmico: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
     async handleAutoRenewalToggle(enabled) {
         try {
             this.showLoading('Atualizando renovação automática...');
@@ -432,11 +680,19 @@ class AssinaturaManager {
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.message || 'Erro ao atualizar renovação automática');
+                throw new Error(error.detail || 'Erro ao atualizar renovação automática');
             }
 
+            const result = await response.json();
             const message = enabled ? 'Renovação automática ativada' : 'Renovação automática desativada';
             this.showSuccess(message);
+            
+            // Atualizar UI
+            const statusEl = document.querySelector('[data-auto-renewal]');
+            if (statusEl) {
+                statusEl.textContent = enabled ? 'Ativa' : 'Inativa';
+                statusEl.className = enabled ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
+            }
             
         } catch (error) {
             console.error('❌ Erro ao alterar renovação automática:', error);
@@ -451,18 +707,128 @@ class AssinaturaManager {
             this.hideLoading();
         }
     }
+
+    renderPricingTable(consultationTypes) {
+        const container = document.querySelector('[data-pricing-table]');
+        if (!container || !consultationTypes.length) return;
+        
+        const tableHtml = `
+            <div class="modern-card p-6">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
+                        <span class="material-icons text-white text-xl">price_check</span>
+                    </div>
+                    <div>
+                        <h3 class="text-white text-xl font-bold">Tabela de Preços</h3>
+                        <p class="text-slate-400 text-sm">Custos por consulta - transparência total</p>
+                    </div>
+                </div>
+                
+                <div class="overflow-hidden rounded-xl border border-slate-600/30">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-slate-700/50">
+                                    <th class="text-left py-3 px-4 text-slate-300 font-semibold text-sm">Serviço</th>
+                                    <th class="text-left py-3 px-4 text-slate-300 font-semibold text-sm">Descrição</th>
+                                    <th class="text-center py-3 px-4 text-slate-300 font-semibold text-sm">Preço</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-600/20">
+                                ${consultationTypes.map(type => {
+                                    // Personalizar descrição para protestos
+                                    let description = type.description;
+                                    if (type.code.toLowerCase() === 'protestos') {
+                                        description = 'Consulta de protestos no CenProt Nacional';
+                                    }
+                                    
+                                    return `
+                                    <tr class="hover:bg-slate-700/30 transition-colors">
+                                        <td class="py-4 px-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-8 h-8 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-lg flex items-center justify-center">
+                                                    <span class="material-icons text-white text-sm">${this.getServiceIcon(type.code)}</span>
+                                                </div>
+                                                <span class="text-white font-medium">${type.name}</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-300 text-sm">${description}</td>
+                                         <td class="py-4 px-8 text-center"> <!-- px-8 deixa a coluna de preço mais larga -->
+                                            <span class="text-emerald-400 font-bold text-base">R$ ${type.cost_reais.toFixed(2)}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-icons text-amber-400 text-sm">info</span>
+                        <span class="text-amber-300 font-semibold text-sm">Informação Importante</span>
+                    </div>
+                    <p class="text-amber-200/80 text-xs">
+                        Os preços são cobrados por consulta realizada e debitados automaticamente do seu saldo de créditos. 
+                        Consultas com erro não são cobradas.
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = tableHtml;
+    }
+
+    getServiceIcon(serviceCode) {
+        const icons = {
+            'protestos': 'warning',
+            'receita_federal': 'account_balance',
+            'simples_nacional': 'business',
+            'cnae': 'category',
+            'socios': 'people',
+            'endereco': 'place'
+        };
+        return icons[serviceCode] || 'help_outline';
+    }
     
     updateAutoRenewalToggle() {
         const toggle = document.getElementById('auto-renewal-toggle');
         const autoRenewalEl = document.querySelector('[data-auto-renewal]');
+        const indicator = document.querySelector('.renewal-indicator');
         
         if (this.userSubscription && this.userSubscription.cancel_at_period_end !== null) {
             const isAutoRenewal = !this.userSubscription.cancel_at_period_end;
             
-            if (toggle) toggle.checked = isAutoRenewal;
+            if (toggle) {
+                toggle.checked = isAutoRenewal;
+            }
+            
             if (autoRenewalEl) {
                 autoRenewalEl.textContent = isAutoRenewal ? 'Ativa' : 'Inativa';
-                autoRenewalEl.className = isAutoRenewal ? 'text-green-400' : 'text-red-400';
+                if (isAutoRenewal) {
+                    autoRenewalEl.className = 'text-green-400 text-sm font-bold renewal-status';
+                } else {
+                    autoRenewalEl.className = 'text-red-400 text-sm font-bold renewal-status inactive';
+                }
+            }
+            
+            if (indicator) {
+                if (isAutoRenewal) {
+                    indicator.className = 'w-2 h-2 bg-green-400 rounded-full animate-pulse renewal-indicator';
+                } else {
+                    indicator.className = 'w-2 h-2 bg-red-400 rounded-full animate-pulse renewal-indicator inactive';
+                }
+            }
+        } else {
+            // Estado padrão: ativo
+            if (toggle) toggle.checked = true;
+            if (autoRenewalEl) {
+                autoRenewalEl.textContent = 'Ativa';
+                autoRenewalEl.className = 'text-green-400 text-sm font-bold renewal-status';
+            }
+            if (indicator) {
+                indicator.className = 'w-2 h-2 bg-green-400 rounded-full animate-pulse renewal-indicator';
             }
         }
     }
@@ -473,37 +839,55 @@ class AssinaturaManager {
         
         if (!transactions || transactions.length === 0) {
             container.innerHTML = `
-                <div class="p-4 text-center text-gray-400">
-                    <span class="material-icons text-4xl mb-2 opacity-50">receipt</span>
-                    <p>Nenhuma transação recente</p>
+                <div class="p-8 text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 glass rounded-full flex items-center justify-center">
+                        <span class="material-icons text-slate-400 text-2xl">shopping_cart</span>
+                    </div>
+                    <p class="text-slate-400 text-lg font-medium mb-2">Nenhuma compra realizada ainda</p>
+                    <p class="text-slate-500 text-sm">Suas compras de créditos aparecerão aqui quando você adquirir planos</p>
                 </div>
             `;
             return;
         }
         
-        const transactionsHtml = transactions.map(transaction => `
-            <div class="p-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                        <span class="material-icons text-blue-400 text-sm">payment</span>
-                    </div>
-                    <div>
-                        <div class="text-white font-medium">${transaction.description}</div>
-                        <div class="text-gray-400 text-sm">${this.formatDate(transaction.created)}</div>
+        const transactionsHtml = transactions.map((transaction, index) => {
+            const isPositive = transaction.type === 'add' || transaction.type === 'purchase';
+            const iconName = isPositive ? 'add_circle' : 'remove_circle';
+            const iconColor = isPositive ? 'from-green-400 to-emerald-500' : 'from-orange-400 to-red-500';
+            const amountColor = isPositive ? 'text-green-400' : 'text-orange-400';
+            const amountPrefix = isPositive ? '+' : '-';
+            
+            return `
+                <div class="p-6 hover:bg-slate-700/20 transition-colors duration-300 group">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-gradient-to-r ${iconColor} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <span class="material-icons text-white">${iconName}</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-white font-semibold text-lg mb-1">${transaction.description}</div>
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="text-slate-400">${this.formatDate(transaction.created)}</span>
+                                    <div class="w-1 h-1 bg-slate-500 rounded-full"></div>
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                        <span class="text-green-400 font-medium">Processado</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="${amountColor} font-bold text-xl">
+                                ${amountPrefix}R$ ${(transaction.amount || 0).toFixed(2).replace('.', ',')}
+                            </div>
+                            <div class="text-slate-400 text-sm">
+                                ${isPositive ? 'Crédito' : 'Débito'}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-white font-medium">R$ ${(transaction.amount / 100).toFixed(2).replace('.', ',')}</div>
-                    <div class="text-sm ${
-                        transaction.status === 'succeeded' ? 'text-green-400' : 
-                        transaction.status === 'pending' ? 'text-yellow-400' : 'text-red-400'
-                    }">
-                        ${transaction.status === 'succeeded' ? 'Pago' : 
-                          transaction.status === 'pending' ? 'Pendente' : 'Falhou'}
-                    </div>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         container.innerHTML = transactionsHtml;
     }
@@ -569,11 +953,19 @@ class AssinaturaManager {
     createLoadingOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'loading-overlay';
-        overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        overlay.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
         overlay.innerHTML = `
-            <div class="bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
-                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                <span class="text-white loading-text">Carregando...</span>
+            <div class="modern-card p-8 max-w-md mx-4">
+                <div class="text-center">
+                    <div class="w-16 h-16 mx-auto mb-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <div class="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <h3 class="text-white text-xl font-bold mb-2">Processando</h3>
+                    <p class="text-slate-400 loading-text">Carregando...</p>
+                    <div class="mt-4 w-full bg-slate-600 rounded-full h-1 overflow-hidden">
+                        <div class="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
+                    </div>
+                </div>
             </div>
         `;
         document.body.appendChild(overlay);
@@ -591,29 +983,48 @@ class AssinaturaManager {
     }
     
     showNotification(message, type) {
-        // Criar notificação toast
+        // Criar notificação toast moderna
         const notification = document.createElement('div');
-        const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+        const isSuccess = type === 'success';
+        const iconName = isSuccess ? 'check_circle' : 'error';
+        const colorClasses = isSuccess ? 
+            'from-green-500 to-emerald-600' : 
+            'from-red-500 to-rose-600';
         
-        notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all transform translate-x-full`;
-        notification.textContent = message;
+        notification.className = `fixed top-6 right-6 max-w-sm bg-gradient-to-r ${colorClasses} text-white rounded-2xl shadow-2xl z-50 transition-all transform translate-x-full opacity-0 backdrop-blur-sm`;
+        
+        notification.innerHTML = `
+            <div class="p-4 flex items-center gap-3">
+                <div class="flex-shrink-0">
+                    <span class="material-icons text-2xl">${iconName}</span>
+                </div>
+                <div class="flex-1">
+                    <p class="font-semibold text-sm">${isSuccess ? 'Sucesso!' : 'Erro!'}</p>
+                    <p class="text-sm opacity-90">${message}</p>
+                </div>
+                <button class="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors" onclick="this.parentElement.parentElement.remove()">
+                    <span class="material-icons text-lg">close</span>
+                </button>
+            </div>
+        `;
         
         document.body.appendChild(notification);
         
         // Animar entrada
         setTimeout(() => {
-            notification.classList.remove('translate-x-full');
+            notification.classList.remove('translate-x-full', 'opacity-0');
+            notification.classList.add('translate-x-0', 'opacity-100');
         }, 10);
         
-        // Remover após 5 segundos
+        // Remover após 6 segundos
         setTimeout(() => {
-            notification.classList.add('translate-x-full');
+            notification.classList.add('translate-x-full', 'opacity-0');
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.parentNode.removeChild(notification);
                 }
             }, 300);
-        }, 5000);
+        }, 6000);
     }
 
     showErrorState(message) {
@@ -648,6 +1059,9 @@ class AssinaturaManager {
 // Inicializar quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     const manager = new AssinaturaManager();
+    
+    // Expor instância globalmente para acesso externo
+    window.assinaturaManager = manager;
     
     // Verificar parâmetros da URL após inicialização
     setTimeout(() => {

@@ -22,7 +22,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from .services.session_manager import SessionManager
 from .services.scraping_service import ScrapingService
-from .routers import status, cnpj, session, auth, stripe_routes, debug_routes
+from .routers import status, cnpj, session, auth, stripe_routes, stripe_webhooks, debug_routes, saas_routes
 from .middleware.error_handler import add_error_handlers
 from src.config.logging_config import LoggingConfig
 
@@ -69,6 +69,25 @@ async def lifespan(app: FastAPI):
         status.set_session_manager(session_manager)   # Mantido para compatibilidade 
         cnpj.set_scraping_service(scraping_service)   # Atualizado
         session.set_session_manager(session_manager)   # Mantido como está
+        
+        # Sincronizar produtos Stripe com MariaDB no startup (otimização)
+        try:
+            from api.services.stripe_sync_service import stripe_sync_service, get_last_sync_info
+            
+            sync_info = await get_last_sync_info()
+            if not sync_info.get("has_stripe_data"):
+                logger.info("🔄 Sincronizando produtos Stripe no startup...")
+                sync_result = await stripe_sync_service.force_sync()
+                
+                if sync_result["success"]:
+                    logger.info(f"✅ Produtos sincronizados: {sync_result['updated']} atualizados, {sync_result['created']} criados")
+                else:
+                    logger.warning(f"⚠️ Falha na sincronização de startup: {sync_result.get('message', 'Erro desconhecido')}")
+            else:
+                logger.info("ℹ️ Produtos já sincronizados com Stripe")
+                
+        except Exception as sync_error:
+            logger.warning(f"⚠️ Erro na sincronização de startup (não crítico): {sync_error}")
         
         yield
         
@@ -149,6 +168,8 @@ app.include_router(cnpj.router, tags=["Consulta"])
 app.include_router(session.router, prefix="/session", tags=["Sessão"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Autenticação"])
 app.include_router(stripe_routes.router, prefix="/api/v1/stripe", tags=["Stripe"])
+app.include_router(stripe_webhooks.router, prefix="/api/v1", tags=["Stripe Webhooks"])
+app.include_router(saas_routes.router, prefix="/api/v1", tags=["SaaS"])
 app.include_router(debug_routes.router, prefix="/api/v1", tags=["Debug"])
 
 

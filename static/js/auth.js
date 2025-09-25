@@ -108,16 +108,29 @@ class AuthManager {
     async handleRegister(e) {
         e.preventDefault();
         
+        console.log('🚀 Iniciando processo de registro...');
+        
         const formData = new FormData(e.target);
         const email = formData.get('email');
         const password = formData.get('password');
         const confirmPassword = formData.get('confirmPassword');
         const terms = formData.get('terms');
 
+        console.log('📋 Dados do formulário:', {
+            email: email,
+            password: password ? '***' : 'vazio',
+            confirmPassword: confirmPassword ? '***' : 'vazio',
+            terms: terms
+        });
+
         // Validate form
+        console.log('🔍 Validando formulário...');
         if (!this.validateRegisterForm(email, password, confirmPassword, terms)) {
+            console.log('❌ Validação do formulário falhou');
             return;
         }
+        
+        console.log('✅ Validação do formulário passou');
 
         try {
             this.showLoading('registerBtn', 'Criando conta...');
@@ -126,7 +139,7 @@ class AuthManager {
             const response = await this.registerUser(email, password);
             
             if (response.success) {
-                this.showSuccess(response.message || 'Conta criada com sucesso! Você ganhou 7 dias de trial.');
+                this.showSuccess(response.message || 'Conta criada com sucesso! Você ganhou R$ 10,00 de créditos de boas-vindas.');
                 
                 // Store auth token and API key
                 if (response.token) {
@@ -179,36 +192,56 @@ class AuthManager {
     validateRegisterForm(email, password, confirmPassword, terms) {
         let isValid = true;
 
+        console.log('🔍 Iniciando validação detalhada...');
+
         // Clear previous errors
         this.clearErrors();
 
         // Email validation
+        console.log('📧 Validando email:', email);
         if (!email || !this.isValidEmail(email)) {
+            console.log('❌ Email inválido');
             this.showFieldError('email', 'E-mail inválido');
             isValid = false;
+        } else {
+            console.log('✅ Email válido');
         }
 
         // Password validation
+        console.log('🔒 Validando senha:', password ? `*** (${password.length} chars)` : 'vazio');
         if (!password || password.length < 8) {
+            console.log('❌ Senha muito curta');
             this.showFieldError('password', 'Senha deve ter pelo menos 8 caracteres');
             isValid = false;
         } else if (!this.isStrongPassword(password)) {
-            this.showFieldError('password', 'Senha deve conter letras, números e símbolos');
+            console.log('❌ Senha não atende critérios');
+            this.showFieldError('password', 'Senha deve ter pelo menos 8 caracteres');
             isValid = false;
+        } else {
+            console.log('✅ Senha válida');
         }
 
         // Password confirmation
+        console.log('🔒 Validando confirmação de senha');
         if (password !== confirmPassword) {
+            console.log('❌ Senhas não coincidem');
             this.showFieldError('confirmPassword', 'Senhas não coincidem');
             isValid = false;
+        } else {
+            console.log('✅ Senhas coincidem');
         }
 
         // Terms validation
+        console.log('📋 Validando termos:', terms);
         if (!terms) {
+            console.log('❌ Termos não aceitos');
             this.showError('Você deve aceitar os termos de uso');
             isValid = false;
+        } else {
+            console.log('✅ Termos aceitos');
         }
 
+        console.log('📊 Resultado da validação:', isValid ? '✅ VÁLIDO' : '❌ INVÁLIDO');
         return isValid;
     }
 
@@ -335,9 +368,14 @@ class AuthManager {
     }
 
     isStrongPassword(password) {
-        // At least 8 characters, 1 lowercase, 1 uppercase, 1 number
-        const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
-        return strongRegex.test(password);
+        // Validação mais flexível: pelo menos 8 caracteres
+        // Opcionalmente pode ter maiúscula, minúscula, número
+        if (password.length < 8) {
+            return false;
+        }
+        
+        // Se tem pelo menos 8 caracteres, aceitar
+        return true;
     }
 
     showFieldError(fieldName, message) {

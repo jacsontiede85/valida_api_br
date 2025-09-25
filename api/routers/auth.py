@@ -237,6 +237,19 @@ async def register(request: RegisterRequest, response: Response):
             name=request.name
         )
         
+        # Adicionar créditos de boas-vindas (R$ 10,00)
+        try:
+            from api.services.credit_service import add_user_credits
+            await add_user_credits(
+                user_id=user["id"],
+                amount=10.00,  # R$ 10,00 de créditos de boas-vindas
+                description="Créditos de boas-vindas - Trial de 7 dias"
+            )
+            logger.info(f"✅ Créditos de boas-vindas atribuídos: R$ 10,00 para {user['email']}")
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao atribuir créditos de boas-vindas: {e}")
+            # Continua mesmo se falhar a atribuição de créditos
+        
         # Gerar token JWT
         jwt_token = generate_token(user["id"], user["email"])
         
@@ -257,7 +270,7 @@ async def register(request: RegisterRequest, response: Response):
             user_id=user["id"],
             email=user["email"],
             name=user["name"],
-            message="Conta criada com sucesso! Você ganhou 7 dias de trial."
+            message="Conta criada com sucesso! Você ganhou R$ 10,00 de créditos de boas-vindas."
         )
         
     except HTTPException as e:

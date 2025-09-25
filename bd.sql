@@ -1,454 +1,413 @@
--- =====================================================
--- SCHEMA MARIADB PARA VALIDA SAAS API
--- =====================================================
--- Migração de Supabase PostgreSQL para MariaDB Local
--- Criado em: 22/09/2025
--- Versão: 1.0
--- 
--- INSTRUÇÕES DE USO:
--- 1. Criar banco de dados: CREATE DATABASE valida_saas; -- CRIADO COM SUCESSO
--- 2. Usar banco: USE valida_saas; -- CRIADO COM SUCESSO
--- 3. Executar este script completo -- CRIADO COM SUCESSO
--- =====================================================
+CREATE DATABASE  IF NOT EXISTS `valida_saas` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_swedish_ci */;
+USE `valida_saas`;
+-- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
+--
+-- Host: 127.0.0.1    Database: valida_saas
+-- ------------------------------------------------------
+-- Server version	5.5.5-10.9.7-MariaDB
 
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
--- =====================================================
--- 1. TABELA DE USUÁRIOS - PRINCIPAL
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS users (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    email VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    password_hash VARCHAR(255) NULL,
-    last_login DATETIME NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    stripe_customer_id VARCHAR(255) NULL COMMENT 'ID do cliente no Stripe',
-    credits DECIMAL(10,2) DEFAULT 0.00 COMMENT 'Saldo atual de créditos em reais',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_email (email),
-    KEY idx_stripe_customer (stripe_customer_id),
-    KEY idx_email (email),
-    KEY idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Tabela principal de usuários do sistema SaaS';
-
--- =====================================================
--- 2. PLANOS DE ASSINATURA
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS subscription_plans (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    code VARCHAR(50) NOT NULL COMMENT 'Código único do plano (starter, pro, enterprise)',
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    price_cents INTEGER NOT NULL COMMENT 'Preço em centavos (ex: 2990 = R$ 29,90)',
-    credits_included_cents INTEGER NOT NULL DEFAULT 0 COMMENT 'Créditos inclusos em centavos',
-    api_keys_limit INTEGER DEFAULT 1,
-    queries_limit INTEGER NULL COMMENT 'Limite de consultas por mês (NULL = ilimitado)',
-    is_active BOOLEAN DEFAULT TRUE,
-    stripe_product_id VARCHAR(255) NULL,
-    stripe_price_id VARCHAR(255) NULL,
-    features JSON NULL COMMENT 'Recursos específicos do plano',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_code (code),
-    KEY idx_active (is_active),
-    KEY idx_price_cents (price_cents)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Planos de assinatura disponíveis no sistema';
-
--- =====================================================
--- 3. ASSINATURAS DOS USUÁRIOS
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    user_id CHAR(36) NOT NULL,
-    plan_id CHAR(36) NOT NULL,
-    status VARCHAR(50) DEFAULT 'active',
-    stripe_subscription_id VARCHAR(255) NULL,
-    stripe_price_id VARCHAR(255) NULL,
-    cancel_at_period_end BOOLEAN DEFAULT FALSE,
-    current_period_start DATETIME NULL,
-    current_period_end DATETIME NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    KEY idx_user_id (user_id),
-    KEY idx_plan_id (plan_id),
-    KEY idx_status (status),
-    KEY idx_period_end (current_period_end),
-    
-    CONSTRAINT fk_subscriptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Assinaturas ativas dos usuários';
-
--- =====================================================
--- 4. CHAVES DE API
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS api_keys (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    user_id CHAR(36) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    description TEXT NULL,
-    key_visible VARCHAR(255) NULL COMMENT 'Chave visível (rcp_...) - NULL após primeira visualização',
-    key_hash VARCHAR(255) NOT NULL COMMENT 'Hash SHA256 da chave rcp_...',
-    is_active BOOLEAN DEFAULT TRUE,
-    last_used_at DATETIME NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_key_hash (key_hash),
-    KEY idx_user_id (user_id),
-    KEY idx_active (is_active),
-    KEY idx_last_used (last_used_at),
-    
-    CONSTRAINT fk_api_keys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Chaves de API dos usuários para integração externa';
-
--- =====================================================
--- 5. TIPOS DE CONSULTA E CUSTOS
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS consultation_types (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    code VARCHAR(50) NOT NULL COMMENT 'Código único (protestos, receita_federal, etc)',
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    cost_cents INTEGER NOT NULL COMMENT 'Custo por consulta em centavos',
-    provider VARCHAR(100) NULL COMMENT 'Provedor do serviço (resolve_cenprot, cnpja, etc)',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_code (code),
-    KEY idx_active (is_active),
-    KEY idx_cost (cost_cents),
-    KEY idx_provider (provider)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Tipos de consulta disponíveis e seus custos';
-
--- =====================================================
--- 6. HISTÓRICO DE CONSULTAS
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS consultations (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    user_id CHAR(36) NOT NULL,
-    api_key_id CHAR(36) NULL,
-    cnpj VARCHAR(18) NOT NULL,
-    status VARCHAR(20) DEFAULT 'success',
-    total_cost_cents INTEGER NOT NULL DEFAULT 0,
-    response_time_ms INTEGER NULL,
-    error_message TEXT NULL,
-    cache_used BOOLEAN DEFAULT FALSE,
-    client_ip VARCHAR(45) NULL COMMENT 'IP do cliente (IPv4 ou IPv6)',
-    response_data JSON NULL COMMENT 'JSON completo retornado pela rota /api/v1/cnpj/consult',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    KEY idx_user_id (user_id),
-    KEY idx_api_key_id (api_key_id),
-    KEY idx_cnpj (cnpj),
-    KEY idx_status (status),
-    KEY idx_created_at (created_at),
-    KEY idx_user_created (user_id, created_at),
-    
-    CONSTRAINT fk_consultations_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_consultations_api_key FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Histórico de consultas realizadas pelos usuários';
-
--- =====================================================
--- 7. DETALHES DAS CONSULTAS POR TIPO
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS consultation_details (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    consultation_id CHAR(36) NOT NULL,
-    consultation_type_id CHAR(36) NOT NULL,
-    cost_cents INTEGER NOT NULL,
-    status VARCHAR(20) DEFAULT 'success',
-    response_data JSON NULL COMMENT 'Dados da resposta (se necessário)',
-    error_message TEXT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    KEY idx_consultation_id (consultation_id),
-    KEY idx_type_id (consultation_type_id),
-    KEY idx_status (status),
-    
-    CONSTRAINT fk_consultation_details_consultation FOREIGN KEY (consultation_id) REFERENCES consultations(id) ON DELETE CASCADE,
-    CONSTRAINT fk_consultation_details_type FOREIGN KEY (consultation_type_id) REFERENCES consultation_types(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Detalhes específicos de cada tipo de consulta realizada';
-
--- =====================================================
--- 8. TRANSAÇÕES DE CRÉDITO (TABELA CRÍTICA)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS credit_transactions (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    user_id CHAR(36) NOT NULL,
-    consultation_id CHAR(36) NULL,
-    type VARCHAR(20) NOT NULL COMMENT 'add, subtract, purchase, spend',
-    amount_cents INTEGER NOT NULL COMMENT 'Valor da transação em centavos',
-    balance_after_cents INTEGER NOT NULL COMMENT 'Saldo após a transação em centavos',
-    description TEXT NOT NULL,
-    stripe_payment_intent_id VARCHAR(255) NULL,
-    stripe_invoice_id VARCHAR(255) NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
-    PRIMARY KEY (id),
-    KEY idx_user_id (user_id),
-    KEY idx_consultation_id (consultation_id),
-    KEY idx_type (type),
-    KEY idx_created_at (created_at),
-    KEY idx_user_created (user_id, created_at),
-    
-    CONSTRAINT fk_credit_transactions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_credit_transactions_consultation FOREIGN KEY (consultation_id) REFERENCES consultations(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Histórico completo de transações de crédito';
-
--- =====================================================
--- 9. CRÉDITOS DOS USUÁRIOS (CONTROLE DE SALDO)
--- =====================================================
-
--- table user_credits descontinuada (drop realizado)
-
--- =====================================================
--- 10. ANALYTICS DIÁRIO - DESCONTINUADO
--- =====================================================
--- 
--- ✅ REMOVIDO: daily_analytics - tabela descontinuada por redundância
--- ✅ BENEFÍCIO: -1 INSERT por consulta (melhor performance)
--- ✅ ALTERNATIVA: Analytics on-demand via consultations quando necessário
+--
+-- Temporary view structure for view `active_subscriptions`
 --
 
--- =====================================================
--- 11. CUSTOS DOS SERVIÇOS
--- =====================================================
--- a table service_costs foi excluída, deve-se usar somente a table consultation_types
--- =====================================================
--- 12. LOGS DE WEBHOOKS STRIPE
--- =====================================================
+DROP TABLE IF EXISTS `active_subscriptions`;
+/*!50001 DROP VIEW IF EXISTS `active_subscriptions`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `active_subscriptions` AS SELECT 
+ 1 AS `id`,
+ 1 AS `user_id`,
+ 1 AS `plan_id`,
+ 1 AS `status`,
+ 1 AS `stripe_subscription_id`,
+ 1 AS `stripe_price_id`,
+ 1 AS `cancel_at_period_end`,
+ 1 AS `current_period_start`,
+ 1 AS `current_period_end`,
+ 1 AS `created_at`,
+ 1 AS `updated_at`,
+ 1 AS `email`,
+ 1 AS `user_name`,
+ 1 AS `plan_name`,
+ 1 AS `plan_code`,
+ 1 AS `price_cents`,
+ 1 AS `credits_included_cents`,
+ 1 AS `queries_limit`,
+ 1 AS `api_keys_limit`,
+ 1 AS `stripe_product_id`,
+ 1 AS `plan_stripe_price_id`*/;
+SET character_set_client = @saved_cs_client;
 
-CREATE TABLE IF NOT EXISTS stripe_webhook_logs (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
-    event_id VARCHAR(255) NOT NULL,
-    event_type VARCHAR(100) NOT NULL,
-    processed BOOLEAN DEFAULT FALSE,
-    error_message TEXT NULL,
-    webhook_data JSON NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    processed_at DATETIME NULL,
-    
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_event_id (event_id),
-    KEY idx_event_type (event_type),
-    KEY idx_processed (processed),
-    KEY idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Log de eventos recebidos via webhooks do Stripe';
+--
+-- Table structure for table `api_keys`
+--
 
--- =====================================================
--- 13. TRIGGERS PARA ATUALIZAÇÃO DE CRÉDITOS
--- =====================================================
+DROP TABLE IF EXISTS `api_keys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_keys` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `user_id` char(36) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `key_visible` varchar(255) DEFAULT NULL COMMENT 'Chave visível (rcp_...) - NULL após primeira visualização',
+  `key_hash` varchar(255) NOT NULL COMMENT 'Hash SHA256 da chave rcp_...',
+  `is_active` tinyint(1) DEFAULT 1,
+  `last_used_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_key_hash` (`key_hash`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_active` (`is_active`),
+  KEY `idx_last_used` (`last_used_at`),
+  CONSTRAINT `fk_api_keys_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Chaves de API dos usuários para integração externa';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
-DELIMITER $$
+--
+-- Table structure for table `consultation_details`
+--
 
--- Trigger para atualizar saldo após inserir transação de crédito
-CREATE TRIGGER trigger_update_user_credits
-BEFORE INSERT ON credit_transactions
-FOR EACH ROW
-BEGIN
-    DECLARE current_balance INT DEFAULT 0;
-    
-    SELECT COALESCE(SUM(
-        CASE 
-            WHEN type IN ('add', 'purchase') THEN amount_cents
-            WHEN type IN ('subtract', 'spend', 'usage') THEN amount_cents
-            ELSE 0
-        END
-    ), 0) INTO current_balance
-    FROM credit_transactions 
-    WHERE user_id = NEW.user_id;
-    
-    SET current_balance = current_balance + NEW.amount_cents;
-    SET NEW.balance_after_cents = current_balance;
-    
-    UPDATE users 
-    SET credits = current_balance / 100.0
-    WHERE id = NEW.user_id;
-END$$
+DROP TABLE IF EXISTS `consultation_details`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `consultation_details` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `consultation_id` char(36) NOT NULL,
+  `consultation_type_id` char(36) NOT NULL,
+  `cost_cents` int(11) NOT NULL,
+  `status` varchar(20) DEFAULT 'success',
+  `response_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Dados da resposta (se necessário)' CHECK (json_valid(`response_data`)),
+  `error_message` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_consultation_id` (`consultation_id`),
+  KEY `idx_type_id` (`consultation_type_id`),
+  KEY `idx_status` (`status`),
+  CONSTRAINT `fk_consultation_details_consultation` FOREIGN KEY (`consultation_id`) REFERENCES `consultations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_consultation_details_type` FOREIGN KEY (`consultation_type_id`) REFERENCES `consultation_types` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Detalhes específicos de cada tipo de consulta realizada';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `consultation_types`
+--
+
+DROP TABLE IF EXISTS `consultation_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `consultation_types` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `code` varchar(50) NOT NULL COMMENT 'Código único (protestos, receita_federal, etc)',
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `cost_cents` int(11) NOT NULL COMMENT 'Custo por consulta em centavos',
+  `provider` varchar(100) DEFAULT NULL COMMENT 'Provedor do serviço (resolve_cenprot, cnpja, etc)',
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_code` (`code`),
+  KEY `idx_active` (`is_active`),
+  KEY `idx_cost` (`cost_cents`),
+  KEY `idx_provider` (`provider`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tipos de consulta disponíveis e seus custos';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `consultations`
+--
+
+DROP TABLE IF EXISTS `consultations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `consultations` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `user_id` char(36) NOT NULL,
+  `api_key_id` char(36) DEFAULT NULL,
+  `cnpj` varchar(18) NOT NULL,
+  `status` varchar(20) DEFAULT 'success',
+  `total_cost_cents` int(11) NOT NULL DEFAULT 0,
+  `response_time_ms` int(11) DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `cache_used` tinyint(1) DEFAULT 0,
+  `client_ip` varchar(45) DEFAULT NULL COMMENT 'IP do cliente (IPv4 ou IPv6)',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `response_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON completo retornado pela rota /api/v1/cnpj/consult' CHECK (json_valid(`response_data`)),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_api_key_id` (`api_key_id`),
+  KEY `idx_cnpj` (`cnpj`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_user_created` (`user_id`,`created_at`),
+  KEY `idx_consultations_user_date` (`user_id`,`created_at`),
+  KEY `idx_consultations_status_date` (`status`,`created_at`),
+  KEY `idx_consultations_cnpj_user` (`cnpj`,`user_id`),
+  CONSTRAINT `fk_consultations_api_key` FOREIGN KEY (`api_key_id`) REFERENCES `api_keys` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_consultations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Histórico de consultas realizadas pelos usuários';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `credit_transactions`
+--
+
+DROP TABLE IF EXISTS `credit_transactions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `credit_transactions` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `user_id` char(36) NOT NULL,
+  `consultation_id` char(36) DEFAULT NULL,
+  `type` varchar(20) NOT NULL COMMENT 'add, subtract, purchase, spend',
+  `amount_cents` int(11) NOT NULL COMMENT 'Valor da transação em centavos',
+  `balance_after_cents` int(11) NOT NULL COMMENT 'Saldo após a transação em centavos',
+  `description` text NOT NULL,
+  `stripe_payment_intent_id` varchar(255) DEFAULT NULL,
+  `stripe_invoice_id` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_consultation_id` (`consultation_id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_user_created` (`user_id`,`created_at`),
+  KEY `idx_credit_transactions_user_balance` (`user_id`,`balance_after_cents`),
+  CONSTRAINT `fk_credit_transactions_consultation` FOREIGN KEY (`consultation_id`) REFERENCES `consultations` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_credit_transactions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Histórico completo de transações de crédito';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`%`*/ /*!50003 TRIGGER trigger_update_user_credits_simplified
+        BEFORE INSERT ON credit_transactions
+        FOR EACH ROW
+        BEGIN
+            DECLARE current_balance INT DEFAULT 0;
+            
+            SELECT COALESCE(SUM(
+                CASE 
+                    WHEN type IN ('add', 'purchase') THEN amount_cents
+                    WHEN type IN ('subtract', 'spend', 'usage') THEN amount_cents
+                    ELSE 0
+                END
+            ), 0) INTO current_balance
+            FROM credit_transactions 
+            WHERE user_id = NEW.user_id;
+            
+            SET current_balance = current_balance + NEW.amount_cents;
+            SET NEW.balance_after_cents = current_balance;
+            
+            UPDATE users 
+            SET credits = current_balance / 100.0
+            WHERE id = NEW.user_id;
+        END */;;
 DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
 
--- =====================================================
--- 14. VIEWS PARA RELATÓRIOS E CONSULTAS
--- =====================================================
+--
+-- Table structure for table `stripe_webhook_logs`
+--
 
--- View de resumo de créditos dos usuários
-CREATE OR REPLACE VIEW user_credits_summary AS
-SELECT 
-    u.id,
-    u.email,
-    u.name,
-    u.credits as current_credits,
-    COALESCE(ct.total_purchased, 0) as total_purchased,
-    COALESCE(ct.total_spent, 0) as total_spent,
-    COALESCE(ct.transaction_count, 0) as transaction_count,
-    u.created_at as user_created_at,
-    COALESCE(ct.last_transaction, u.created_at) as last_transaction
-FROM users u
-LEFT JOIN (
-    SELECT 
-        user_id,
-        SUM(CASE WHEN type IN ('add', 'purchase') THEN amount_cents ELSE 0 END) / 100.0 as total_purchased,
-        SUM(CASE WHEN type IN ('subtract', 'spend') THEN amount_cents ELSE 0 END) / 100.0 as total_spent,
-        COUNT(*) as transaction_count,
-        MAX(created_at) as last_transaction
-    FROM credit_transactions 
-    GROUP BY user_id
-) ct ON u.id = ct.user_id;
+DROP TABLE IF EXISTS `stripe_webhook_logs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `stripe_webhook_logs` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `event_id` varchar(255) NOT NULL,
+  `event_type` varchar(100) NOT NULL,
+  `processed` tinyint(1) DEFAULT 0,
+  `error_message` text DEFAULT NULL,
+  `webhook_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`webhook_data`)),
+  `created_at` datetime DEFAULT current_timestamp(),
+  `processed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_event_id` (`event_id`),
+  KEY `idx_event_type` (`event_type`),
+  KEY `idx_processed` (`processed`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log de eventos recebidos via webhooks do Stripe';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- View de assinaturas ativas com detalhes dos planos
-CREATE OR REPLACE VIEW active_subscriptions AS
-SELECT 
-    s.*,
-    u.email,
-    u.name as user_name,
-    sp.name as plan_name,
-    sp.code as plan_code,
-    sp.price_cents,
-    sp.credits_included_cents,
-    sp.queries_limit,
-    sp.api_keys_limit,
-    sp.stripe_product_id,
-    sp.stripe_price_id as plan_stripe_price_id
-FROM subscriptions s
-JOIN users u ON s.user_id = u.id
-JOIN subscription_plans sp ON s.plan_id = sp.id
-WHERE s.status = 'active';
+--
+-- Table structure for table `subscription_plans`
+--
 
--- ✅ REMOVIDO: monthly_user_analytics - view descontinuada junto com daily_analytics
--- Analytics mensais podem ser calculados on-demand via consultations quando necessário
+DROP TABLE IF EXISTS `subscription_plans`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `subscription_plans` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `user_id` char(36) DEFAULT NULL,
+  `code` varchar(50) NOT NULL COMMENT 'Código único do plano (starter, pro, enterprise)',
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `price_cents` int(11) NOT NULL COMMENT 'Preço em centavos (ex: 2990 = R$ 29,90)',
+  `credits_included_cents` int(11) NOT NULL DEFAULT 0 COMMENT 'Créditos inclusos em centavos',
+  `api_keys_limit` int(11) DEFAULT 1,
+  `queries_limit` int(11) DEFAULT NULL COMMENT 'Limite de consultas por mês (NULL = ilimitado)',
+  `is_active` tinyint(1) DEFAULT 1,
+  `stripe_product_id` varchar(255) DEFAULT NULL,
+  `stripe_price_id` varchar(255) DEFAULT NULL,
+  `features` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Recursos específicos do plano' CHECK (json_valid(`features`)),
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_code` (`code`),
+  KEY `idx_active` (`is_active`),
+  KEY `idx_price_cents` (`price_cents`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Planos de assinatura disponíveis no sistema';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 15. DADOS INICIAIS (SEED DATA)
--- =====================================================
+--
+-- Table structure for table `subscriptions`
+--
 
--- Planos de assinatura padrão
-INSERT INTO subscription_plans (code, name, description, price_cents, credits_included_cents, api_keys_limit, queries_limit) VALUES
-('starter', 'Starter', 'Plano básico para começar', 2990, 1000, 1, 100),
-('professional', 'Professional', 'Plano profissional', 9990, 5000, 5, 1000),
-('enterprise', 'Enterprise', 'Plano empresarial', 29990, 15000, NULL, NULL)
-ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+DROP TABLE IF EXISTS `subscriptions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `subscriptions` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `user_id` char(36) NOT NULL,
+  `plan_id` char(36) NOT NULL,
+  `status` varchar(50) DEFAULT 'active',
+  `stripe_subscription_id` varchar(255) DEFAULT NULL,
+  `stripe_price_id` varchar(255) DEFAULT NULL,
+  `cancel_at_period_end` tinyint(1) DEFAULT 0,
+  `current_period_start` datetime DEFAULT NULL,
+  `current_period_end` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_plan_id` (`plan_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_period_end` (`current_period_end`),
+  CONSTRAINT `fk_subscriptions_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans` (`id`),
+  CONSTRAINT `fk_subscriptions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Assinaturas ativas dos usuários';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- Tipos de consulta padrão
-INSERT INTO consultation_types (code, name, description, cost_cents, provider) VALUES
-('protestos', 'Consulta de Protestos', 'Consulta de protestos no Resolve CenProt', 15, 'resolve_cenprot'),
-('receita_federal', 'Receita Federal', 'Dados básicos da Receita Federal', 5, 'cnpja'),
-('simples_nacional', 'Simples Nacional', 'Consulta situação no Simples Nacional', 3, 'cnpja'),
-('cnae', 'CNAE', 'Consulta de atividades econômicas', 2, 'cnpja'),
-('socios', 'Quadro Societário', 'Informações dos sócios', 5, 'cnpja'),
-('endereco', 'Endereço Completo', 'Endereço detalhado da empresa', 2, 'cnpja')
-ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+--
+-- Temporary view structure for view `user_credits_summary`
+--
 
+DROP TABLE IF EXISTS `user_credits_summary`;
+/*!50001 DROP VIEW IF EXISTS `user_credits_summary`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `user_credits_summary` AS SELECT 
+ 1 AS `id`,
+ 1 AS `email`,
+ 1 AS `name`,
+ 1 AS `current_credits`,
+ 1 AS `total_purchased`,
+ 1 AS `total_spent`,
+ 1 AS `transaction_count`,
+ 1 AS `user_created_at`,
+ 1 AS `last_transaction`*/;
+SET character_set_client = @saved_cs_client;
 
--- =====================================================
--- 16. ÍNDICES ADICIONAIS PARA PERFORMANCE
--- =====================================================
+--
+-- Table structure for table `users`
+--
 
--- Índices compostos otimizados
-CREATE INDEX IF NOT EXISTS idx_consultations_user_date ON consultations(user_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_credit_transactions_user_balance ON credit_transactions(user_id, balance_after_cents);
--- ✅ REMOVIDO: idx_daily_analytics_date_range - índice da daily_analytics descontinuada
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `id` char(36) NOT NULL DEFAULT uuid(),
+  `email` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `password_hash` varchar(255) DEFAULT NULL,
+  `last_login` datetime DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `stripe_customer_id` varchar(255) DEFAULT NULL COMMENT 'ID do cliente no Stripe',
+  `credits` decimal(10,2) DEFAULT 0.00 COMMENT 'Saldo atual de créditos em reais',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_email` (`email`),
+  KEY `idx_stripe_customer` (`stripe_customer_id`),
+  KEY `idx_email` (`email`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabela principal de usuários do sistema SaaS';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- Índices para queries de dashboard
-CREATE INDEX IF NOT EXISTS idx_consultations_status_date ON consultations(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_consultations_cnpj_user ON consultations(cnpj, user_id);
+--
+-- Dumping events for database 'valida_saas'
+--
 
--- =====================================================
--- 17. CONFIGURAÇÕES DE PERFORMANCE
--- =====================================================
+--
+-- Dumping routines for database 'valida_saas'
+--
 
--- Configurações recomendadas para o banco
-SET GLOBAL innodb_buffer_pool_size = 1073741824;  -- 1GB
-SET GLOBAL innodb_log_file_size = 268435456;      -- 256MB
-SET GLOBAL innodb_flush_log_at_trx_commit = 1;
-SET GLOBAL max_connections = 200;
-SET GLOBAL query_cache_size = 67108864;           -- 64MB
+--
+-- Final view structure for view `active_subscriptions`
+--
 
--- =====================================================
--- 18. VERIFICAÇÕES E VALIDAÇÕES
--- =====================================================
+/*!50001 DROP VIEW IF EXISTS `active_subscriptions`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `active_subscriptions` AS select `s`.`id` AS `id`,`s`.`user_id` AS `user_id`,`s`.`plan_id` AS `plan_id`,`s`.`status` AS `status`,`s`.`stripe_subscription_id` AS `stripe_subscription_id`,`s`.`stripe_price_id` AS `stripe_price_id`,`s`.`cancel_at_period_end` AS `cancel_at_period_end`,`s`.`current_period_start` AS `current_period_start`,`s`.`current_period_end` AS `current_period_end`,`s`.`created_at` AS `created_at`,`s`.`updated_at` AS `updated_at`,`u`.`email` AS `email`,`u`.`name` AS `user_name`,`sp`.`name` AS `plan_name`,`sp`.`code` AS `plan_code`,`sp`.`price_cents` AS `price_cents`,`sp`.`credits_included_cents` AS `credits_included_cents`,`sp`.`queries_limit` AS `queries_limit`,`sp`.`api_keys_limit` AS `api_keys_limit`,`sp`.`stripe_product_id` AS `stripe_product_id`,`sp`.`stripe_price_id` AS `plan_stripe_price_id` from ((`subscriptions` `s` join `users` `u` on(`s`.`user_id` = `u`.`id`)) join `subscription_plans` `sp` on(`s`.`plan_id` = `sp`.`id`)) where `s`.`status` = 'active' */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
 
--- Verificar se todas as tabelas foram criadas
-SELECT 
-    TABLE_NAME as 'Tabela',
-    TABLE_ROWS as 'Registros',
-    ROUND(((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024), 2) as 'Tamanho (MB)'
-FROM information_schema.TABLES 
-WHERE TABLE_SCHEMA = DATABASE()
-ORDER BY TABLE_NAME;
+--
+-- Final view structure for view `user_credits_summary`
+--
 
--- Verificar foreign keys
-SELECT 
-    TABLE_NAME,
-    COLUMN_NAME,
-    CONSTRAINT_NAME,
-    REFERENCED_TABLE_NAME,
-    REFERENCED_COLUMN_NAME
-FROM information_schema.KEY_COLUMN_USAGE
-WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
-ORDER BY TABLE_NAME, COLUMN_NAME;
+/*!50001 DROP VIEW IF EXISTS `user_credits_summary`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `user_credits_summary` AS select `u`.`id` AS `id`,`u`.`email` AS `email`,`u`.`name` AS `name`,`u`.`credits` AS `current_credits`,coalesce(`ct`.`total_purchased`,0) AS `total_purchased`,coalesce(`ct`.`total_spent`,0) AS `total_spent`,coalesce(`ct`.`transaction_count`,0) AS `transaction_count`,`u`.`created_at` AS `user_created_at`,coalesce(`ct`.`last_transaction`,`u`.`created_at`) AS `last_transaction` from (`users` `u` left join (select `credit_transactions`.`user_id` AS `user_id`,sum(case when `credit_transactions`.`type` in ('add','purchase') then `credit_transactions`.`amount_cents` else 0 end) / 100.0 AS `total_purchased`,sum(case when `credit_transactions`.`type` in ('subtract','spend') then `credit_transactions`.`amount_cents` else 0 end) / 100.0 AS `total_spent`,count(0) AS `transaction_count`,max(`credit_transactions`.`created_at`) AS `last_transaction` from `credit_transactions` group by `credit_transactions`.`user_id`) `ct` on(`u`.`id` = `ct`.`user_id`)) */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
-SET FOREIGN_KEY_CHECKS = 1;
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- =====================================================
--- FIM DO SCRIPT
--- =====================================================
-
-SELECT '✅ SCHEMA MARIADB PARA VALIDA SAAS CRIADO COM SUCESSO!' as 'STATUS',
-       NOW() as 'EXECUTADO_EM',
-       DATABASE() as 'BANCO_DE_DADOS',
-       VERSION() as 'VERSAO_MARIADB';
-
--- =====================================================
--- INFORMAÇÕES IMPORTANTES:
--- 
--- 1. Este schema é compatível com MariaDB 10.4+
--- 2. Usa UUIDs nativos do MariaDB (função UUID())
--- 3. Triggers implementados em MySQL/MariaDB syntax
--- 4. Views otimizadas para consultas de dashboard
--- 5. Índices criados para máxima performance
--- 6. Dados iniciais incluídos (seed data)
--- 
--- PRÓXIMOS PASSOS:
--- 1. Adaptar api/database/connection.py para PyMySQL
--- 2. Migrar dados do Supabase usando scripts Python
--- 3. Testar todas as funcionalidades
--- =====================================================
-
--- ✅ SCHEMA MARIADB PARA VALIDA SAAS CRIADO COM SUCESSO!   2025-09-22 22:00:56 valida_saas 10.9.7-MariaDB
-
--- Variavéis de ambiente no .env do projeto
--- MARIADB_HOST = 10.0.20.2
--- MARIADB_PORT = 7706
--- MARIADB_USER = 
--- MARIADB_PASS = 
+-- Dump completed on 2025-09-25 10:45:15

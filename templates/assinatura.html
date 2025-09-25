@@ -16,28 +16,437 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
             color: #E5E7EB;
+            min-height: 100vh;
         }
         .sidebar {
-            background-color: #1F2937;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
         }
         .header {
-            background-color: #1F2937;
-            border-bottom: 1px solid #374151;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
         }
         .active-link {
-            background-color: #374151;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             color: white;
-            border-radius: 0.375rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            transform: translateX(4px);
+            transition: all 0.3s ease;
         }
         .inactive-link {
-            color: #9CA3AF;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+            border-radius: 0.5rem;
+        }
+        .inactive-link:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: #e2e8f0;
+            transform: translateX(2px);
+        }
+        
+        /* Animações e efeitos modernos */
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        .slide-up {
+            animation: slideUp 0.8s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Cards modernos */
+        .modern-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+            transition: left 0.6s;
+        }
+        
+        .modern-card:hover::before {
+            left: 100%;
+        }
+        
+        .modern-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Plan cards - Otimizado para 4 colunas com largura máxima */
+        .plan-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 1.5rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-height: 480px;
+            padding: 1.75rem 1.5rem;
+            min-width: 260px;
+        }
+        
+        .plan-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .plan-card:hover::after {
+            opacity: 1;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.4);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        
+        /* Popular badge */
+        .popular-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        }
+        
+        .btn-secondary {
+            background: rgba(75, 85, 99, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 0.75rem;
+            color: #9ca3af;
+        }
+        
+        /* Loading states */
+        .loading-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        /* Glass effect */
+        .glass {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        /* Custom gradients */
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .gradient-border {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            padding: 1px;
+            border-radius: 1rem;
+        }
+        
+        /* Toggle Switch Personalizado */
+        #auto-renewal-toggle:checked + label .toggle-bg {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        #auto-renewal-toggle:checked + label .toggle-dot {
+            transform: translateX(1rem);
+        }
+        
+        .toggle-bg:hover {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* Estados do indicador de renovação */
+        .renewal-indicator.inactive {
+            background: #ef4444;
+        }
+        
+        .renewal-status.inactive {
+            color: #f87171;
+        }
+        
+        /* Navegação da página */
+        .page-navigation {
+            position: fixed;
+            top: 9rem;
+            right: 2rem;
+            z-index: 40;
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 1rem;
+            padding: 1rem;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+            animation: slideInNav 0.8s ease 0.5s forwards;
+        }
+        
+        .page-navigation:hover {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            margin-bottom: 0.25rem;
+        }
+        
+        .nav-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .nav-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: #e2e8f0;
+            transform: translateX(4px);
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            transform: translateX(6px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .nav-item .material-icons {
+            font-size: 16px;
+            margin-right: 0.5rem;
+        }
+        
+        .nav-toggle {
+            position: absolute;
+            top: -0.5rem;
+            left: -0.5rem;
+            width: 2rem;
+            height: 2rem;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .nav-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+        
+        .nav-toggle .material-icons {
+            color: white;
+            font-size: 14px;
+        }
+        
+        .page-navigation.collapsed {
+            width: 3rem;
+            height: 3rem;
+            padding: 0;
+            overflow: hidden;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .page-navigation.collapsed .nav-content {
+            opacity: 0;
+            transform: scale(0.8);
+            display: none;
+        }
+        
+        .page-navigation.collapsed .nav-toggle {
+            position: static;
+            width: 2.5rem;
+            height: 2.5rem;
+            margin: 0;
+        }
+        
+        .nav-content {
+            transition: all 0.3s ease;
+            min-width: 180px;
+        }
+        
+        @keyframes slideInNav {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Scroll behavior suave */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Responsive navigation */
+        @media (max-width: 768px) {
+            .page-navigation {
+                top: 8rem;
+                right: 1rem;
+                transform: scale(0.9);
+            }
+            
+            .nav-content {
+                min-width: 160px;
+            }
+            
+            .nav-item {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.6rem;
+            }
+        }
+        
+        /* Melhorar espaçamento interno dos cards */
+        .plan-card .glass {
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.25rem;
+        }
+        
+        /* Responsive plan cards para 4 colunas */
+        @media (max-width: 1500px) {
+            /* Em telas menores que 1600px, usar 3 colunas */
+            [data-plans-container] {
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 1.5rem;
+            }
+            
+            .plan-card {
+                padding: 1.75rem 1.5rem;
+                min-width: 260px;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            /* Em telas menores que lg, usar 2 colunas */
+            [data-plans-container] {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 1.5rem;
+            }
+            
+            .plan-card {
+                padding: 1.5rem 1.25rem;
+                min-width: 240px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            /* Em telas mobile, usar 1 coluna */
+            [data-plans-container] {
+                grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+                gap: 1.25rem;
+            }
+            
+            .plan-card {
+                padding: 1.5rem 1.25rem;
+                min-width: auto;
+            }
         }
     </style>
-    <script src="/static/js/assinatura.js"></script>
   </head>
   <body>
+    <!-- Navegação da Página -->
+    <nav class="page-navigation" id="page-navigation">
+      <div class="nav-toggle" onclick="togglePageNavigation()">
+        <span class="material-icons">menu</span>
+      </div>
+      <div class="nav-content">
+        <a href="#minha-assinatura" class="nav-item" data-section="minha-assinatura">
+          <span class="material-icons">star</span>
+          Minha Assinatura
+        </a>
+        <a href="#planos" class="nav-item" data-section="planos">
+          <span class="material-icons">diamond</span>
+          Planos
+        </a>
+        <a href="#renovacao-inteligente" class="nav-item" data-section="renovacao-inteligente">
+          <span class="material-icons">autorenew</span>
+          Renovação Inteligente
+        </a>
+        <a href="#tabela-precos" class="nav-item" data-section="tabela-precos">
+          <span class="material-icons">price_check</span>
+          Tabela de Preços
+        </a>
+        <a href="#historico-compras" class="nav-item" data-section="historico-compras">
+          <span class="material-icons">shopping_cart</span>
+          Histórico de Compras
+        </a>
+      </div>
+    </nav>
+    
     <div class="flex h-screen bg-gray-900">
       <!-- Sidebar -->
       <aside class="sidebar w-64 p-4 flex flex-col justify-between">
@@ -78,65 +487,115 @@
       <!-- Main Content -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Header -->
-        <div class="header px-6 py-4">
+        <div class="header px-8 py-6 fade-in">
           <div class="flex items-center justify-between">
             <div>
-              <h1 class="text-2xl font-bold text-white">Assinatura</h1>
-              <p class="text-gray-400 mt-1">Gerencie sua assinatura e planos</p>
+              <h1 class="text-3xl font-bold gradient-text mb-2">Assinaturas</h1>
+              <p class="text-slate-400 text-lg">Gerencie sua assinatura e escolha o melhor plano</p>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="glass px-4 py-2 rounded-full">
+                <span class="text-sm text-slate-300">💎 Premium User</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto p-6">
-          <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
-            <div class="flex flex-wrap justify-between gap-3 p-4">
+          <div class="layout-content-container flex flex-col max-w-[1300px] flex-1">
+            <!-- <div class="flex flex-wrap justify-between gap-3 p-4">
               <p class="text-white tracking-light text-[32px] font-bold leading-tight min-w-72">Assinatura</p>
-            </div>
+            </div> -->
             
             <!-- Assinatura Atual -->
-            <div data-current-subscription class="px-4 py-3">
-              <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-6 mb-6">
-                <h3 class="text-white text-lg font-bold mb-4">Assinatura Atual</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="minha-assinatura" data-current-subscription class="px-6 py-4 slide-up">
+              <div class="gradient-border mb-8">
+                <div class="modern-card p-8">
+                  <div class="flex items-center mb-6">
+                    <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-4">
+                      <span class="material-icons text-white">star</span>
+                    </div>
                   <div>
-                    <div class="space-y-3">
-                      <div class="flex justify-between">
-                        <span class="text-[#92adc9]">Plano:</span>
-                        <span class="text-white font-medium" data-current-plan-name>Carregando...</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-[#92adc9]">Status:</span>
-                        <span data-current-status class="px-2 py-1 rounded text-xs font-medium">Carregando...</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-[#92adc9]">Valor Mensal:</span>
-                        <span class="text-white font-medium" data-current-price>R$ --</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-[#92adc9]">Renovação Automática:</span>
-                        <span data-auto-renewal class="text-green-400">Ativa</span>
-                      </div>
+                      <h3 class="text-2xl font-bold text-white">Minha Assinatura</h3>
+                      <p class="text-slate-400">Status atual da sua conta premium</p>
                     </div>
                   </div>
-                  <div>
-                    <h4 class="text-white font-medium mb-3">Créditos</h4>
-                    <div class="space-y-3">
-                      <div class="bg-[#192633] rounded-lg p-4">
-                        <div class="flex justify-between items-center">
-                          <span class="text-[#92adc9]">Disponíveis:</span>
-                          <span class="text-green-400 font-bold text-lg" data-credits-available>R$ --</span>
+                  
+                  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Info do Plano -->
+                    <div class="space-y-4">
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-3">
+                          <span class="text-slate-400 text-sm font-medium">PLANO ATUAL</span>
+                          <span class="material-icons text-blue-400 text-lg">info</span>
+                        </div>
+                        <div class="text-white font-bold text-xl" data-current-plan-name>
+                          <div class="loading-shimmer h-6 rounded bg-slate-600"></div>
                         </div>
                       </div>
-                      <div class="grid grid-cols-2 gap-3 text-sm">
-                        <div class="text-center">
-                          <div class="text-blue-400 font-medium" data-credits-total>R$ --</div>
-                          <div class="text-[#92adc9] text-xs">Total Comprados</div>
+                      
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-3">
+                          <span class="text-slate-400 text-sm font-medium">STATUS</span>
+                          <span class="material-icons text-green-400 text-lg">check_circle</span>
                         </div>
-                        <div class="text-center">
-                          <div class="text-red-400 font-medium" data-credits-used>R$ --</div>
-                          <div class="text-[#92adc9] text-xs">Já Utilizados</div>
+                        <span data-current-status class="inline-flex px-3 py-1 rounded-full text-xs font-bold text-green-900 bg-green-400">
+                          <div class="loading-shimmer h-4 w-16 rounded bg-slate-600"></div>
+                        </span>
+                      </div>
+                      
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-3">
+                          <span class="text-slate-400 text-sm font-medium">VALOR MENSAL</span>
+                          <span class="material-icons text-blue-400 text-lg">attach_money</span>
                         </div>
+                        <div class="text-white font-bold text-xl" data-current-price>
+                          <div class="loading-shimmer h-6 w-20 rounded bg-slate-600"></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Créditos Disponíveis -->
+                    <div class="glass rounded-xl p-6 text-center">
+                      <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
+                        <span class="material-icons text-white text-2xl">account_balance_wallet</span>
+                      </div>
+                      <h4 class="text-slate-300 text-sm font-medium mb-2">CRÉDITOS DISPONÍVEIS</h4>
+                      <div class="text-3xl font-bold text-green-400 mb-2" data-credits-available>
+                        <div class="loading-shimmer h-8 w-32 mx-auto rounded bg-slate-600"></div>
+                      </div>
+                      <p class="text-xs text-slate-500">Prontos para usar</p>
+                    </div>
+                    
+                    <!-- Resumo de Uso -->
+                    <div class="space-y-4">
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                          <span class="text-slate-400 text-sm font-medium">TOTAL ADQUIRIDO</span>
+                          <span class="material-icons text-blue-400 text-sm">shopping_cart</span>
+                  </div>
+                        <div class="text-blue-400 font-bold text-lg" data-credits-total>
+                          <div class="loading-shimmer h-6 w-24 rounded bg-slate-600"></div>
+                        </div>
+                      </div>
+                      
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                          <span class="text-slate-400 text-sm font-medium">JÁ UTILIZADOS</span>
+                          <span class="material-icons text-orange-400 text-sm">trending_down</span>
+                        </div>
+                        <div class="text-orange-400 font-bold text-lg" data-credits-used>
+                          <div class="loading-shimmer h-6 w-24 rounded bg-slate-600"></div>
+                        </div>
+                      </div>
+                      
+                      <div class="glass rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                          <span class="text-slate-400 text-sm font-medium">RENOVAÇÃO</span>
+                          <span class="material-icons text-green-400 text-sm">autorenew</span>
+                        </div>
+                        <span data-auto-renewal class="text-green-400 font-bold">Ativa</span>
                       </div>
                     </div>
                   </div>
@@ -145,89 +604,348 @@
             </div>
             
             <!-- Planos Disponíveis -->
-            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Planos Disponíveis</h2>
-            <div class="px-4 py-3">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6" data-plans-container>
+            <div id="planos" class="px-4 py-10">
+              <div class="flex items-center justify-between mb-12">
+                <div>
+                  <h2 class="text-3xl font-bold gradient-text mb-3">Planos de Assinatura</h2>
+                  <p class="text-slate-400 text-lg">Escolha o plano ideal para suas necessidades</p>
+                </div>
+                <!-- <div class="flex items-center space-x-4">
+                  <div class="glass px-4 py-2 rounded-full">
+                    <span class="text-sm text-slate-300">💰 Economize até 30%</span>
+                  </div>
+                </div> -->
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-6" data-plans-container>
                 <!-- Template de Plano -->
                 <div class="plan-template hidden" data-plan-template>
-                  <div class="bg-[#111a22] border border-[#324d67] rounded-lg p-6 relative overflow-hidden">
+                  <div class="plan-card h-full flex flex-col relative group">
                     <!-- Badge Popular -->
-                    <div class="popular-badge absolute top-0 right-0 bg-[#1172d4] text-white px-3 py-1 text-xs font-medium rounded-bl-lg" style="display: none;">
-                      Mais Popular
+                    <div class="popular-badge absolute -top-1 -right-1 text-white px-4 py-2 text-xs font-bold rounded-bl-2xl rounded-tr-xl" style="display: none;">
+                      ⭐ POPULAR
                     </div>
                     
-                    <div class="text-center mb-6">
-                      <h3 class="text-white text-xl font-bold mb-2" data-plan-name>Plano</h3>
-                      <div class="mb-4">
-                        <span class="text-4xl font-bold text-white" data-plan-price>R$ 0</span>
-                        <span class="text-[#92adc9] text-sm">/mês</span>
+                    <!-- Header do Plano -->
+                    <div class="text-center mb-8">
+                      <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                        <span class="material-icons text-white text-2xl">diamond</span>
                       </div>
-                      <div class="text-[#1172d4] font-medium" data-plan-credits>R$ 0,00 em créditos</div>
+                      <h3 class="text-white text-xl font-bold mb-4" data-plan-name>Plano Premium</h3>
+                      <div class="mb-8">
+                        <div class="flex items-baseline justify-center mb-3">
+                          <span class="text-4xl font-bold text-white" data-plan-price>R$ 0</span>
+                          <span class="text-slate-400 text-base ml-2">/mês</span>
+                        </div>
+                      </div>
+                      <div class="glass px-5 py-3 rounded-full inline-block">
+                        <span class="text-blue-400 font-semibold text-sm" data-plan-credits>R$ 0,00 em créditos</span>
+                      </div>
                     </div>
                     
-                    <div class="space-y-3 mb-6" data-plan-features>
+                    <!-- Features -->
+                    <div class="space-y-4 mb-8 flex-grow" data-plan-features>
                       <!-- Features serão preenchidas dinamicamente -->
                     </div>
                     
-                    <div class="border-t border-[#324d67] pt-4 mb-4">
-                      <div class="text-sm text-[#92adc9] mb-2">Consultas Estimadas:</div>
-                      <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div class="text-center p-2 bg-[#192633] rounded">
-                          <div class="text-yellow-400 font-medium" data-plan-protests>0</div>
-                          <div class="text-[#92adc9]">Protestos</div>
+                    <!-- Consultas Estimadas -->
+                    <div class="glass rounded-xl p-5 mb-6">
+                      <div class="text-center mb-5">
+                        <h4 class="text-slate-300 text-sm font-bold">CONSULTAS ESTIMADAS/MÊS</h4>
+                      </div>
+                      <div class="grid grid-cols-2 gap-6">
+                        <div class="text-center">
+                          <div class="w-10 h-10 mx-auto mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+                            <span class="material-icons text-white text-sm">warning</span>
+                          </div>
+                          <div class="text-xl font-bold text-yellow-400 mb-1" data-plan-protests>0</div>
+                          <div class="text-xs text-slate-400">Protestos</div>
                         </div>
-                        <div class="text-center p-2 bg-[#192633] rounded">
-                          <div class="text-green-400 font-medium" data-plan-receita>0</div>
-                          <div class="text-[#92adc9]">Receita Federal</div>
+                        <div class="text-center">
+                          <div class="w-10 h-10 mx-auto mb-2 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
+                            <span class="material-icons text-white text-sm">account_balance</span>
+                          </div>
+                          <div class="text-xl font-bold text-green-400 mb-1" data-plan-receita>0</div>
+                          <div class="text-xs text-slate-400">Receita Federal</div>
                         </div>
                       </div>
                     </div>
                     
-                    <button class="w-full py-3 px-4 rounded-lg font-medium transition-colors" data-plan-button>
+                    <!-- Button -->
+                    <button class="btn-primary w-full py-3 px-6 text-base font-bold transform hover:scale-105 transition-all duration-300 shadow-xl" data-plan-button>
+                      <span class="flex items-center justify-center">
+                        <span class="material-icons mr-2 text-lg">rocket_launch</span>
                       Selecionar Plano
+                      </span>
                     </button>
+                  </div>
+                </div>
+                
+                <!-- ✅ CARD DINÂMICO: Produto Dinâmico (último na ordem) -->
+                <div class="dynamic-product-card" style="order: 999;">
+                  <div class="plan-card h-full flex flex-col relative group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-emerald-600/20 via-teal-600/20 to-cyan-600/20 rounded-2xl"></div>
+                    <div class="relative z-10">
+                      <!-- Badge Dinâmico -->
+                      <div class="popular-badge absolute -top-1 -right-1 px-4 py-2 text-xs font-bold rounded-bl-2xl rounded-tr-xl bg-gradient-to-r from-emerald-500 to-teal-500">
+                        🚀 DINÂMICO
+                      </div>
+                      
+                      <!-- Header -->
+                      <div class="text-center mb-8">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                          <span class="material-icons text-white text-2xl">auto_awesome</span>
+                        </div>
+                        <h3 class="text-white text-xl font-bold mb-4">Crie Seu Plano</h3>
+                        <!-- <p class="text-slate-400 text-sm mb-6">Produto criado automaticamente no Stripe</p> -->
+                        
+                        <!-- Input de Valor Dinâmico -->
+                        <div class="glass rounded-2xl p-5 mb-8">
+                          <div class="flex items-center justify-center space-x-3 mb-4">
+                            <span class="text-2xl font-bold text-white">R$</span>
+                            <input 
+                              type="number" 
+                              id="dynamic-amount" 
+                              min="10" 
+                              max="100000"
+                              step="0.01" 
+                              class="bg-transparent border-2 border-emerald-400/30 rounded-xl px-5 py-4 w-36 text-center text-white font-bold text-2xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                              placeholder="0,00"
+                              onchange="updateDynamicPlanDisplay()"
+                              oninput="updateDynamicPlanDisplay()"
+                            >
+                          </div>
+                           <div class="text-center">
+                             <span class="text-emerald-400 font-semibold text-sm" id="dynamic-plan-status">
+                               R$ 0,00 em créditos
+                             </span>
+                           </div>
+                        </div>
+                      </div>
+                      
+                       <!-- Features Dinâmicas -->
+                       <div class="space-y-4 mb-8 flex-grow">
+                         <!-- Serviços Específicos Solicitados -->
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">warning</span>
+                           </div>
+                           <span class="text-sm">Consulta de Protestos</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">account_balance</span>
+                           </div>
+                           <span class="text-sm">Receita Federal</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">business</span>
+                           </div>
+                           <span class="text-sm">Cadastro de Contribuintes (IE)</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">folder</span>
+                           </div>
+                           <span class="text-sm">Simples Nacional</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-indigo-400 to-blue-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">place</span>
+                           </div>
+                           <span class="text-sm">Geocodificação</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-teal-400 to-green-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">help_outline</span>
+                           </div>
+                           <span class="text-sm">Suframa</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">web</span>
+                           </div>
+                           <span class="text-sm">Consultas pelo site</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">api</span>
+                           </div>
+                           <span class="text-sm">Consultas com API</span>
+                         </div>
+                         <div class="flex items-center text-slate-300">
+                           <div class="w-6 h-6 mr-3 bg-gradient-to-r from-gray-400 to-slate-500 rounded-full flex items-center justify-center">
+                             <span class="material-icons text-white text-xs">history</span>
+                           </div>
+                           <span class="text-sm">Histórico detalhado de consultas</span>
+                         </div>
+                       </div>
+                      
+                      <!-- Estimativas Dinâmicas -->
+                      <div class="glass rounded-xl p-5 mb-6">
+                        <div class="text-center mb-5">
+                          <h4 class="text-slate-300 text-sm font-bold">ESTIMATIVA DINÂMICA</h4>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                          <div class="text-center">
+                            <div class="w-10 h-10 mx-auto mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+                              <span class="material-icons text-white text-sm">warning</span>
+                            </div>
+                            <div class="text-xl font-bold text-yellow-400 mb-1" id="dynamic-plan-protests">0</div>
+                            <div class="text-xs text-slate-400">Protestos</div>
+                          </div>
+                          <div class="text-center">
+                            <div class="w-10 h-10 mx-auto mb-2 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
+                              <span class="material-icons text-white text-sm">account_balance</span>
+                            </div>
+                            <div class="text-xl font-bold text-green-400 mb-1" id="dynamic-plan-receita">0</div>
+                            <div class="text-xs text-slate-400">Receita Federal</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <!-- Button Dinâmico -->
+                      <button 
+                        id="dynamic-plan-btn" 
+                        class="w-full py-3 px-6 text-base font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:from-slate-600 disabled:to-slate-600 shadow-xl"
+                        disabled
+                      >
+                        <span class="flex items-center justify-center">
+                          <span class="material-icons mr-2 text-lg">auto_awesome</span>
+                          <span>Criar e Assinar</span>
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <!-- Informações sobre Renovação Automática -->
-              <div class="mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <div class="flex items-start gap-3">
-                  <span class="material-icons text-blue-400 mt-0.5">info</span>
+              <!-- Configuração de Renovação Automática -->
+              <div id="renovacao-inteligente" class="mt-12 modern-card p-6">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span class="material-icons text-white text-xl">autorenew</span>
+                  </div>
                   <div class="flex-1">
-                    <h4 class="text-blue-200 font-medium mb-2">Renovação Automática</h4>
-                    <p class="text-blue-300 text-sm leading-relaxed">
-                      Quando seus créditos se esgotarem, uma nova assinatura será automaticamente cobrada 
-                      para garantir que você nunca fique sem acesso aos serviços. Você pode desativar 
-                      essa funcionalidade a qualquer momento.
+                    <h4 class="text-white text-lg font-bold mb-3">Renovação Inteligente</h4>
+                    <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                      Mantenha seus serviços sempre ativos com renovação automática. Quando o período atual 
+                      terminar ou os créditos acabarem, processaremos automaticamente uma nova cobrança para garantir continuidade 
+                      total dos seus serviços.
                     </p>
-                    <div class="mt-3 flex items-center gap-2">
-                      <input type="checkbox" id="auto-renewal-toggle" checked class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
-                      <label for="auto-renewal-toggle" class="text-sm text-blue-200">Manter renovação automática ativa</label>
+                    <div class="glass rounded-xl p-4">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                          <div class="relative">
+                            <input 
+                              type="checkbox" 
+                              id="auto-renewal-toggle" 
+                              checked 
+                              class="sr-only"
+                            >
+                            <label for="auto-renewal-toggle" class="flex items-center cursor-pointer">
+                              <div class="toggle-bg w-10 h-6 bg-slate-600 rounded-full shadow-inner transition-colors duration-300"></div>
+                              <div class="toggle-dot absolute w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 left-1 top-1"></div>
+                            </label>
+                          </div>
+                          <label for="auto-renewal-toggle" class="text-white font-medium cursor-pointer">
+                            Renovação automática
+                          </label>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse renewal-indicator"></div>
+                          <span class="text-green-400 text-sm font-bold renewal-status" data-auto-renewal>Ativa</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <div class="flex items-start gap-2">
+                        <span class="material-icons text-blue-400 text-sm mt-0.5">info</span>
+                        <p class="text-blue-200/80 text-xs">
+                          Você pode ativar ou desativar esta opção a qualquer momento. 
+                          As alterações entrarão em vigor no próximo período de cobrança.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            <!-- Uso Recente de Créditos -->
-            <h2 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Uso Recente de Créditos</h2>
-            <div class="px-4 py-3">
-              <div class="bg-[#111a22] border border-[#324d67] rounded-lg overflow-hidden">
-                <div class="p-4 border-b border-[#324d67]">
-                  <h3 class="text-white font-medium">Transações Recentes</h3>
+            <!-- Tabela de Preços -->
+            <div id="tabela-precos" class="px-6 py-6">
+              <div class="flex items-center justify-between mb-8">
+                <div>
+                  <h2 class="text-3xl font-bold gradient-text mb-2">Tabela de Preços</h2>
+                  <p class="text-slate-400 text-lg">Transparência total nos custos por consulta</p>
                 </div>
-                <div class="divide-y divide-[#324d67]" data-recent-transactions>
-                  <div class="p-4 text-center text-[#92adc9]">
-                    <span class="material-icons text-4xl mb-2 opacity-50">history</span>
-                    <p>Carregando transações recentes...</p>
+                <!-- <div class="flex items-center space-x-3">
+                  <div class="glass px-4 py-2 rounded-full">
+                    <span class="text-sm text-slate-300">💰 Preços em tempo real</span>
+                  </div>
+                </div> -->
+              </div>
+              
+              <div data-pricing-table>
+                <!-- Tabela de preços será renderizada dinamicamente -->
+                <div class="modern-card p-6 text-center">
+                  <div class="w-16 h-16 mx-auto mb-4 glass rounded-full flex items-center justify-center">
+                    <span class="material-icons text-slate-400 text-2xl animate-spin">refresh</span>
+                  </div>
+                  <p class="text-slate-400 text-lg font-medium mb-2">Carregando tabela de preços...</p>
+                  <p class="text-slate-500 text-sm">Aguarde enquanto buscamos os preços atuais</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Histórico de Compras de Créditos -->
+            <div id="historico-compras" class="px-6 py-6">
+              <div class="flex items-center justify-between mb-8">
+                <div>
+                  <h2 class="text-3xl font-bold gradient-text mb-2">Histórico de Compras</h2>
+                  <p class="text-slate-400 text-lg">Acompanhe suas compras de créditos</p>
+                </div>
+                <!-- <div class="flex items-center space-x-3">
+                  <div class="glass px-4 py-2 rounded-full">
+                    <span class="text-sm text-slate-300">🛒 Apenas compras</span>
+                  </div>
+                </div> -->
+              </div>
+              
+              <div class="modern-card overflow-hidden">
+                <!-- Header da tabela -->
+                <div class="p-6 border-b border-slate-600/30">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl flex items-center justify-center">
+                      <span class="material-icons text-white">receipt_long</span>
+                    </div>
+                    <div>
+                      <h3 class="text-white text-xl font-bold">Transações Recentes</h3>
+                      <p class="text-slate-400 text-sm">Últimas movimentações da sua conta</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Lista de transações -->
+                <div class="divide-y divide-slate-600/20" data-recent-transactions>
+                  <!-- Estado de loading -->
+                  <div class="p-6 text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 glass rounded-full flex items-center justify-center">
+                      <span class="material-icons text-slate-400 text-2xl animate-spin">refresh</span>
+                    </div>
+                    <p class="text-slate-400 text-lg font-medium mb-2">Carregando transações...</p>
+                    <p class="text-slate-500 text-sm">Aguarde enquanto buscamos seu histórico</p>
                   </div>
                 </div>
               </div>
               
-              <div class="mt-4 text-center">
-                <a href="/faturas" class="text-[#1172d4] hover:underline text-sm">
-                  Ver histórico completo de faturas →
+              <!-- Link para histórico completo -->
+              <div class="mt-8 text-center">
+                <a href="/history" class="inline-flex items-center gap-2 glass px-6 py-3 rounded-xl text-blue-400 hover:text-blue-300 font-medium transition-all hover:scale-105">
+                  <span class="material-icons text-lg">history</span>
+                  <span>Ver histórico completo de transações</span>
+                  <span class="material-icons text-lg">arrow_forward</span>
                 </a>
               </div>
             </div>
@@ -241,5 +959,288 @@
     <!-- Scripts -->
     <script src="/static/js/auth-utils.js"></script>
     <script src="/static/js/assinatura.js"></script>
+    
+    <!-- Script para Plano Personalizado -->
+    <script>
+    
+    // Função para animar números
+    function animateNumber(element, start, end) {
+      const duration = 500;
+      const startTime = performance.now();
+      
+      function updateNumber(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const current = Math.floor(start + (end - start) * progress);
+        element.textContent = current.toLocaleString('pt-BR');
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateNumber);
+        }
+      }
+      
+      requestAnimationFrame(updateNumber);
+    }
+    
+    // ✅ FUNÇÃO DO QUARTO CARD: Plano Dinâmico
+    function updateDynamicPlanDisplay() {
+      const input = document.getElementById('dynamic-amount');
+      const statusEl = document.getElementById('dynamic-plan-status');
+      const protestsEl = document.getElementById('dynamic-plan-protests');
+      const receitaEl = document.getElementById('dynamic-plan-receita');
+      const button = document.getElementById('dynamic-plan-btn');
+      const buttonText = button.querySelector('span:last-child');
+      
+      const amount = parseFloat(input.value) || 0;
+      
+       if (amount >= 10 && amount <= 10000) {
+         // ✅ ATUALIZAR status com valor em créditos
+         statusEl.innerHTML = `<span class="text-emerald-400">R$ ${amount.toFixed(2).replace('.', ',')} em créditos</span>`;
+         statusEl.className = 'text-emerald-400 font-semibold text-sm';
+        
+        // ✅ CALCULAR estimativas com dados REAIS
+        const costs = window.assinaturaManager ? window.assinaturaManager.costs : { protestos: 0.15, receita_federal: 0.03 };
+        const protestsEstimate = Math.floor(amount / costs.protestos);
+        const receitaEstimate = Math.floor(amount / costs.receita_federal);
+        
+        // Animar números
+        animateNumber(protestsEl, parseInt(protestsEl.textContent) || 0, protestsEstimate);
+        animateNumber(receitaEl, parseInt(receitaEl.textContent) || 0, receitaEstimate);
+        
+        // ✅ HABILITAR botão dinâmico
+        button.disabled = false;
+        buttonText.innerHTML = `<span class="material-icons mr-1 text-sm">auto_awesome</span>Criar R$ ${amount.toFixed(2).replace('.', ',')} & Assinar`;
+        button.className = button.className.replace('disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:from-slate-600 disabled:to-slate-600', '');
+        
+       } else {
+         // ✅ DESABILITAR botão
+         statusEl.innerHTML = amount === 0 ? 'R$ 0,00 em créditos' : `<span class="text-red-400">Valor inválido (R$ 10 - R$ 10.000)</span>`;
+         protestsEl.textContent = '0';
+         receitaEl.textContent = '0';
+        
+        button.disabled = true;
+        
+        if (amount < 10 && amount > 0) {
+          buttonText.textContent = 'Mínimo: R$ 10,00';
+        } else if (amount > 10000) {
+          buttonText.textContent = 'Máximo: R$ 10.000,00';
+        } else {
+          buttonText.textContent = 'Criar & Assinar Dinamicamente';
+        }
+      }
+    }
+    
+    // JavaScript para página de assinaturas
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      // ✅ EVENTO PARA O BOTÃO DINÂMICO
+      const dynamicButton = document.getElementById('dynamic-plan-btn');
+      const dynamicAmountInput = document.getElementById('dynamic-amount');
+      
+      if (dynamicButton) {
+        dynamicButton.addEventListener('click', async function() {
+          const amount = parseFloat(dynamicAmountInput.value);
+          
+          if (amount >= 10 && amount <= 10000) {
+            // ✅ Mostrar loading
+            this.disabled = true;
+            const originalText = this.querySelector('span:last-child').innerHTML;
+            this.querySelector('span:last-child').innerHTML = 'Criando produto no Stripe...';
+            
+            // ✅ Usar função do AssinaturaManager
+            if (window.assinaturaManager && typeof window.assinaturaManager.handleDynamicPlanSelection === 'function') {
+              // Restaurar button state
+              this.disabled = false;
+              this.querySelector('span:last-child').innerHTML = originalText;
+              
+              // Chamar função do manager
+              await window.assinaturaManager.handleDynamicPlanSelection(amount);
+            } else {
+              // Fallback caso manager não esteja disponível
+              this.querySelector('span:last-child').innerHTML = 'Erro! AssinaturaManager não encontrado';
+              this.className = this.className.replace('from-emerald-500 to-teal-500', 'from-red-500 to-pink-500');
+              
+              setTimeout(() => {
+                this.disabled = false;
+                this.querySelector('span:last-child').innerHTML = originalText;
+                this.className = this.className.replace('from-red-500 to-pink-500', 'from-emerald-500 to-teal-500');
+              }, 3000);
+            }
+          }
+        });
+      }
+      
+      // ✅ EFEITOS DE FOCO PARA INPUT DINÂMICO
+      if (dynamicAmountInput) {
+        dynamicAmountInput.addEventListener('focus', function() {
+          this.select();
+          this.parentElement.parentElement.classList.add('ring-2', 'ring-emerald-500');
+        });
+        
+        dynamicAmountInput.addEventListener('blur', function() {
+          this.parentElement.parentElement.classList.remove('ring-2', 'ring-emerald-500');
+        });
+      }
+      
+      // Adicionar animações de entrada aos elementos
+      setTimeout(() => {
+        const elements = document.querySelectorAll('.fade-in, .slide-up');
+        elements.forEach((el, index) => {
+          setTimeout(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+          }, index * 100);
+        });
+      }, 100);
+      
+      // Adicionar hover effects aos cards de planos
+      const planCards = document.querySelectorAll('.plan-card');
+      planCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+          this.style.transform = 'translateY(-12px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+          this.style.transform = 'translateY(0) scale(1)';
+        });
+      });
+      
+      // Adicionar efeito de ripple aos botões
+      const buttons = document.querySelectorAll('.btn-primary, button');
+      buttons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          const ripple = document.createElement('div');
+          const rect = this.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height);
+          const x = e.clientX - rect.left - size / 2;
+          const y = e.clientY - rect.top - size / 2;
+          
+          ripple.style.width = ripple.style.height = size + 'px';
+          ripple.style.left = x + 'px';
+          ripple.style.top = y + 'px';
+          ripple.classList.add('absolute', 'bg-white', 'rounded-full', 'opacity-30', 'pointer-events-none');
+          ripple.style.animation = 'ripple 0.6s linear';
+          
+          this.style.position = 'relative';
+          this.style.overflow = 'hidden';
+          this.appendChild(ripple);
+          
+          setTimeout(() => ripple.remove(), 600);
+        });
+      });
+    });
+    
+    // Adicionar keyframes para o efeito ripple
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes ripple {
+        to {
+          transform: scale(4);
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Funcionalidades da navegação da página
+    let navigationCollapsed = false;
+    
+    // Toggle da navegação
+    function togglePageNavigation() {
+      const nav = document.getElementById('page-navigation');
+      const toggle = nav.querySelector('.nav-toggle .material-icons');
+      
+      navigationCollapsed = !navigationCollapsed;
+      
+      if (navigationCollapsed) {
+        nav.classList.add('collapsed');
+        toggle.textContent = 'expand_more';
+      } else {
+        nav.classList.remove('collapsed');
+        toggle.textContent = 'menu';
+      }
+    }
+    
+    // Scroll spy para marcar seção ativa
+    function updateActiveSection() {
+      const sections = ['minha-assinatura', 'planos', 'renovacao-inteligente', 'tabela-precos', 'historico-compras'];
+      const navItems = document.querySelectorAll('.nav-item');
+      
+      let activeSection = null;
+      
+      for (const sectionId of sections) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          const rect = section.getBoundingClientRect();
+          
+          // Se a seção está visível na tela (considerando uma margem)
+          if (rect.top <= 150 && rect.bottom >= 150) {
+            activeSection = sectionId;
+            break;
+          }
+        }
+      }
+      
+      // Atualizar classes ativas
+      navItems.forEach(item => {
+        const section = item.getAttribute('data-section');
+        if (section === activeSection) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    }
+    
+    // Listener para scroll
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(updateActiveSection, 100);
+    });
+    
+    // Listener para cliques na navegação
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const targetId = this.getAttribute('href').substring(1);
+        const targetSection = document.getElementById(targetId);
+        
+        if (targetSection) {
+          // Scroll suave para a seção
+          targetSection.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          
+          // Marcar como ativo imediatamente
+          document.querySelectorAll('.nav-item').forEach(navItem => {
+            navItem.classList.remove('active');
+          });
+          this.classList.add('active');
+          
+          // Colapsar navegação em mobile após clique
+          if (window.innerWidth <= 768) {
+            setTimeout(() => togglePageNavigation(), 500);
+          }
+        }
+      });
+    });
+    
+      // Marcar primeira seção como ativa inicialmente
+      setTimeout(() => {
+        updateActiveSection();
+        
+        // ✅ Verificar se card dinâmico foi carregado corretamente
+        const dynamicCard = document.querySelector('.dynamic-product-card');
+        if (dynamicCard) {
+          console.log('✅ Card dinâmico carregado com sucesso');
+        } else {
+          console.warn('⚠️ Card dinâmico não encontrado');
+        }
+      }, 1000);
+    </script>
   </body>
 </html>
