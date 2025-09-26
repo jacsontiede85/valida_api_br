@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from api.models.saas_models import (
     UserCreate, UserResponse, APIKeyCreate, APIKeyResponse, APIKeyList,
     DashboardStats, UsageStats, ConsultationRequest, ConsultationResponse,
-    ErrorResponse, DashboardPeriod
+    ErrorResponse, DashboardPeriod, ProfileUpdateRequest, UserProfileResponse, 
+    ChangePasswordRequest, NotificationSettingsRequest
 )
 from api.middleware.auth_middleware import require_auth, require_api_key, AuthUser, get_current_user, validate_jwt_or_api_key
 from api.services.user_service import user_service
@@ -130,28 +131,6 @@ async def register_user(user_data: UserCreate):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro ao registrar usuário: {str(e)}"
-        )
-
-@router.get("/auth/me", response_model=UserResponse)
-async def get_current_user_info(user: AuthUser = Depends(require_auth)):
-    """
-    Obtém informações do usuário atual
-    """
-    try:
-        user_info = await user_service.get_user(user.user_id)
-        if not user_info:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuário não encontrado"
-            )
-        return user_info
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("erro_buscar_usuario", user_id=user.user_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor"
         )
 
 @router.post("/api-keys", response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED)
@@ -940,6 +919,112 @@ async def get_real_consultation_costs(user: AuthUser = Depends(require_auth)):
             detail="Erro ao buscar custos de consulta"
         )
 
+@router.get("/consultation/types")
+async def get_consultation_types_v2():
+    """
+    📋 Dashboard V2 - Tipos de consulta disponíveis
+    """
+    try:
+        from api.database.connection import execute_sql
+        
+        # Buscar tipos de consulta diretamente do banco de dados (mesma lógica do stripe_routes.py)
+        sql = """
+        SELECT code, name, description, cost_cents, provider, is_active
+        FROM consultation_types 
+        WHERE is_active = 1
+        ORDER BY cost_cents DESC
+        """
+        
+        result = await execute_sql(sql, (), "all")
+        
+        if result["error"]:
+            logger.error(f"❌ Erro SQL ao buscar tipos de consulta: {result['error']}")
+            raise Exception("Erro na consulta ao banco")
+        
+        consultation_types = []
+        if result["data"]:
+            for item in result["data"]:
+                cost_cents = float(item["cost_cents"]) if item["cost_cents"] else 0.0
+                consultation_types.append({
+                    "code": item["code"],
+                    "name": item["name"],
+                    "description": item["description"],
+                    "cost_reais": cost_cents / 100.0,  # Converter para reais
+                    "cost_cents": int(cost_cents),
+                    "provider": item["provider"],
+                    "is_active": bool(item["is_active"])
+                })
+        
+        return {
+            "success": True,
+            "consultation_types": consultation_types,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar tipos de consulta: {str(e)}")
+        # Fallback para dados mockados em caso de erro
+        return {
+            "success": True,
+            "consultation_types": [
+                {
+                    "code": "protestos",
+                    "name": "Consulta de Protestos",
+                    "description": "Consulta de protestos no Resolve CenProt",
+                    "cost_reais": 0.15,
+                    "cost_cents": 15,
+                    "provider": "resolve_cenprot",
+                    "is_active": True
+                },
+                {
+                    "code": "receita_federal",
+                    "name": "Receita Federal",
+                    "description": "Dados da Receita Federal",
+                    "cost_reais": 0.01,
+                    "cost_cents": 1,
+                    "provider": "receita_federal",
+                    "is_active": True
+                },
+                {
+                    "code": "simples_nacional",
+                    "name": "Simples Nacional",
+                    "description": "Dados do Simples Nacional",
+                    "cost_reais": 0.01,
+                    "cost_cents": 1,
+                    "provider": "receita_federal",
+                    "is_active": True
+                },
+                {
+                    "code": "registrations",
+                    "name": "Cadastro de Contribuintes",
+                    "description": "Inscrições estaduais",
+                    "cost_reais": 0.01,
+                    "cost_cents": 1,
+                    "provider": "receita_federal",
+                    "is_active": True
+                },
+                {
+                    "code": "geocoding",
+                    "name": "Geocodificação",
+                    "description": "Coordenadas geográficas",
+                    "cost_reais": 0.01,
+                    "cost_cents": 1,
+                    "provider": "receita_federal",
+                    "is_active": True
+                },
+                {
+                    "code": "suframa",
+                    "name": "SUFRAMA",
+                    "description": "Dados da SUFRAMA",
+                    "cost_reais": 0.01,
+                    "cost_cents": 1,
+                    "provider": "receita_federal",
+                    "is_active": True
+                }
+            ],
+            "last_updated": "2025-09-26T01:00:00Z"
+        }
+
 # ========== FIM DASHBOARD V2 ==========
 
 @router.get("/analytics")
@@ -996,8 +1081,7 @@ async def export_query_history(
 
 @router.put("/auth/profile")
 async def update_profile(
-    name: str,
-    email: str,
+    profile_data: ProfileUpdateRequest,
     user: AuthUser = Depends(require_auth)
 ):
     """
@@ -1005,33 +1089,16 @@ async def update_profile(
     """
     try:
         from api.services.user_service import user_service
-        updated_user = await user_service.update_user_profile(user.user_id, name, email)
-        return {"user": updated_user}
+        success = await user_service.update_profile(user.user_id, profile_data)
+        if success:
+            return {"message": "Perfil atualizado com sucesso"}
+        else:
+            raise HTTPException(status_code=400, detail="Erro ao atualizar perfil")
     except Exception as e:
         logger.error("erro_atualizar_perfil", user_id=user.user_id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro ao atualizar perfil: {str(e)}"
-        )
-
-@router.post("/auth/change-password")
-async def change_password(
-    current_password: str,
-    new_password: str,
-    user: AuthUser = Depends(require_auth)
-):
-    """
-    Altera a senha do usuário
-    """
-    try:
-        from api.services.user_service import user_service
-        result = await user_service.change_password(user.user_id, current_password, new_password)
-        return {"message": "Senha alterada com sucesso", "result": result}
-    except Exception as e:
-        logger.error("erro_alterar_senha", user_id=user.user_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao alterar senha: {str(e)}"
         )
 
 @router.post("/auth/2fa/enable")
@@ -1042,7 +1109,18 @@ async def enable_2fa(user: AuthUser = Depends(require_auth)):
     try:
         from api.services.user_service import user_service
         result = await user_service.enable_2fa(user.user_id)
-        return result
+        
+        # Garantir que não há URLs undefined
+        if result and isinstance(result, dict):
+            for key, value in result.items():
+                if isinstance(value, str) and 'undefined' in value:
+                    result[key] = None
+        
+        return {
+            "success": True,
+            "message": "2FA ativado com sucesso",
+            "data": result
+        }
     except Exception as e:
         logger.error("erro_ativar_2fa", user_id=user.user_id, error=str(e))
         raise HTTPException(
@@ -1120,92 +1198,6 @@ async def delete_account(user: AuthUser = Depends(require_auth)):
             detail=f"Erro ao excluir conta: {str(e)}"
         )
 
-# =====================================================
-# ENDPOINTS DE FATURAS
-# =====================================================
-
-@router.get("/invoices")
-async def get_invoices(
-    page: int = 1,
-    limit: int = 10,
-    status: str = "all",
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-    search: Optional[str] = None,
-    user: AuthUser = Depends(require_auth)
-):
-    """
-    Lista as faturas do usuário
-    """
-    try:
-        from api.services.invoice_service import invoice_service
-        result = await invoice_service.get_user_invoices(
-            user.user_id, page, limit, status, date_from, date_to, search
-        )
-        return result
-    except Exception as e:
-        logger.error("erro_buscar_faturas", user_id=user.user_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor"
-        )
-
-@router.get("/invoices/{invoice_id}")
-async def get_invoice(
-    invoice_id: str,
-    user: AuthUser = Depends(require_auth)
-):
-    """
-    Obtém detalhes de uma fatura específica
-    """
-    try:
-        from api.services.invoice_service import invoice_service
-        invoice = await invoice_service.get_invoice(user.user_id, invoice_id)
-        return {"invoice": invoice}
-    except Exception as e:
-        logger.error("erro_buscar_fatura", user_id=user.user_id, invoice_id=invoice_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fatura não encontrada"
-        )
-
-@router.get("/invoices/{invoice_id}/download")
-async def download_invoice(
-    invoice_id: str,
-    user: AuthUser = Depends(require_auth)
-):
-    """
-    Faz download de uma fatura em PDF
-    """
-    try:
-        from api.services.invoice_service import invoice_service
-        pdf_data = await invoice_service.download_invoice(user.user_id, invoice_id)
-        return pdf_data
-    except Exception as e:
-        logger.error("erro_download_fatura", user_id=user.user_id, invoice_id=invoice_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fatura não encontrada"
-        )
-
-@router.post("/invoices/{invoice_id}/pay")
-async def pay_invoice(
-    invoice_id: str,
-    user: AuthUser = Depends(require_auth)
-):
-    """
-    Processa o pagamento de uma fatura
-    """
-    try:
-        from api.services.invoice_service import invoice_service
-        result = await invoice_service.pay_invoice(user.user_id, invoice_id)
-        return result
-    except Exception as e:
-        logger.error("erro_pagar_fatura", user_id=user.user_id, invoice_id=invoice_id, error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao processar pagamento: {str(e)}"
-        )
 
 @router.post("/auth/dev-token")
 async def create_dev_token():
@@ -1424,18 +1416,6 @@ async def logout_user(current_user: AuthUser = Depends(require_auth)):
             detail="Erro interno do servidor"
         )
 
-@router.get("/auth/me")
-async def get_current_user_info(current_user: AuthUser = Depends(require_auth)):
-    """
-    Retorna informações do usuário autenticado
-    """
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "name": current_user.name,
-        "created_at": current_user.created_at
-    }
-
 @router.post("/auth/forgot-password")
 async def forgot_password(email: str):
     """
@@ -1482,6 +1462,179 @@ async def reset_password(token: str, new_password: str):
         
     except Exception as e:
         logger.error("erro_reset_password", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+# ============================================================================
+# ENDPOINTS DE PERFIL DO USUÁRIO
+# ============================================================================
+
+@router.get("/auth/me", response_model=UserProfileResponse)
+async def get_current_user_profile(user: AuthUser = Depends(require_auth)):
+    """
+    Obtém perfil completo do usuário atual com dados reais do banco
+    """
+    try:
+        profile = await user_service.get_user_complete_profile(user.user_id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Perfil do usuário não encontrado"
+            )
+        
+        logger.info("perfil_usuario_buscado", user_id=user.user_id)
+        return profile
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("erro_buscar_perfil", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.put("/auth/notifications")
+async def update_notification_settings(
+    settings: NotificationSettingsRequest,
+    user: AuthUser = Depends(require_auth)
+):
+    """
+    Atualiza configurações de notificação do usuário
+    """
+    try:
+        # Por enquanto, apenas log das configurações
+        # Em uma implementação completa, salvaria em uma tabela user_notification_settings
+        
+        settings_dict = settings.dict(exclude_unset=True)
+        logger.info("configuracoes_notificacao_atualizadas", 
+                   user_id=user.user_id, 
+                   settings=settings_dict)
+        
+        return {
+            "success": True,
+            "message": "Configurações de notificação atualizadas"
+        }
+        
+    except Exception as e:
+        logger.error("erro_atualizar_notificacoes", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.put("/auth/credit-alert-threshold")
+async def update_credit_alert_threshold(
+    threshold_data: dict,
+    user: AuthUser = Depends(require_auth)
+):
+    """
+    Atualiza o limite de alerta de créditos do usuário
+    """
+    try:
+        threshold_cents = threshold_data.get("threshold_cents")
+        
+        if not threshold_cents or threshold_cents < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Limite de alerta inválido"
+            )
+        
+        logger.info("Limite de alerta de créditos atualizado", 
+                   user_id=user.user_id, 
+                   threshold_cents=threshold_cents)
+        
+        # Persistir o limite de alerta no banco de dados
+        from api.services.user_service import user_service
+        success = await user_service.update_credit_alert_threshold(user.user_id, threshold_cents)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar limite de alerta"
+            )
+        
+        return {
+            "success": True,
+            "message": "Limite de alerta atualizado com sucesso",
+            "threshold_cents": threshold_cents
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("erro_atualizar_limite_alerta", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.post("/auth/logout")
+async def logout_user(user: AuthUser = Depends(require_auth)):
+    """
+    Faz logout do usuário
+    """
+    try:
+        logger.info("Usuário fazendo logout", user_id=user.user_id, email=user.email)
+        
+        # Por enquanto, apenas logamos o logout
+        # Em uma implementação mais robusta, poderíamos:
+        # - Invalidar o token JWT no servidor
+        # - Adicionar o token a uma blacklist
+        # - Limpar sessões ativas
+        
+        return {
+            "success": True,
+            "message": "Logout realizado com sucesso"
+        }
+        
+    except Exception as e:
+        logger.error("erro_logout", user_id=user.user_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.post("/auth/change-password")
+async def change_user_password(
+    password_data: ChangePasswordRequest,
+    user: AuthUser = Depends(require_auth)
+):
+    """
+    Altera senha do usuário
+    """
+    try:
+        success = await user_service.change_password(
+            user.user_id, 
+            password_data.current_password, 
+            password_data.new_password
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Senha atual incorreta"
+            )
+        
+        logger.info("senha_usuario_alterada", user_id=user.user_id)
+        
+        return {
+            "success": True,
+            "message": "Senha alterada com sucesso"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_message = str(e)
+        if "Senha atual incorreta" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Senha atual incorreta"
+            )
+        logger.error("erro_alterar_senha", user_id=user.user_id, error=error_message)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor"

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentação da API - Valida</title>
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Prism.js para syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <!-- CodeMirror para editor de código -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #E5E7EB;
+        }
+
+        .sidebar {
+            background-color: #1F2937;
+        }
+
+        .header {
+            background-color: #1F2937;
+            border-bottom: 1px solid #374151;
+        }
+
+        .card {
+            background-color: #1F2937;
+            border-radius: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: #3B82F6;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #374151;
+            color: #D1D5DB;
+        }
+
+        .active-link {
+            background-color: #374151;
+            color: white;
+            border-radius: 0.375rem;
+        }
+
+        .inactive-link {
+            color: #9CA3AF;
+        }
+
+        /* Garantir tamanho de fonte consistente no menu */
+        nav a {
+            font-size: 0.875rem !important; /* 14px - mesmo tamanho das outras páginas */
+            line-height: 1.25rem !important;
+        }
+        
+        /* Garantir que os ícones também tenham tamanho consistente */
+        nav a .material-icons {
+            font-size: 1.25rem !important; /* 20px - mesmo tamanho das outras páginas */
+        }
+        
+        .code-block {
+            @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto;
+        }
+        
+        .parameter-card {
+            @apply bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4;
+        }
+        
+        .playground-section {
+            @apply bg-gray-800 border border-gray-700 rounded-lg p-6 mb-6;
+        }
+        
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        /* Animações */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Status indicators */
+        .status-success { @apply text-green-400; }
+        .status-error { @apply text-red-400; }
+        .status-warning { @apply text-yellow-400; }
+        
+        /* Copy button */
+        .copy-btn {
+            @apply absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-2 py-1 rounded text-xs transition-colors;
+        }
+    </style>
+</head>
+<body class="flex h-screen">
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 p-4 flex flex-col justify-between">
+        <div>
+            <div class="flex items-center mb-8">
+                <img alt="Valida Logo" class="h-8 mr-2" src="/static/img/valida_api_br_logo.png" />
+                <span class="text-xl font-bold">Valida</span>
+            </div>
+            <nav class="space-y-2">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-2">Geral</div>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/dashboard">
+                    <span class="material-icons mr-3">dashboard</span> Visão Geral
+                </a>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/consultas">
+                    <span class="material-icons mr-3">search</span> Consultas
+                </a>
+                <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Integrações</div>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/history">
+                    <span class="material-icons mr-3">history</span> Histórico
+                </a>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/api-keys">
+                    <span class="material-icons mr-3">key</span> Chave de API
+                </a>
+                <a class="flex items-center p-2 active-link" href="/documentation">
+                    <span class="material-icons mr-3">description</span> Documentação
+                </a>
+                <div class="pt-4 text-xs text-gray-500 uppercase font-bold mb-2">Administração</div>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/assinatura">
+                    <span class="material-icons mr-3">subscriptions</span> Assinaturas
+                </a>
+                <a class="flex items-center p-2 inactive-link hover:bg-gray-700 rounded-md" href="/perfil">
+                    <span class="material-icons mr-3">person</span> Perfil
+                </a>
+            </nav>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="header h-16 flex items-center justify-between px-6">
+            <div class="flex items-center">
+                <h1 class="text-2xl font-bold">Documentação da API</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center bg-green-500/20 text-green-400 px-3 py-1 rounded-md">
+                    <span class="material-icons text-sm mr-1">check_circle</span>
+                    API Online
+                </div>
+                <div class="text-sm text-gray-400">
+                    v1.0.0
+                </div>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="flex-1 p-6 overflow-y-auto">
+            <!-- Navigation Tabs -->
+            <div class="mb-6">
+                <nav class="flex space-x-1 bg-gray-800 p-1 rounded-lg w-fit">
+                    <button class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white" data-tab="overview">
+                        Visão Geral
+                    </button>
+                    <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-tab="endpoint">
+                        Endpoint
+                    </button>
+                    <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-tab="playground">
+                        Playground
+                    </button>
+                    <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-tab="examples">
+                        Exemplos
+                    </button>
+                    <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-tab="errors">
+                        Códigos de Erro
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tab-content">
+                <!-- Overview Tab -->
+                <div id="overview-tab" class="tab-content fade-in">
+                    <!-- Serviços da API -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <span class="material-icons mr-2 text-blue-400">api</span>
+                            Serviços Prestados pela API
+                        </h2>
+                        <p class="text-gray-300 mb-6">
+                            A API Valida oferece consultas completas de CNPJ com dados de protestos e informações da Receita Federal, 
+                            permitindo integração fácil em suas aplicações.
+                        </p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Consulta de Protestos -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">warning</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">Protestos</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Consulta de protestos no CenProt Nacional com dados completos e atualizados.</p>
+                            </div>
+
+                            <!-- Receita Federal -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">account_balance</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">Receita Federal</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Dados cadastrais, situação, contatos, endereço, CNAEs e sócios da empresa.</p>
+                            </div>
+
+                            <!-- Simples Nacional -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">business</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">Simples Nacional</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Indicador de opção e datas de inclusão no Simples Nacional e MEI.</p>
+                            </div>
+
+                            <!-- Geocodificação -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">place</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">Geocodificação</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Coordenadas geográficas (latitude e longitude) do endereço do estabelecimento.</p>
+                            </div>
+
+                            <!-- SUFRAMA -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-indigo-400 to-blue-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">help_outline</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">SUFRAMA</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Dados da SUFRAMA: número, situação cadastral e incentivos fiscais da inscrição.</p>
+                            </div>
+
+                            <!-- Cadastro de Contribuintes -->
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <div class="flex items-center mb-3">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-teal-400 to-green-500 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="material-icons text-white text-sm">folder</span>
+                                    </div>
+                                    <h3 class="text-white font-semibold">Cadastro de Contribuintes</h3>
+                                </div>
+                                <p class="text-gray-300 text-sm">Número, UF e situação cadastral das inscrições estaduais.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Base URL -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <span class="material-icons mr-2 text-green-400">link</span>
+                            Base URL da API
+                        </h2>
+                        <p class="text-gray-300 mb-4">
+                            Use esta URL base para todas as requisições à API Valida:
+                        </p>
+                        <div class="bg-gray-900 p-4 rounded-lg">
+                            <code class="text-green-400 text-lg" id="base-url">{{ api_base_url }}</code>
+                            <button class="copy-btn" onclick="copyToClipboard('base-url')">
+                                <span class="material-icons text-sm">content_copy</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Preços -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <span class="material-icons mr-2 text-yellow-400">price_check</span>
+                            Tabela de Preços
+                        </h2>
+                        <p class="text-gray-300 mb-6">Transparência total nos custos por consulta</p>
+                        
+                        <!-- Container para tabela dinâmica -->
+                        <div id="pricing-table-container">
+                            <!-- Loading state -->
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 mx-auto mb-4 bg-gray-700 rounded-full flex items-center justify-center">
+                                    <span class="material-icons text-gray-400 text-2xl animate-spin">refresh</span>
+                                </div>
+                                <p class="text-gray-400 text-lg font-medium mb-2">Carregando tabela de preços...</p>
+                                <p class="text-gray-500 text-sm">Aguarde enquanto buscamos os preços atuais</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Quick Start -->
+                        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                            <h2 class="text-xl font-bold mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-blue-400">rocket_launch</span>
+                                Quick Start
+                            </h2>
+                            <div class="space-y-3">
+                                <div class="flex items-center text-sm">
+                                    <span class="material-icons text-green-400 mr-2 text-sm">check</span>
+                                    Obtenha sua API Key em "Chave de API"
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="material-icons text-green-400 mr-2 text-sm">check</span>
+                                    Use o header Authorization: Bearer sua_api_key
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="material-icons text-green-400 mr-2 text-sm">check</span>
+                                    Faça requisições POST para /api/v1/cnpj/consult
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Authentication -->
+                        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                            <h2 class="text-xl font-bold mb-4 flex items-center">
+                                <span class="material-icons mr-2 text-yellow-400">security</span>
+                                Autenticação
+                            </h2>
+                            <div class="space-y-3">
+                                <div>
+                                    <h3 class="font-semibold text-blue-400">API Key (Recomendado)</h3>
+                                    <p class="text-sm text-gray-400">Para integrações externas</p>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-green-400">JWT Token</h3>
+                                    <p class="text-sm text-gray-400">Para aplicações web</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint Tab -->
+                <div id="endpoint-tab" class="tab-content hidden">
+                    <!-- Endpoint Header -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 bg-gradient-to-r from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mr-4">
+                                    <span class="material-icons text-white text-xl">api</span>
+                                </div>
+                                <div>
+                                    <h2 class="text-2xl font-bold text-white mb-1">Endpoint Principal</h2>
+                                    <p class="text-gray-400">Consulta completa de CNPJ com dados de protestos e Receita Federal</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="flex items-center bg-green-500/20 text-green-400 px-3 py-1 rounded-md">
+                                    <span class="material-icons text-sm mr-1">check_circle</span>
+                                    Ativo
+                                </div>
+                                <button class="copy-btn" onclick="copyToClipboard('endpoint-url')">
+                                    <span class="material-icons text-sm">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Method and URL -->
+                        <div class="bg-gray-900 rounded-xl p-6 mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-4">
+                                    <span class="bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-bold">POST</span>
+                                    <code class="text-xl font-mono text-blue-400">/api/v1/cnpj/consult</code>
+                                </div>
+                                <div class="text-sm text-gray-400">
+                                    Método HTTP • Endpoint
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <code class="text-green-400 text-lg font-mono" id="endpoint-url">{{ api_base_url }}/api/v1/cnpj/consult</code>
+                                    <span class="text-xs text-gray-500">URL Completa</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
+                            <div class="flex items-start">
+                                <span class="material-icons text-blue-400 mr-3 mt-0.5">info</span>
+                                <div>
+                                    <h4 class="text-blue-400 font-semibold mb-2">Descrição do Endpoint</h4>
+                                    <p class="text-gray-300 text-sm leading-relaxed">
+                                        Este endpoint realiza consultas completas de CNPJ, combinando dados de protestos do CenProt Nacional 
+                                        com informações da Receita Federal. Suporta múltiplos parâmetros para personalizar a consulta 
+                                        conforme suas necessidades específicas.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Request Example -->
+                        <div class="bg-gray-900 rounded-xl p-6 mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center">
+                                    <span class="material-icons text-gray-400 mr-2 text-sm">send</span>
+                                    <span class="text-gray-300 text-sm font-medium">Exemplo de Requisição Completa</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="copy-btn" onclick="copyToClipboard('request-headers-example')">
+                                        <span class="material-icons text-sm">content_copy</span>
+                                    </button>
+                                    <button class="copy-btn" onclick="copyToClipboard('request-body-example')">
+                                        <span class="material-icons text-sm">content_copy</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Headers Section -->
+                            <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-xs text-gray-500">Headers da Requisição</span>
+                                    <span class="text-xs text-gray-500">HTTP Headers</span>
+                                </div>
+                                
+                                <pre class="text-sm overflow-x-auto"><code id="request-headers-example" class="language-http">Content-Type: application/json
+Authorization: Bearer rcp_sua_api_key_aqui</code></pre>
+                            </div>
+                            
+                            <!-- Body Section -->
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-xs text-gray-500">Body da Requisição (JSON)</span>
+                                    <span class="text-xs text-gray-500">POST Data</span>
+                                </div>
+                                
+                                <pre class="text-sm overflow-x-auto"><code id="request-body-example" class="language-json">{
+  "cnpj": "62652677000161",
+  "protestos": true,
+  "receita_federal": true,
+  "simples": true,
+  "registrations": true,
+  "geocoding": true,
+  "suframa": false,
+  "strategy": "CACHE_IF_FRESH",
+  "extract_basic": true,
+  "extract_address": true,
+  "extract_contact": true,
+  "extract_activities": true,
+  "extract_partners": true
+}</code></pre>
+                            </div>
+                            
+                            <div class="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                <div class="flex items-start">
+                                    <span class="material-icons text-green-400 mr-2 text-sm mt-0.5">lightbulb</span>
+                                    <div>
+                                        <h4 class="text-green-400 font-semibold text-sm mb-1">Dica de Uso</h4>
+                                        <p class="text-gray-300 text-xs leading-relaxed">
+                                            <strong>Headers:</strong> O <code class="text-blue-400">Content-Type</code> é obrigatório para JSON. 
+                                            O <code class="text-blue-400">Authorization</code> deve conter sua API Key.<br>
+                                            <strong>Body:</strong> Este exemplo mostra todos os parâmetros disponíveis. Você pode omitir os parâmetros opcionais 
+                                            ou definir apenas os que precisa. O parâmetro <code class="text-blue-400">cnpj</code> é obrigatório.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parameters Section -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-6">
+                        <div class="flex items-center mb-6">
+                            <div class="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                                <span class="material-icons text-white text-lg">tune</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Parâmetros da Requisição</h3>
+                                <p class="text-gray-400 text-sm">Configure os parâmetros conforme suas necessidades</p>
+                            </div>
+                        </div>
+                        
+                        <div id="parameters-list">
+                            <!-- Será preenchido via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Response Section -->
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                        <div class="flex items-center mb-6">
+                            <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center mr-3">
+                                <span class="material-icons text-white text-lg">code</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Estrutura da Resposta</h3>
+                                <p class="text-gray-400 text-sm">Formato JSON da resposta de sucesso</p>
+                            </div>
+                        </div>
+                        
+                        <div id="response-example">
+                            <!-- Será preenchido via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playground Tab -->
+                <div id="playground-tab" class="tab-content hidden">
+                    <div class="playground-section">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <span class="material-icons mr-2 text-purple-400">play_circle</span>
+                            Playground Interativo
+                        </h2>
+                        <p class="text-gray-400 mb-6">
+                            Teste a API diretamente no navegador usando suas próprias API keys.
+                        </p>
+
+                        <!-- API Key Selection -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">API Key</label>
+                            <select id="api-key-select" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                                <option value="">Selecionar API Key...</option>
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1">
+                                Selecione uma API key ativa para testar a API
+                            </p>
+                        </div>
+
+                        <!-- Request Form -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Left Column - Parameters -->
+                            <div>
+                                <h3 class="text-lg font-semibold mb-4">Parâmetros da Requisição</h3>
+                                
+                                <!-- CNPJ -->
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium mb-2">CNPJ *</label>
+                                    <input type="text" id="playground-cnpj" 
+                                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                           placeholder="12.345.678/0001-95"
+                                           value="11.222.333/0001-81">
+                                </div>
+
+                                <!-- Protestos -->
+                                <div class="mb-4">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="playground-protestos" checked class="mr-2">
+                                        <span class="text-sm">Consultar protestos</span>
+                                    </label>
+                                </div>
+
+                                <!-- Receita Federal -->
+                                <div class="mb-4">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="playground-receita-federal" class="mr-2">
+                                        <span class="text-sm">Consultar dados da Receita Federal</span>
+                                    </label>
+                                </div>
+
+                                <!-- Advanced Options -->
+                                <div id="advanced-options" class="hidden">
+                                    <h4 class="text-sm font-semibold mb-3 text-gray-300">Opções Avançadas</h4>
+                                    
+                                    <div class="mb-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="playground-simples" class="mr-2">
+                                            <span class="text-sm">Dados Simples Nacional</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="playground-registrations" class="mr-2">
+                                            <span class="text-sm">Inscrições estaduais</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="playground-geocoding" class="mr-2">
+                                            <span class="text-sm">Geolocalização</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="playground-suframa" class="mr-2">
+                                            <span class="text-sm">Dados SUFRAMA</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="block text-sm font-medium mb-2">Estratégia de Cache</label>
+                                        <select id="playground-strategy" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                                            <option value="CACHE_IF_FRESH">CACHE_IF_FRESH</option>
+                                            <option value="ONLINE">ONLINE</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button id="toggle-advanced" class="text-blue-400 text-sm hover:text-blue-300">
+                                    <span class="material-icons text-sm mr-1">expand_more</span>
+                                    Opções Avançadas
+                                </button>
+
+                                <!-- Test Button -->
+                                <button id="test-api" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mt-6 transition-colors">
+                                    <span class="material-icons mr-2">play_arrow</span>
+                                    Testar API
+                                </button>
+                            </div>
+
+                            <!-- Right Column - Response -->
+                            <div>
+                                <h3 class="text-lg font-semibold mb-4">Resposta</h3>
+                                <div id="playground-response" class="bg-gray-900 border border-gray-600 rounded-lg p-4 min-h-96">
+                                    <div class="text-gray-500 text-center py-8">
+                                        <span class="material-icons text-4xl mb-2">code</span>
+                                        <p>Execute um teste para ver a resposta aqui</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Examples Tab -->
+                <div id="examples-tab" class="tab-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold mb-4">Exemplos de Código</h2>
+                        <p class="text-gray-400 mb-6">
+                            Exemplos práticos de como integrar com a API em diferentes linguagens.
+                        </p>
+                    </div>
+
+                    <!-- Language Tabs -->
+                    <div class="mb-6">
+                        <nav class="flex space-x-1 bg-gray-800 p-1 rounded-lg w-fit">
+                            <button class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white" data-lang="javascript">
+                                JavaScript
+                            </button>
+                            <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-lang="python">
+                                Python
+                            </button>
+                            <button class="px-4 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white hover:bg-gray-700" data-lang="curl">
+                                cURL
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Code Examples -->
+                    <div id="code-examples">
+                        <!-- Será preenchido via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Errors Tab -->
+                <div id="errors-tab" class="tab-content hidden">
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold mb-4">Códigos de Erro</h2>
+                        <p class="text-gray-400 mb-6">
+                            Lista completa de códigos de erro e suas soluções.
+                        </p>
+                    </div>
+
+                    <div id="error-codes-list">
+                        <!-- Será preenchido via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <div class="flex items-center space-x-3">
+                <div class="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+                <span>Testando API...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/documentation.js"></script>
+</body>
+</html>

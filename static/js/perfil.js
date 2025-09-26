@@ -15,6 +15,24 @@ class PerfilManager {
     async init() {
         console.log('🚀 Inicializando PerfilManager...');
         
+        // Debug dos tokens
+        this.debugTokenInfo();
+        
+        // Validar autenticação antes de prosseguir
+        if (!this.validateAuthentication()) {
+            console.error('❌ Usuário não autenticado - redirecionando para login');
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Verificar se a sessão ainda é válida
+        const sessionValid = await this.checkUserSession();
+        if (!sessionValid) {
+            console.error('❌ Sessão inválida - redirecionando para login');
+            window.location.href = '/login';
+            return;
+        }
+        
         try {
             this.setupEventListeners();
             await this.loadUserData();
@@ -23,6 +41,79 @@ class PerfilManager {
         } catch (error) {
             console.error('❌ Erro ao inicializar PerfilManager:', error);
             this.showError('Erro ao carregar dados do perfil');
+        }
+    }
+
+    validateAuthentication() {
+        console.log('🔐 Validando autenticação...');
+        
+        // Verificar se AuthUtils está disponível
+        if (typeof AuthUtils === 'undefined') {
+            console.error('❌ AuthUtils não está disponível');
+            return false;
+        }
+        
+        // Verificar se há token válido
+        const token = AuthUtils.getAuthToken();
+        if (!token) {
+            console.error('❌ Nenhum token de autenticação encontrado');
+            return false;
+        }
+        
+        // Verificar se o token parece ser um JWT válido
+        if (!token.includes('.') || token.split('.').length !== 3) {
+            console.error('❌ Token não é um JWT válido');
+            return false;
+        }
+        
+        console.log('✅ Token de autenticação válido encontrado');
+        return true;
+    }
+
+    async checkUserSession() {
+        console.log('🔍 Verificando sessão do usuário...');
+        
+        try {
+            // Tentar fazer uma requisição simples para verificar se o token ainda é válido
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/me');
+            
+            if (response.status === 401) {
+                console.error('❌ Token expirado ou inválido');
+                return false;
+            }
+            
+            if (!response.ok) {
+                console.error('❌ Erro na verificação da sessão:', response.status);
+                return false;
+            }
+            
+            console.log('✅ Sessão do usuário válida');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Erro ao verificar sessão:', error);
+            return false;
+        }
+    }
+
+    debugTokenInfo() {
+        console.log('🔍 Informações de debug dos tokens:');
+        
+        const authToken = localStorage.getItem('auth_token');
+        const sessionToken = localStorage.getItem('session_token');
+        
+        console.log('📱 auth_token:', authToken ? `${authToken.substring(0, 20)}...` : 'Não encontrado');
+        console.log('📱 session_token:', sessionToken ? `${sessionToken.substring(0, 20)}...` : 'Não encontrado');
+        
+        if (authToken) {
+            try {
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                console.log('🔓 Payload do JWT:', payload);
+                console.log('⏰ Expira em:', new Date(payload.exp * 1000));
+                console.log('👤 Usuário:', payload.email);
+            } catch (e) {
+                console.error('❌ Erro ao decodificar JWT:', e);
+            }
         }
     }
 
@@ -50,6 +141,9 @@ class PerfilManager {
             if (e.target.matches('[data-delete-account]')) {
                 this.handleDeleteAccount();
             }
+            if (e.target.matches('[data-logout]')) {
+                this.handleLogout();
+            }
         });
 
         // Validação em tempo real
@@ -74,48 +168,92 @@ class PerfilManager {
             if (e.target.matches('[data-notification-setting]')) {
                 this.handleNotificationChange(e.target);
             }
+            if (e.target.matches('[data-credit-alert-threshold]')) {
+                this.handleCreditAlertChange(e.target);
+            }
         });
     }
 
     async loadUserData() {
         try {
+            console.log('🔍 Carregando dados do usuário...');
+            
+            // Verificar autenticação novamente antes da requisição
+            if (!this.validateAuthentication()) {
+                throw new Error('Usuário não autenticado');
+            }
+            
             const data = await AuthUtils.authenticatedFetchJSON('/api/v1/auth/me');
-            this.userData = data.user;
+            console.log('✅ Dados recebidos da API:', data);
+            
+            // Validar se os dados estão no formato esperado
+            if (!data || typeof data !== 'object') {
+                throw new Error('Dados inválidos recebidos da API');
+            }
+            
+            this.userData = data;
             console.log('✅ Dados do usuário carregados:', this.userData);
+            
         } catch (error) {
             console.error('❌ Erro ao carregar dados do usuário:', error);
+            
+            // Se for erro de autenticação, redirecionar para login
+            if (error.message.includes('Token') || error.message.includes('autenticado') || error.message.includes('401')) {
+                console.error('❌ Erro de autenticação - redirecionando para login');
+                window.location.href = '/login';
+                return;
+            }
+            
             this.userData = null;
             this.showErrorState('Erro ao carregar dados do perfil');
         }
     }
 
     renderProfile() {
-        if (!this.userData) return;
+        if (!this.userData) {
+            console.log('❌ Nenhum dado do usuário para renderizar');
+            return;
+        }
 
+        console.log('🎨 Renderizando perfil com dados:', this.userData);
+        
         // Renderizar informações básicas
         this.renderBasicInfo();
         this.renderSecuritySettings();
         this.renderNotificationSettings();
         this.renderAccountStats();
+        this.renderCreditSettings();
     }
 
     renderBasicInfo() {
+        console.log('👤 Renderizando informações básicas...');
+        
         const nameElement = document.querySelector('[data-profile-name]');
+        const nameDisplayElement = document.querySelector('[data-profile-name-display]');
         const emailElement = document.querySelector('[data-profile-email]');
         const avatarElement = document.querySelector('[data-profile-avatar]');
         const memberSinceElement = document.querySelector('[data-member-since]');
 
+        console.log('📝 Nome:', this.userData.name);
+        console.log('📧 Email:', this.userData.email);
+        console.log('📅 Criado em:', this.userData.created_at);
+
         if (nameElement) {
             nameElement.value = this.userData.name || '';
+            nameElement.placeholder = this.userData.name ? 'Nome carregado' : 'Nome não encontrado';
+        }
+        if (nameDisplayElement) {
+            nameDisplayElement.textContent = this.userData.name || 'Nome não encontrado';
         }
         if (emailElement) {
             emailElement.value = this.userData.email || '';
+            emailElement.placeholder = this.userData.email ? 'Email carregado' : 'Email não encontrado';
         }
         if (avatarElement) {
             avatarElement.src = this.userData.avatar || this.getDefaultAvatar();
         }
         if (memberSinceElement) {
-            memberSinceElement.textContent = this.formatDate(this.userData.created_at);
+            memberSinceElement.textContent = this.userData.created_at ? this.formatDate(this.userData.created_at) : 'Data não encontrada';
         }
     }
 
@@ -158,36 +296,76 @@ class PerfilManager {
     }
 
     renderAccountStats() {
+        console.log('📊 Renderizando estatísticas da conta...');
+        
+        // Atualizar elementos com dados reais
+        const creditsAvailable = document.querySelector('[data-profile-credits-available]');
+        const creditsUsed = document.querySelector('[data-profile-credits-used]');
+        const monthlyQueries = document.querySelector('[data-profile-monthly-queries]');
+
+        console.log('💰 Créditos disponíveis:', this.userData.credits_available);
+        console.log('💸 Créditos usados:', this.userData.credits_used_total);
+        console.log('🔍 Consultas mensais:', this.userData.monthly_queries);
+
+        if (creditsAvailable) {
+            if (this.userData.credits_available !== undefined && this.userData.credits_available !== null) {
+                creditsAvailable.textContent = `R$ ${this.userData.credits_available.toFixed(2)}`;
+            } else {
+                creditsAvailable.textContent = 'R$ 0,00';
+            }
+        }
+        
+        if (creditsUsed) {
+            if (this.userData.credits_used_total !== undefined && this.userData.credits_used_total !== null) {
+                creditsUsed.textContent = `R$ ${this.userData.credits_used_total.toFixed(2)}`;
+            } else {
+                creditsUsed.textContent = 'R$ 0,00';
+            }
+        }
+        
+        if (monthlyQueries) {
+            if (this.userData.monthly_queries !== undefined && this.userData.monthly_queries !== null) {
+                monthlyQueries.textContent = this.userData.monthly_queries.toLocaleString();
+            } else {
+                monthlyQueries.textContent = '0';
+            }
+        }
+
+        // Renderizar estatísticas adicionais se necessário
         const statsContainer = document.querySelector('[data-account-stats]');
-        if (!statsContainer) return;
+        if (statsContainer) {
+            statsContainer.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
+                        <div class="text-[#92adc9] text-sm">Total de Consultas</div>
+                        <div class="text-white text-2xl font-bold">${(this.userData.total_queries || 0).toLocaleString()}</div>
+                    </div>
+                    <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
+                        <div class="text-[#92adc9] text-sm">Chaves de API</div>
+                        <div class="text-white text-2xl font-bold">${this.userData.api_keys_count || 0}</div>
+                    </div>
+                    <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
+                        <div class="text-[#92adc9] text-sm">Dias de Assinatura</div>
+                        <div class="text-white text-2xl font-bold">${this.userData.subscription_days || 0}</div>
+                    </div>
+                    <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
+                        <div class="text-[#92adc9] text-sm">Última Consulta</div>
+                        <div class="text-white text-sm">${this.userData.last_query_date ? this.formatDate(this.userData.last_query_date) : 'Nunca'}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
 
-        const stats = this.userData.account_stats || {
-            total_queries: 0,
-            api_keys_count: 0,
-            subscription_days: 0,
-            last_query_date: null
-        };
-
-        statsContainer.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
-                    <div class="text-[#92adc9] text-sm">Total de Consultas</div>
-                    <div class="text-white text-2xl font-bold">${stats.total_queries.toLocaleString()}</div>
-                </div>
-                <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
-                    <div class="text-[#92adc9] text-sm">Chaves de API</div>
-                    <div class="text-white text-2xl font-bold">${stats.api_keys_count}</div>
-                </div>
-                <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
-                    <div class="text-[#92adc9] text-sm">Dias de Assinatura</div>
-                    <div class="text-white text-2xl font-bold">${stats.subscription_days}</div>
-                </div>
-                <div class="bg-[#192633] rounded-lg p-4 border border-[#324d67]">
-                    <div class="text-[#92adc9] text-sm">Última Consulta</div>
-                    <div class="text-white text-sm">${stats.last_query_date ? this.formatDate(stats.last_query_date) : 'Nunca'}</div>
-                </div>
-            </div>
-        `;
+    renderCreditSettings() {
+        console.log('💰 Renderizando configurações de créditos...');
+        
+        // Configurar o valor do limite de alerta
+        const thresholdSelect = document.querySelector('[data-credit-alert-threshold]');
+        if (thresholdSelect && this.userData.credit_alert_threshold) {
+            thresholdSelect.value = this.userData.credit_alert_threshold;
+            console.log('Limite de alerta configurado:', this.userData.credit_alert_threshold);
+        }
     }
 
     handleEditProfile() {
@@ -229,6 +407,9 @@ class PerfilManager {
 
             const response = await AuthUtils.authenticatedFetch('/api/v1/auth/profile', {
                 method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(formData)
             });
 
@@ -238,7 +419,10 @@ class PerfilManager {
             }
 
             const data = await response.json();
-            this.userData = { ...this.userData, ...data.user };
+            
+            // Atualizar dados locais
+            this.userData.name = formData.name;
+            this.userData.email = formData.email;
             
             this.isEditing = false;
             this.exitEditMode();
@@ -298,6 +482,9 @@ class PerfilManager {
 
             const response = await AuthUtils.authenticatedFetch('/api/v1/auth/change-password', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     current_password: currentPassword,
                     new_password: newPassword
@@ -381,6 +568,9 @@ class PerfilManager {
         try {
             const response = await AuthUtils.authenticatedFetch('/api/v1/auth/notifications', {
                 method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     [setting]: enabled
                 })
@@ -397,6 +587,35 @@ class PerfilManager {
         } catch (error) {
             console.error('❌ Erro ao atualizar notificação:', error);
             this.showError('Erro ao atualizar configuração');
+        }
+    }
+
+    async handleCreditAlertChange(select) {
+        const threshold = select.value;
+        const thresholdText = select.options[select.selectedIndex].text;
+
+        try {
+            const response = await AuthUtils.authenticatedFetch('/api/v1/auth/credit-alert-threshold', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    threshold_cents: parseInt(threshold)
+                })
+            });
+
+            if (!response.ok) {
+                // Reverter mudança se falhou
+                select.value = this.userData.credit_alert_threshold || '500';
+                throw new Error('Erro ao atualizar limite de alerta');
+            }
+
+            this.showSuccess(`Limite de alerta atualizado para ${thresholdText}!`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar limite de alerta:', error);
+            this.showError('Erro ao atualizar limite de alerta');
         }
     }
 
@@ -439,6 +658,47 @@ class PerfilManager {
         } catch (error) {
             console.error('❌ Erro ao enviar avatar:', error);
             this.showError(`Erro ao enviar avatar: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async handleLogout() {
+        if (!confirm('Tem certeza que deseja fazer logout?')) {
+            return;
+        }
+
+        try {
+            this.showLoading('Fazendo logout...');
+
+            // Tentar fazer logout no servidor (opcional)
+            try {
+                await AuthUtils.authenticatedFetch('/api/v1/auth/logout', {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.log('⚠️ Logout no servidor falhou, continuando com logout local:', error);
+            }
+
+            // Limpar dados locais
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('user_data');
+            
+            // Limpar cookies
+            document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+
+            this.showSuccess('Logout realizado com sucesso!');
+            
+            // Redirecionar para login após um breve delay
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+            
+        } catch (error) {
+            console.error('❌ Erro ao fazer logout:', error);
+            this.showError(`Erro ao fazer logout: ${error.message}`);
         } finally {
             this.hideLoading();
         }

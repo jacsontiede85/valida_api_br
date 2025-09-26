@@ -165,3 +165,61 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: Optional[dict] = None
+
+# ============================================================================
+# MODELOS PARA PERFIL DO USUÁRIO
+# ============================================================================
+
+class ProfileUpdateRequest(BaseModel):
+    """Modelo para atualização de perfil"""
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+class NotificationSettingsRequest(BaseModel):
+    """Modelo para configurações de notificação"""
+    email_notifications: Optional[bool] = None
+    api_alerts: Optional[bool] = None
+    billing_alerts: Optional[bool] = None
+    credits_alerts: Optional[bool] = None
+    renewal_alerts: Optional[bool] = None
+    security_alerts: Optional[bool] = None
+    marketing_emails: Optional[bool] = None
+
+class ChangePasswordRequest(BaseModel):
+    """Modelo para alteração de senha"""
+    current_password: str
+    new_password: str
+
+class UserProfileResponse(BaseModel):
+    """Modelo completo de resposta do perfil do usuário"""
+    # Dados básicos
+    id: str
+    name: str
+    email: str
+    created_at: datetime
+    last_login: Optional[datetime] = None
+    
+    # Estatísticas de créditos
+    credits_available: float
+    credits_used_total: float
+    credits_purchased_total: float
+    
+    # Estatísticas de consultas
+    monthly_queries: int
+    total_queries: int
+    last_query_date: Optional[datetime] = None
+    
+    # Configurações
+    notification_settings: dict
+    credit_alert_threshold: int = 500  # Limite de alerta em centavos (padrão: R$ 5,00)
+    
+    # Status da assinatura
+    subscription_status: str
+    subscription_plan: str
+    subscription_days: int
+    
+    # Informações de segurança
+    two_factor_enabled: bool = False
+    
+    # Contagem de API keys
+    api_keys_count: int = 0

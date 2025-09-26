@@ -22,7 +22,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from .services.session_manager import SessionManager
 from .services.scraping_service import ScrapingService
-from .routers import status, cnpj, session, auth, stripe_routes, stripe_webhooks, debug_routes, saas_routes
+from .routers import status, cnpj, session, auth, stripe_routes, stripe_webhooks, debug_routes, saas_routes, documentation
 from .middleware.error_handler import add_error_handlers
 from src.config.logging_config import LoggingConfig
 
@@ -170,7 +170,7 @@ app.include_router(auth.router, prefix="/api/v1", tags=["Autenticação"])
 app.include_router(stripe_routes.router, prefix="/api/v1/stripe", tags=["Stripe"])
 app.include_router(stripe_webhooks.router, prefix="/api/v1", tags=["Stripe Webhooks"])
 app.include_router(saas_routes.router, prefix="/api/v1", tags=["SaaS"])
-app.include_router(debug_routes.router, prefix="/api/v1", tags=["Debug"])
+app.include_router(documentation.router, tags=["Documentação"])
 
 
 @app.get("/")

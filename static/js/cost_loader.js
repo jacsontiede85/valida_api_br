@@ -5,8 +5,9 @@
 
 class CostLoader {
     constructor() {
-        this.apiBaseUrl = '/api/v2';
+        this.apiBaseUrl = '/api/v1';
         this.costs = {};
+        console.log('🏗️ CostLoader construtor chamado');
         this.init();
     }
 
@@ -37,9 +38,9 @@ class CostLoader {
                 
                 // ✅ Buscar custos REAIS da tabela consultation_types
                 this.costs = {};
-                console.log('📋 Tipos de consulta recebidos da API:', data.types);
+                console.log('📋 Tipos de consulta recebidos da API:', data.consultation_types);
                 
-                data.types?.forEach(type => {
+                data.consultation_types?.forEach(type => {
                     const code = type.code.toLowerCase();
                     
                     // ✅ Mapear códigos REAIS da tabela para os IDs usados no frontend
@@ -51,9 +52,9 @@ class CostLoader {
                         this.costs.simples = type.cost_cents;
                     } else if (code === 'suframa') {
                         this.costs.suframa = type.cost_cents;
-                    } else if (code === 'geocodificacao') {
+                    } else if (code === 'geocoding') {
                         this.costs.geocoding = type.cost_cents;
-                    } else if (code === 'cadastro_contribuintes') {
+                    } else if (code === 'registrations') {
                         this.costs.registrations = type.cost_cents;
                     } else {
                         // Para qualquer outro tipo, considerar como "outros"
@@ -183,7 +184,7 @@ window.debugCosts = function() {
     console.log('📋 Elementos data-header-cost:', document.querySelectorAll('[data-header-cost]').length);
     console.log('🌐 Endpoint funciona?');
     
-    fetch('/api/v2/consultation/types')
+    fetch('/api/v1/consultation/types')
         .then(response => response.json())
         .then(data => {
             console.log('✅ Dados da API:', data);
@@ -196,3 +197,6 @@ window.debugCosts = function() {
         })
         .catch(error => console.error('❌ Erro na API:', error));
 };
+
+// Timestamp de atualização: 2025-09-26 01:40:00
+console.log('📦 Cost Loader v2.3 carregado - Dados REAIS do banco (SQL direto)');

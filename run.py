@@ -133,7 +133,6 @@ def configure_app_unified(app):
         from api.services.api_key_service import api_key_service
         from api.services.subscription_service import subscription_service
         from api.services.history_service import history_service
-        from api.services.invoice_service import invoice_service
         
         services_available = True
         logger.info("✅ Todos os serviços carregados com sucesso")
@@ -229,7 +228,6 @@ def configure_app_unified(app):
         ("/consultas", "consultas.html"),
         ("/api-keys", "api-keys.html"),
         ("/assinatura", "assinatura.html"),
-        ("/faturas", "faturas.html"),
         ("/history", "history.html"),
         ("/perfil", "perfil.html"),
     ]
@@ -572,35 +570,6 @@ def configure_app_unified(app):
             logger.error(f"Erro ao carregar API keys: {e}")
             raise HTTPException(500, "Erro interno do servidor")
     
-    @app.get("/api/v2/invoices/credits")
-    async def get_invoices_with_credits(
-        request: Request,
-        page: int = 1,
-        limit: int = 20,
-        current_user: AuthUser = Depends(require_auth) if auth_available else None
-    ):
-        """Faturas com informações de créditos v2.0 usando dados reais"""
-        if not services_available:
-            raise HTTPException(500, "Serviços não disponíveis")
-        
-        try:
-            # Obter user_id
-            if current_user:
-                user_id = current_user.user_id
-            else:
-                context = await get_user_context(request)
-                if not context["authenticated"]:
-                    raise HTTPException(401, "Usuário não autenticado")
-                user_id = context["user"]["id"]
-            
-            # ✅ DADOS REAIS das 2 transações de crédito no Supabase
-            invoices_data = await invoice_service.get_user_invoices(user_id, page, limit)
-            logger.info(f"🧾 Faturas carregadas para usuário {user_id}")
-            return invoices_data
-            
-        except Exception as e:
-            logger.error(f"Erro ao carregar faturas: {e}")
-            raise HTTPException(500, "Erro interno do servidor")
     
     # =====================================================
     # HEALTH CHECK E STATUS
