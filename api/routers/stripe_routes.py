@@ -893,14 +893,18 @@ async def process_subscription_manually(session):
         
         # Determinar plano baseado no valor pago (já definido acima)
         
-        # Mapear valores para planos existentes
-        plan_mapping = {
-            10000: "starter",      # R$ 100,00
-            20000: "professional", # R$ 200,00  
-            30000: "enterprise"    # R$ 300,00
-        }
-        
-        plan_code = plan_mapping.get(price_amount_cents, "custom")
+        # ✅ CORREÇÃO: Mapeamento dinâmico para evitar conflitos entre planos customizados
+        if price_amount_cents in [10000, 20000, 30000]:
+            # Planos padrão existentes
+            plan_mapping = {
+                10000: "starter",      # R$ 100,00
+                20000: "professional", # R$ 200,00  
+                30000: "enterprise"    # R$ 300,00
+            }
+            plan_code = plan_mapping[price_amount_cents]
+        else:
+            # Para valores customizados, criar código único baseado no valor
+            plan_code = f"custom_{price_amount_cents}"
         
         logger.info(f"💰 Valor do plano: {price_amount_cents} centavos → código: {plan_code}")
         
@@ -1025,10 +1029,10 @@ async def create_custom_subscription(
     """
     try:
         # Validar valor mínimo
-        if request.amount < 10.0:
+        if request.amount < 1.0:
             raise HTTPException(
                 status_code=400, 
-                detail="Valor mínimo para plano personalizado: R$ 10,00"
+                detail="Valor mínimo para plano personalizado: R$ 1,00"
             )
         
         if request.amount > 10000.0:
@@ -1193,8 +1197,8 @@ async def create_dynamic_product(request: dict, user: AuthUser = Depends(require
         success_url = request.get("success_url")
         cancel_url = request.get("cancel_url")
         
-        if not amount or amount < 10 or amount > 10000:
-            raise HTTPException(status_code=400, detail="Valor deve estar entre R$ 10,00 e R$ 10.000,00")
+        if not amount or amount < 1 or amount > 10000:
+            raise HTTPException(status_code=400, detail="Valor deve estar entre R$ 1,00 e R$ 10.000,00")
         
         logger.info(f"🎯 Criando produto dinâmico para usuário {user.email} - valor: R$ {amount:.2f}")
         
@@ -1233,6 +1237,10 @@ async def create_dynamic_product(request: dict, user: AuthUser = Depends(require
         from api.database.connection import generate_uuid
         plan_id = generate_uuid()
         
+        # ✅ CORREÇÃO: Usar código dinâmico baseado no valor para evitar conflitos
+        amount_cents = int(amount * 100)
+        plan_code = f"custom_{amount_cents}"
+        
         save_plan_sql = """
         INSERT INTO subscription_plans 
         (id, code, name, description, price_cents, credits_included_cents, 
@@ -1242,11 +1250,11 @@ async def create_dynamic_product(request: dict, user: AuthUser = Depends(require
         
         await execute_sql(save_plan_sql, (
             plan_id,
-            "custom",
+            plan_code,  # ✅ Usar código dinâmico
             product_name,
             product_description,
-            int(amount * 100),  # Converter para centavos
-            int(amount * 100),  # 1:1 - cada R$ pago vira R$ em créditos
+            amount_cents,  # Converter para centavos
+            amount_cents,  # 1:1 - cada R$ pago vira R$ em créditos
             product.id,
             price.id,
             user.user_id  # Isolamento por usuário

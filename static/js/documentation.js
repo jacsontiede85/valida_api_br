@@ -340,42 +340,150 @@ function populateResponseExample() {
     
     const exampleResponse = {
         "success": true,
-        "cnpj": "12345678000195",
-        "has_protests": false,
-        "total_protests": 0,
-        "protestos": [],
+        "cnpj": "10891190000191",
+        "timestamp": "2025-09-26T07:47:08.685599",
+        "user_id": "25336-8c1-4cf-bf6-820a3",
+        "api_key_id": "rcp_minha_chave_aqui",
+        "protestos": {
+            "cnpj": "10891190000191",
+            "cenprotProtestos": {
+                "BA": [
+                    {
+                        "cartorio": "CARTORIO DE NOTAS COM FUNÇÕES DE PROTESTO",
+                        "obterDetalhes": null,
+                        "cidade": "Barreiras",
+                        "quantidadeTitulos": 3,
+                        "endereco": "RUA FRANCISCO SALES, 426G, CENTRO",
+                        "telefone": "7399980860",
+                        "protestos": [
+                            {
+                                "cpfCnpj": "10891190000191",
+                                "data": "",
+                                "dataProtesto": "",
+                                "dataVencimento": "",
+                                "autorizacaoCancelamento": true,
+                                "custasCancelamento": "R$184,52",
+                                "valor": "R$299,85"
+                            },
+                            {
+                                "cpfCnpj": "10891190000191",
+                                "data": "",
+                                "dataProtesto": "",
+                                "dataVencimento": "",
+                                "autorizacaoCancelamento": true,
+                                "custasCancelamento": "R$217,46",
+                                "valor": "R$373,68"
+                            },
+                            {
+                                "cpfCnpj": "10891190000191",
+                                "data": "",
+                                "dataProtesto": "",
+                                "dataVencimento": "",
+                                "autorizacaoCancelamento": false,
+                                "custasCancelamento": "",
+                                "valor": "R$389,62"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "dataHora": "2025-09-26 07:47:06.976037"
+        },
         "dados_receita": {
-            "razao_social": "Empresa Exemplo LTDA",
-            "nome_fantasia": "Empresa Exemplo",
-            "situacao": "ATIVA",
+            "basico": {
+                "cnpj": "10891190000191",
+                "razao_social": "JOAOZINHO LTDA",
+                "nome_fantasia": "JOAOZINHO LTDA",
+                "data_fundacao": "22/08/2014",
+                "data_situacao": "22/08/2014",
+                "situacao": "Ativa",
+                "porte": "ME - MICROEMPRESA",
+                "capital_social": 10000,
+                "natureza_juridica": "2062 - SOCIEDADE EMPRESÁRIA LIMITADA",
+                "matriz_filial": "Matriz",
+                "ultima_atualizacao": "13/09/2025"
+            },
             "endereco": {
-                "logradouro": "Rua Exemplo, 123",
-                "bairro": "Centro",
-                "cidade": "São Paulo",
-                "uf": "SP",
-                "cep": "01234-567"
+                "logradouro": "Rua Joao da Costa",
+                "numero": "28",
+                "complemento": "Terreo",
+                "bairro": "Bairro do Joao",
+                "cep": "45840000",
+                "cidade": "Barreiras",
+                "uf": "BA",
+                "pais": "Brasil",
+                "latitude": -12.5803188,
+                "longitude": -38.7788255,
+                "municipio_ibge": 2911808
             },
-            "contatos": {
-                "telefone": "(11) 1234-5678",
-                "email": "contato@empresa.com"
+            "contato": {
+                "telefones": [
+                    {
+                        "tipo": "LANDLINE",
+                        "telefone": "(75) 12611709"
+                    }
+                ],
+                "emails": [
+                    {
+                        "propriedade": "PERSONAL",
+                        "email": "joao@joao.com",
+                        "dominio": "joao.com"
+                    }
+                ]
             },
-            "atividades": [
-                {
-                    "codigo": "6201-5/00",
-                    "descricao": "Desenvolvimento de programas de computador sob encomenda"
-                }
-            ],
+            "atividades": {
+                "cnae_principal": {
+                    "id": 4711302,
+                    "descricao": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - supermercados"
+                },
+                "cnaes_secundarios": [
+                    {
+                        "id": 4721102,
+                        "descricao": "Padaria e confeitaria com predominância de revenda"
+                    },
+                    {
+                        "id": 4721103,
+                        "descricao": "Comércio varejista de laticínios e frios"
+                    }
+                ]
+            },
             "socios": [
                 {
-                    "nome": "João Silva",
-                    "cpf": "123.456.789-00",
-                    "qualificacao": "Administrador"
+                    "nome": "Joao da Silva",
+                    "documento": "***736445**",
+                    "tipo_pessoa": "NATURAL",
+                    "cargo": "Sócio-Administrador",
+                    "data_entrada": "22/08/2014",
+                    "faixa_etaria": "51-60"
+                }
+            ],
+            "simples": {
+                "simples_nacional": {
+                    "optante": true,
+                    "data_opcao": "22/08/2014"
+                },
+                "simei": {
+                    "optante": false,
+                    "data_opcao": null
+                }
+            },
+            "registros_estaduais": [
+                {
+                    "uf": "BA",
+                    "numero": "999999999",
+                    "ativo": true,
+                    "data_situacao": "10/01/2025",
+                    "situacao": "Sem restrição",
+                    "tipo": "IE Normal"
                 }
             ]
         },
+        "error": null,
         "cache_used": true,
-        "response_time_ms": 1250,
-        "timestamp": "2025-01-25T10:30:00Z"
+        "response_time_ms": 2428,
+        "total_protests": 3,
+        "has_protests": true,
+        "data": "2025-09-26T01:33:58.940985"
     };
     
     container.innerHTML = `

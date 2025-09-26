@@ -1,0 +1,168 @@
+{
+    "url": "https://api.cnpja.com/office/62652677000161",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "1c9273b59a05fafd1e8906bf34139b4b",
+        "trace-id": "00b360df3325d2201167844542cbf2c1",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "4b68602e8102e373040030a10f8b3301",
+        "date": "Fri, 26 Sep 2025 10:42:41 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "2061",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-26T07:42:43.083636",
+    "response_body": {
+        "updated": "2025-09-22T15:45:01.000Z",
+        "taxId": "62652677000161",
+        "company": {
+            "id": 62652677,
+            "name": "SUPERMERCADO AVILA LTDA",
+            "equity": 250000,
+            "nature": {
+                "id": 2062,
+                "text": "Sociedade Empresária Limitada"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [
+                {
+                    "since": "2025-09-10",
+                    "role": {
+                        "id": 49,
+                        "text": "Sócio-Administrador"
+                    },
+                    "person": {
+                        "id": "71329c6c-bdde-48a8-9ad2-317214fd2ab4",
+                        "name": "Alan Silva Arantes de Avila",
+                        "type": "NATURAL",
+                        "taxId": "***500431**",
+                        "age": "51-60"
+                    }
+                }
+            ],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": false,
+                "since": null
+            }
+        },
+        "alias": "Celeiro Supermercado",
+        "founded": "2025-09-10",
+        "head": true,
+        "statusDate": "2025-09-10",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 5201405,
+            "street": "Rua 26-a",
+            "number": "SN",
+            "details": "Quadra02 Lote 11 - 12 -13 -14",
+            "district": "Jardim Bela Vista - Continuação",
+            "city": "Aparecida de Goiânia",
+            "state": "GO",
+            "zip": "74912032",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -16.7350072,
+            "longitude": -49.240761
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "62",
+                "number": "32821955"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "CORPORATE",
+                "address": "contara@contara.com.br",
+                "domain": "contara.com.br"
+            }
+        ],
+        "mainActivity": {
+            "id": 4711302,
+            "text": "Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - supermercados"
+        },
+        "sideActivities": [
+            {
+                "id": 4721102,
+                "text": "Padaria e confeitaria com predominância de revenda"
+            },
+            {
+                "id": 4722901,
+                "text": "Comércio varejista de carnes - açougues"
+            },
+            {
+                "id": 4723700,
+                "text": "Comércio varejista de bebidas"
+            },
+            {
+                "id": 4724500,
+                "text": "Comércio varejista de hortifrutigranjeiros"
+            },
+            {
+                "id": 4729601,
+                "text": "Tabacaria"
+            },
+            {
+                "id": 4755503,
+                "text": "Comercio varejista de artigos de cama, mesa e banho"
+            },
+            {
+                "id": 4781400,
+                "text": "Comércio varejista de artigos do vestuário e acessórios"
+            },
+            {
+                "id": 5611201,
+                "text": "Restaurantes e similares"
+            },
+            {
+                "id": 5611203,
+                "text": "Lanchonetes, casas de chá, de sucos e similares"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "GO",
+                "number": "203170776",
+                "enabled": true,
+                "statusDate": "2025-09-10",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

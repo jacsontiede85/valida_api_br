@@ -1,0 +1,121 @@
+{
+    "url": "https://api.cnpja.com/office/21873160000115",
+    "method": "GET",
+    "params": {
+        "strategy": "CACHE_IF_FRESH",
+        "simples": "true",
+        "geocoding": "true",
+        "registrations": "BR",
+        "maxAge": 20
+    },
+    "headers_sent": {
+        "Authorization": "b66dbe75-1bcb-4f30-9168-27eaa62797c0-0036b767-afde-4a7d-b4b0-749b03b29f90",
+        "Content-Type": "application/json"
+    },
+    "status_code": 200,
+    "headers_received": {
+        "request-id": "bcce47bc380f2921a3f881e60e028615",
+        "trace-id": "6e3c37eb2193c80d026a3e9ba568c90d",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "content-type": "application/json; charset=utf-8",
+        "x-cloud-trace-context": "8a934c5163e35ef63ff97dbfcdf1dc4f",
+        "date": "Fri, 26 Sep 2025 10:43:24 GMT",
+        "server": "Google Frontend",
+        "Content-Length": "1321",
+        "via": "1.1 google",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"
+    },
+    "timestamp": "2025-09-26T07:43:26.460087",
+    "response_body": {
+        "updated": "2025-09-13T00:00:00.000Z",
+        "taxId": "21873160000115",
+        "company": {
+            "id": 21873160,
+            "name": "ELIETE ROCHA PEREIRA - PERFUMARIA",
+            "equity": 2000,
+            "nature": {
+                "id": 2135,
+                "text": "Empresário (Individual)"
+            },
+            "size": {
+                "id": 1,
+                "acronym": "ME",
+                "text": "Microempresa"
+            },
+            "members": [],
+            "simei": {
+                "optant": false,
+                "since": null
+            },
+            "simples": {
+                "optant": true,
+                "since": "2015-02-12"
+            }
+        },
+        "alias": "Dona Bella Cosmeticos e Produtos de Higiene Pessoal",
+        "founded": "2015-02-12",
+        "head": true,
+        "statusDate": "2015-02-12",
+        "status": {
+            "id": 2,
+            "text": "Ativa"
+        },
+        "address": {
+            "municipality": 3550308,
+            "street": "Rua Bispo e Martins",
+            "number": "9",
+            "details": null,
+            "district": "Jardim Keralux",
+            "city": "São Paulo",
+            "state": "SP",
+            "zip": "03828080",
+            "country": {
+                "id": 76,
+                "name": "Brasil"
+            },
+            "latitude": -23.481802,
+            "longitude": -46.4941198
+        },
+        "phones": [
+            {
+                "type": "LANDLINE",
+                "area": "11",
+                "number": "25443442"
+            }
+        ],
+        "emails": [
+            {
+                "ownership": "PERSONAL",
+                "address": "perfumariadonabella@gmail.com",
+                "domain": "gmail.com"
+            }
+        ],
+        "mainActivity": {
+            "id": 4772500,
+            "text": "Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal"
+        },
+        "sideActivities": [
+            {
+                "id": 4789001,
+                "text": "Comércio varejista de suvenires, bijuterias e artesanatos"
+            }
+        ],
+        "registrations": [
+            {
+                "state": "SP",
+                "number": "144280213112",
+                "enabled": true,
+                "statusDate": "2015-02-12",
+                "status": {
+                    "id": 1,
+                    "text": "Sem restrição"
+                },
+                "type": {
+                    "id": 1,
+                    "text": "IE Normal"
+                }
+            }
+        ]
+    }
+}

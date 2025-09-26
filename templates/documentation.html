@@ -8,8 +8,7 @@
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
     
     <!-- Prism.js para syntax highlighting -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
@@ -23,6 +22,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     
     <style>
         body {
@@ -65,16 +67,6 @@
             color: #9CA3AF;
         }
 
-        /* Garantir tamanho de fonte consistente no menu */
-        nav a {
-            font-size: 0.875rem !important; /* 14px - mesmo tamanho das outras páginas */
-            line-height: 1.25rem !important;
-        }
-        
-        /* Garantir que os ícones também tenham tamanho consistente */
-        nav a .material-icons {
-            font-size: 1.25rem !important; /* 20px - mesmo tamanho das outras páginas */
-        }
         
         .code-block {
             @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto;

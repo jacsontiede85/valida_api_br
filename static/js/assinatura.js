@@ -576,8 +576,8 @@ class AssinaturaManager {
             this.showLoading(`Criando plano personalizado de R$ ${amount.toFixed(2).replace('.', ',')}...`);
 
             // Validar valor
-            if (amount < 10 || amount > 10000) {
-                throw new Error('Valor deve estar entre R$ 10,00 e R$ 10.000,00');
+            if (amount < 1 || amount > 10000) {
+                throw new Error('Valor deve estar entre R$ 1,00 e R$ 10.000,00');
             }
 
             // Criar plano personalizado via API
@@ -624,8 +624,8 @@ class AssinaturaManager {
             this.showLoading(`Criando produto automaticamente no Stripe para R$ ${amount.toFixed(2).replace('.', ',')}...`);
 
             // Validar valor
-            if (amount < 10 || amount > 10000) {
-                throw new Error('Valor deve estar entre R$ 10,00 e R$ 10.000,00');
+            if (amount < 1 || amount > 10000) {
+                throw new Error('Valor deve estar entre R$ 1,00 e R$ 10.000,00');
             }
 
             // Criar produto dinamicamente via API
